@@ -167,6 +167,7 @@ td.team span { display: flex; align-items: center; gap: 8px; }
 td.team img { width: 22px; height: 22px; object-fit: contain; flex: none; }
 td.pts { font: 900 20px/1 var(--display); color: var(--azul); }
 tr.is-velez td { background: #e7eefc; }
+tr.is-velez td.pos { box-shadow: inset 5px 0 0 var(--azul-v); }
 tr.is-velez td.team { font-weight: 800; color: var(--azul); }
 .cups { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; margin-top: 36px; }
 .cups .match { color: var(--tinta); border-color: transparent; }
@@ -318,13 +319,12 @@ select {
 /* ---------- Plantel ---------- */
 .fine { font-size: 13px; color: var(--gris); margin: 10px 0 0; }
 .section-blue .fine { color: #c5d2f1; }
-.alerts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 32px; }
+.alerts { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-bottom: 32px; }
 .alert { background: #fff; border: 1px solid var(--linea); border-radius: var(--radio); padding: 16px 18px; border-top: 6px solid var(--empata); }
 .alert h4 { margin: 0 0 8px; display: flex; justify-content: space-between; font: 800 20px/1 var(--display); text-transform: uppercase; color: var(--azul-noche); }
 .alert h4 b { font-size: 28px; }
 .alert ul { margin: 0; padding-left: 18px; font-size: 14px; display: grid; gap: 4px; }
 .alert p { margin: 0; color: var(--gris); font-size: 14px; }
-.alert-injury { border-top-color: #7a4fd1; }
 .alert-red { border-top-color: var(--pierde); }
 .alert-yellow { border-top-color: #e3b505; }
 .squad-group { margin-bottom: 26px; }
@@ -340,7 +340,6 @@ select {
 .player-stats dt { font-size: 10px; letter-spacing: 0.08em; color: var(--gris); }
 .player-stats dd { margin: 0; font: 800 20px/1 var(--display); color: var(--azul-noche); }
 .chip { display: inline-block; margin-top: 4px; margin-right: 4px; padding: 3px 7px; border-radius: 6px; font: 700 11px/1 var(--texto); text-transform: uppercase; letter-spacing: 0.04em; }
-.chip-injury { background: #ece4fb; color: #5a35a8; }
 .chip-red { background: #fbe1de; color: var(--pierde); }
 .chip-yellow { background: #fdf3c4; color: #7a5d00; }
 .stats-title { margin-top: 44px; }
@@ -387,12 +386,6 @@ select {
   .alert { padding: 12px 14px; }
 }
 
-/* ---------- Tablas: zonas de clasificación (colores de Promiedos) ---------- */
-td.pos { box-shadow: inset 4px 0 0 var(--dest, transparent); }
-tr.is-velez td.pos { box-shadow: inset 4px 0 0 var(--dest, var(--azul-v)); }
-.legend { list-style: none; display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0; padding: 12px 14px; background: #fff; color: var(--tinta); font-size: 13px; border-top: 1px solid var(--linea); }
-.legend li { display: flex; align-items: center; gap: 6px; }
-.legend i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
-.next-meta .next-out { color: #ffb3a8; font-weight: 600; }
+/* ---------- Avisos del plantel ---------- */
 .parte-note { grid-column: 1 / -1; margin: 0; }
 .parte-note.is-stale { color: #9a6b00; }

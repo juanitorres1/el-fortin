@@ -70,7 +70,7 @@ function renderLists(fixture, results) {
 }
 
 let countdownTimer;
-function renderNext(fixture, promGame) {
+function renderNext(fixture) {
   const card = $('[data-next]');
   clearInterval(countdownTimer);
   const next = fixture.find((m) => m.status === 'in') ?? fixture.find((m) => !m.completed);
@@ -82,15 +82,6 @@ function renderNext(fixture, promGame) {
   const isLive = next.status === 'in';
   const side = (t) => `<div class="next-team">${logo(t.logo, 64)}<strong>${esc(t.name)}</strong></div>`;
   const center = isLive ? `${next.home.score ?? 0} - ${next.away.score ?? 0}` : 'vs';
-  // Árbitro, TV y bajas vienen de Promiedos: solo si es el mismo partido (misma fecha en hora argentina).
-  const sameGame = promGame?.date && promGame.date === new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(d);
-  const extra = sameGame
-    ? [
-        promGame.info['Árbitro'] ? `<li>Árbitro: ${esc(promGame.info['Árbitro'])}</li>` : '',
-        promGame.info['Arg TV'] ? `<li>TV: ${esc(promGame.info['Arg TV'])}</li>` : '',
-        promGame.missing.length ? `<li class="next-out">Bajas: ${promGame.missing.map((m) => esc(m.name)).join(', ')}</li>` : '',
-      ].join('')
-    : '';
   card.innerHTML = `
     <p class="next-label">${isLive ? '<span class="live-pill">En vivo</span>' : 'Próximo partido'}</p>
     <div class="next-teams">${side(next.home)}<span class="next-vs">${center}</span>${side(next.away)}</div>
@@ -98,7 +89,6 @@ function renderNext(fixture, promGame) {
       <li>${fmt.long.format(d)}${next.timeValid ? ` · ${fmt.time.format(d)} h` : ' · hora a confirmar'}</li>
       <li>${esc(next.comp)}${next.round ? ` · ${esc(next.round)}` : ''}</li>
       ${next.venue ? `<li>${esc(next.venue)}</li>` : ''}
-      ${extra}
     </ul>
     ${isLive ? '' : '<div class="countdown" data-countdown></div>'}`;
   if (isLive) return;
@@ -118,24 +108,22 @@ function renderNext(fixture, promGame) {
 }
 
 // ---------- Tablas ----------
-// Un solo renderer para las tablas de Promiedos (oficiales: zonas, anual, promedios) y, si falla,
-// las de ESPN convertidas al mismo formato.
+// Tablas de ESPN (zonas del torneo en curso + anual calculada) en un formato genérico de columnas.
 
-const PROM_VELEZ = 'ihc';
-const isVelezRow = (r) => r.id === VELEZ_ID || r.id === PROM_VELEZ;
+const isVelezRow = (r) => r.id === VELEZ_ID;
 
 function espnToTables(standings) {
   const cols = [
     { key: 'pts', title: 'PTS', bold: true }, { key: 'pj', title: 'J' }, { key: 'goles', title: 'Gol' },
     { key: 'dg', title: '+/-' }, { key: 'g', title: 'G' }, { key: 'e', title: 'E' }, { key: 'p', title: 'P' },
   ];
-  const toRow = (r) => ({ pos: r.rank, id: r.id, name: r.name, logo: r.logo, color: null, values: { ...r, goles: `${r.gf}:${r.gc}` } });
+  const toRow = (r) => ({ pos: r.rank, id: r.id, name: r.name, logo: r.logo, values: { ...r, goles: `${r.gf}:${r.gc}` } });
   const phase = (standings.phase ?? '').replace('Torneo ', '');
   const tables = standings.groups
     .filter((g) => g.rows.length)
-    .map((g) => ({ phase, name: `${g.name}${phase ? ` · ${phase}` : ''}`, columns: cols, destinations: [], rows: g.rows.map(toRow) }));
+    .map((g) => ({ phase, name: `${g.name}${phase ? ` · ${phase}` : ''}`, columns: cols, rows: g.rows.map(toRow) }));
   if (standings.annual?.rows.length) {
-    tables.push({ phase: null, name: 'Tabla anual', columns: cols, destinations: [], rows: standings.annual.rows.map(toRow), note: 'Calculada sumando las fases regulares; desempate aproximado.' });
+    tables.push({ phase: null, name: 'Tabla anual', columns: cols, rows: standings.annual.rows.map(toRow), note: 'Suma de las fases regulares (Apertura + Clausura); desempate por diferencia de gol y goles a favor' });
   }
   return tables;
 }
@@ -164,17 +152,14 @@ function renderTables(tables, source) {
     if (c.key === 'dg' || c.key === 'Ratio') return `${Number(v) > 0 ? '+' : ''}${v ?? ''}`;
     return esc(v ?? '');
   };
-  const legend = table.destinations.length
-    ? `<ul class="legend">${table.destinations.map((d) => `<li><i style="background:${esc(d.color)}"></i>${esc(d.name)}</li>`).join('')}</ul>`
-    : '';
   $('[data-standings]').innerHTML = `<table>
     <thead><tr><th>#</th><th class="team">Equipo</th>${table.columns.map((c) => `<th>${esc(c.title)}</th>`).join('')}</tr></thead>
     <tbody>${table.rows
-      .map((r) => `<tr class="${isVelezRow(r) ? 'is-velez' : ''}"${r.color ? ` style="--dest:${esc(r.color)}"` : ''}>
+      .map((r) => `<tr class="${isVelezRow(r) ? 'is-velez' : ''}">
         <td class="pos">${r.pos}</td><td class="team"><span>${logo(r.logo, 22)}${esc(r.name)}</span></td>
         ${table.columns.map((c) => `<td class="${c.bold ? 'pts' : ''}">${cell(c, r.values[c.key])}</td>`).join('')}
       </tr>`)
-      .join('')}</tbody></table>${legend}`;
+      .join('')}</tbody></table>`;
 }
 
 function renderCups(fixture, results) {
@@ -267,119 +252,56 @@ function setupH2H(matches) {
 }
 
 // ---------- Plantel y estadísticas ----------
-// Plantel, DT y bajas del próximo partido: Promiedos. Estadísticas por jugador: ESPN (players.json).
-// Las dos fuentes escriben distinto algunos nombres («Matias» / «Matías»): se cruzan por nombre normalizado
-// y, si no coincide, por apellido + inicial.
+// Todo de ESPN: plantel (roster), estadísticas (players.json) y suspensiones estimadas por tarjetas.
+// No se muestran lesionados ni DT: ESPN no informa lesiones del fútbol argentino y su DT está desactualizado.
 
+const POS_ORDER = ['G', 'D', 'M', 'F'];
 const POS_GROUP = { G: 'Arqueros', D: 'Defensores', M: 'Mediocampistas', F: 'Delanteros' };
-const GROUP_ORDER = ['Arqueros', 'Defensores', 'Mediocampistas', 'Delanteros'];
 
-const normName = (s) => (s ?? '').normalize('NFD').replace(/[^a-zA-Z ]/g, '').toLowerCase().trim();
-const nameKeys = (s) => {
-  const parts = normName(s).split(/\s+/).filter(Boolean);
-  return [parts.join(''), parts.length > 1 ? `${parts[0][0]}.${parts.at(-1)}` : parts.join('')];
-};
-
-/** Índice para encontrar un jugador de una fuente en la otra. */
-function nameIndex(list, getName) {
-  const exact = new Map();
-  const short = new Map();
-  for (const item of list) {
-    const [full, abbr] = nameKeys(getName(item));
-    exact.set(full, item);
-    short.set(abbr, short.has(abbr) ? null : item); // null = ambiguo
-  }
-  return (name) => {
-    const [full, abbr] = nameKeys(name);
-    return exact.get(full) ?? short.get(abbr) ?? null;
-  };
-}
-
-/** Plantel en formato común; si Promiedos no está, se usa el roster de ESPN (sin DT: ESPN lo tiene desactualizado). */
-function squadFrom(prom, roster) {
-  if (prom?.team?.squad?.length) return { coach: prom.team.coach, players: prom.team.squad };
-  return {
-    coach: null,
-    players: (roster?.players ?? []).map((p) => ({ name: p.name, jersey: p.jersey, group: POS_GROUP[p.pos] ?? 'Otros', role: p.posName, age: p.age, flag: p.flag })),
-  };
-}
-
-/** Bajas: lo que informa Promiedos para el próximo partido; si no hay dato, la estimación por tarjetas. */
-function availability(prom, sanctions) {
-  const game = prom?.nextGame;
-  const limit = sanctions.filter((d) => d.kind === 'limite');
-  if (!game) {
-    return { known: false, injured: [], suspended: sanctions.filter((d) => d.kind !== 'limite'), other: [], limit, game: null };
-  }
-  const missing = game.missing.map((m) => ({ name: m.name, text: m.out ? m.note ?? 'No juega' : `Duda${m.note ? ` (${m.note})` : ''}`, out: m.out, reason: m.reason }));
-  return {
-    known: true,
-    injured: missing.filter((m) => /lesi/i.test(m.reason)),
-    suspended: missing.filter((m) => /suspen|roja|amarilla|sanci/i.test(m.reason)),
-    other: missing.filter((m) => !/lesi|suspen|roja|amarilla|sanci/i.test(m.reason)),
-    limit,
-    game,
-  };
-}
-
-function renderSquad({ prom, roster, players, bajasStale }) {
-  const { coach, players: squad } = squadFrom(prom, roster);
-  $('[data-coach]').textContent = coach ? `DT: ${coach}` : '';
+function renderSquad(roster, players) {
   const current = players?.tournaments?.[0];
-  const statsFor = nameIndex(current?.players ?? [], (p) => p.name);
-  const av = availability(prom, players?.discipline ?? []);
+  const statsById = new Map((current?.players ?? []).map((p) => [p.id, p]));
+  const sanctions = players?.discipline ?? [];
+  const suspended = sanctions.filter((d) => d.kind !== 'limite');
+  const limit = sanctions.filter((d) => d.kind === 'limite');
 
   const alert = (title, cls, items) =>
     `<article class="alert ${cls}"><h4>${title} <b>${items.length}</b></h4>${items.length ? `<ul>${items.join('')}</ul>` : '<p>Ninguno.</p>'}</article>`;
-  const item = (x) => `<li><strong>${esc(x.name)}</strong>${x.text ? ` · ${esc(x.text)}` : ''}${x.tournament ? ` (${esc(x.tournament)})` : ''}${x.reason && !/lesi|suspen/i.test(x.reason) ? ` · ${esc(x.reason)}` : ''}</li>`;
-  const g = av.game;
-  const note = av.known
-    ? `Bajas para el próximo partido${g.opponent ? ` vs. ${esc(g.opponent)}` : ''}${g.date ? ` (${esc(g.date.split('-').reverse().slice(0, 2).join('/'))})` : ''} según Promiedos (datos Opta), actualizado ${fmt.stamp.format(new Date(prom.updatedAt))}.`
-    : bajasStale
-      ? 'Las bajas de Promiedos son del partido que ya se jugó; se actualizan con el próximo deploy (cada 1 h). Mientras, las suspensiones son una estimación por tarjetas.'
-      : 'Sin datos de Promiedos: no hay información de lesiones y las suspensiones son una estimación por tarjetas.';
-  $('[data-alerts]').innerHTML = [
-    alert('Lesionados', 'alert-injury', [...av.injured, ...av.other].map(item)),
-    alert('Suspendidos', 'alert-red', av.suspended.map(item)),
-    alert('Al límite de amarillas', 'alert-yellow', av.limit.map(item)),
-  ].join('') + `<p class="fine parte-note ${av.known ? '' : 'is-stale'}">${note} «Al límite»: estimación por tarjetas (5 amarillas por torneo = 1 fecha).</p>`;
+  const item = (d) => `<li><strong>${esc(d.name)}</strong> · ${esc(d.text)} (${esc(d.tournament)})</li>`;
+  $('[data-alerts]').innerHTML =
+    alert('Suspendidos próximo partido', 'alert-red', suspended.map(item)) +
+    alert('Al límite de amarillas', 'alert-yellow', limit.map(item)) +
+    '<p class="fine parte-note">Estimación con las tarjetas de cada partido (5 amarillas en un mismo torneo = 1 fecha; roja en el último partido). La sanción oficial la define el Tribunal de Disciplina.</p>';
 
-  const findIn = (list) => nameIndex(list, (x) => x.name);
-  const injuredOf = findIn([...av.injured, ...av.other]);
-  const suspendedOf = findIn(av.suspended);
-  const limitOf = findIn(av.limit);
-  const chips = (name) => {
-    const inj = injuredOf(name);
-    const sus = suspendedOf(name);
-    const lim = limitOf(name);
-    return [
-      inj ? `<span class="chip chip-injury">${inj.out === false ? 'Duda' : 'Lesión'}</span>` : '',
-      sus ? '<span class="chip chip-red">Susp.</span>' : '',
-      lim ? `<span class="chip chip-yellow" title="${esc(lim.text)}">${lim.yellows} am.</span>` : '',
-    ].join('');
+  const chips = (id) => {
+    const s = sanctions.find((d) => d.id === id);
+    if (!s) return '';
+    return s.kind === 'limite'
+      ? `<span class="chip chip-yellow" title="${esc(s.text)}">${s.yellows} am.</span>`
+      : '<span class="chip chip-red" title="Suspendido">Susp.</span>';
   };
   const card = (p) => {
-    const st = statsFor(p.name);
+    const st = statsById.get(p.id);
     return `<article class="player">
       <div class="player-num">${esc(p.jersey ?? '–')}</div>
       <div class="player-main">
         <h4>${esc(p.name)}</h4>
-        <p>${p.flag ? `<img src="${esc(p.flag)}" alt="" width="16" height="16" loading="lazy" onerror="this.remove()">` : ''}${esc(p.role ?? '')}${p.age ? ` · ${p.age} años` : ''}</p>
-        ${chips(p.name)}
+        <p>${p.flag ? `<img src="${esc(p.flag)}" alt="" width="16" height="16" loading="lazy" onerror="this.remove()">` : ''}${esc(p.nat ?? '')}${p.age ? ` · ${p.age} años` : ''}</p>
+        ${chips(p.id)}
       </div>
       <dl class="player-stats" title="${esc(current?.label ?? '')}"><div><dt>PJ</dt><dd>${st?.pj ?? 0}</dd></div><div><dt>G</dt><dd>${st?.g ?? 0}</dd></div><div><dt>A</dt><dd>${st?.a ?? 0}</dd></div></dl>
     </article>`;
   };
-  const groups = new Map();
-  for (const p of squad) groups.set(p.group, [...(groups.get(p.group) ?? []), p]);
-  const order = [...GROUP_ORDER, ...[...groups.keys()].filter((k) => !GROUP_ORDER.includes(k))];
+  const byPos = new Map();
+  for (const p of roster.players) byPos.set(p.pos, [...(byPos.get(p.pos) ?? []), p]);
+  const order = [...POS_ORDER, ...[...byPos.keys()].filter((k) => !POS_ORDER.includes(k))];
   $('[data-squad]').innerHTML =
-    (current ? `<p class="fine">PJ, goles y asistencias del ${esc(current.label)} (ESPN).</p>` : '') +
+    (current ? `<p class="fine">PJ, goles y asistencias del ${esc(current.label)}.</p>` : '') +
     order
-      .filter((name) => groups.get(name)?.length)
-      .map((name) => {
-        const list = groups.get(name).sort((a, b) => Number(a.jersey || 99) - Number(b.jersey || 99));
-        return `<div class="squad-group"><h3>${esc(name)}</h3><div class="squad-grid">${list.map(card).join('')}</div></div>`;
+      .filter((pos) => byPos.get(pos)?.length)
+      .map((pos) => {
+        const list = byPos.get(pos).sort((a, b) => Number(a.jersey ?? 99) - Number(b.jersey ?? 99));
+        return `<div class="squad-group"><h3>${esc(POS_GROUP[pos] ?? 'Otros')}</h3><div class="squad-grid">${list.map(card).join('')}</div></div>`;
       })
       .join('');
 }
@@ -508,39 +430,17 @@ async function loadLive() {
   }
 }
 
-// Promiedos no se consulta desde el navegador: el deploy (GitHub Actions, cada 1 h) guarda sus datos en
-// data/generated/promiedos.json. Así cada visitante no le pega a su API.
-const MATCH_WINDOW_MS = 2.5 * 36e5; // duración de un partido + margen hasta que su tabla se actualiza
-const arDate = (iso) => new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date(iso));
-
 let history = [];
-let prom = null; // Promiedos tal como lo dejó el último deploy
-let bajasStale = false;
 async function refresh() {
-  const [{ data, live }, p] = await Promise.all([loadLive(), getJson('data/generated/promiedos.json').catch(() => null)]);
+  const { data, live } = await loadLive();
   const results = mergeResults(history, data.results);
-  const next = data.fixture.find((m) => !m.completed);
-  const promAt = p ? Date.parse(p.updatedAt) : 0;
-
-  // Bajas: solo si son del próximo partido (si no, son de uno que ya se jugó y falta el deploy siguiente).
-  const nextGame = p?.nextGame?.date && next && p.nextGame.date === arDate(next.date) ? p.nextGame : null;
-  bajasStale = Boolean(p?.nextGame && !nextGame);
-  prom = p ? { ...p, nextGame } : null;
-
-  // Tablas: la de Promiedos, salvo que haya un partido de liga en juego o terminado después del último deploy.
-  // En ese caso, la de ESPN (en vivo) hasta que el deploy traiga la nueva.
-  const lastLeague = results.filter((m) => m.comp === 'Liga Profesional').at(-1);
-  const leagueLive = data.fixture.some((m) => m.status === 'in' && m.comp === 'Liga Profesional');
-  const tablesStale = leagueLive || (lastLeague && promAt < Date.parse(lastLeague.date) + MATCH_WINDOW_MS);
-  if (p?.tables?.length && !tablesStale) renderTables(p.tables, `Promiedos (datos Opta) · actualizado ${fmt.stamp.format(promAt)}`);
-  else renderTables(espnToTables(data.standings), p?.tables?.length ? 'ESPN en vivo, hasta que se actualice la de Promiedos (cada 1 h)' : 'ESPN');
-
-  renderNext(data.fixture, prom?.nextGame);
+  renderNext(data.fixture);
   renderLists(data.fixture, results);
+  renderTables(espnToTables(data.standings), 'ESPN');
   renderCups(data.fixture, results);
   const badge = $('[data-badge]');
   badge.classList.toggle('is-stale', !live);
-  badge.textContent = live ? `En vivo · ${fmt.stamp.format(new Date())}` : `Datos guardados del ${fmt.stamp.format(new Date(data.updatedAt))}`;
+  badge.textContent = live ? `En vivo desde ESPN · ${fmt.stamp.format(new Date())}` : `Datos guardados del ${fmt.stamp.format(new Date(data.updatedAt))}`;
   const anyLive = data.fixture.some((m) => m.status === 'in');
   setTimeout(refresh, anyLive ? REFRESH_LIVE_MS : REFRESH_MS);
   return results;
@@ -548,12 +448,8 @@ async function refresh() {
 
 async function loadSquad() {
   const players = await getJson('data/generated/players.json').catch(() => null);
-  let roster = null;
-  if (!prom?.team?.squad?.length) {
-    // Solo hace falta el roster de ESPN si Promiedos no trajo el plantel.
-    roster = await withTimeout(fetchRoster(), LIVE_TIMEOUT_MS).catch(async () => (await getJson('data/generated/snapshot.json').catch(() => ({}))).roster);
-  }
-  if (prom?.team?.squad?.length || roster) renderSquad({ prom, roster, players, bajasStale });
+  const roster = await withTimeout(fetchRoster(), LIVE_TIMEOUT_MS).catch(async () => (await getJson('data/generated/snapshot.json').catch(() => ({}))).roster);
+  if (roster?.players?.length) renderSquad(roster, players);
   else $('[data-squad]').innerHTML = '<p class="empty">El plantel no está disponible ahora.</p>';
   renderStats(players);
 }

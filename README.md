@@ -1,7 +1,7 @@
 # El Fortín · Vélez Sarsfield
 
 Sitio de hinchas (no oficial) de Vélez: próximo partido con cuenta regresiva, fixture, resultados, tabla de la
-Liga Profesional por zonas y anual, copas en curso, plantel con lesionados y sanciones, estadísticas de jugadores
+Liga Profesional por zonas y anual, copas en curso, plantel con sanciones estimadas, estadísticas de jugadores
 por torneo, historial contra cada rival desde 1931, historia, estadio, frases de José Amalfitani, momentos,
 palmarés, ídolos y récords históricos.
 
@@ -11,33 +11,28 @@ Sitio estático sin build ni dependencias: HTML + CSS + JS (módulos ES). Se pub
 
 | Qué | De dónde | Cuándo se actualiza |
 | --- | --- | --- |
-| Tablas oficiales (zonas, **anual**, **promedios**) con colores de clasificación | `data/generated/promiedos.json`, desde la API de **Promiedos** (datos Opta) | Cada 1 h, en GitHub Actions |
-| Plantel, DT y **lesionados/suspendidos del próximo partido**; árbitro y TV | `data/generated/promiedos.json` | Cada 1 h, en GitHub Actions |
-| Escudos y banderas de esas secciones | `data/generated/img/`, descargadas por el deploy (cacheadas entre deploys) | Solo las nuevas |
-| Fixture, resultados y copas | API de **ESPN**, desde el navegador | En cada visita (cada 1 min si hay partido en vivo) |
-| Respaldo de fixture, resultados y tabla de ESPN | `data/generated/snapshot.json` | Cada 1 h, en GitHub Actions |
-| Estadísticas de jugadores por torneo y «al límite de amarillas» | `data/generated/players.json`, sumando el detalle (`/summary`) de ESPN de cada partido del año | Cada 1 h, en GitHub Actions |
+| Fixture, resultados, copas, tabla por zonas y plantel | API de **ESPN**, desde el navegador | En cada visita (cada 5 min; cada 1 min si hay partido en vivo) |
+| Tabla anual | Calculada sumando las fases regulares de ESPN (Apertura + Clausura) | En cada visita |
+| Respaldo de todo lo anterior | `data/generated/snapshot.json` | Cada 1 h, en GitHub Actions |
+| Estadísticas de jugadores por torneo, suspendidos y «al límite de amarillas» | `data/generated/players.json`, sumando el detalle (`/summary`) de ESPN de cada partido del año | Cada 1 h, en GitHub Actions |
 | Historial vs. rivales desde 2001 (todas las competiciones) | `data/generated/matches.json`, armado desde ESPN | Cada 1 h, en GitHub Actions |
 | Historial vs. rivales 1931–2000 (solo Primera División) | `data/historico.json`, generado una vez con `scripts/import-historico.mjs` | Nunca (el pasado no cambia) |
 | Historia, estadio, frases, momentos, palmarés, ídolos, récords | `data/club.json` (a mano) | Cuando lo edites |
 
-**Ninguna de las dos APIs es oficial.** Las dos permiten CORS y no piden key, pero pueden cambiar sin aviso:
+La API de ESPN **no es oficial**: no pide key y permite CORS, pero puede cambiar sin aviso. Si falla en el
+navegador, la página usa el snapshot y lo indica con un punto amarillo («Datos guardados del…»). Toda la
+lectura de ESPN está en `js/espn.js`, así que si cambia el formato se arregla en un solo lugar.
 
-- **Promiedos** (`js/promiedos.js`): no está documentada y exige el header `X-VER` con la versión de su web
-  (sin él responde `{}`). Si deja de andar, lo primero es actualizar ese valor mirando las requests de
-  promiedos.com.ar. Sus datos son de Opta, que los licencia: republicarlos en un sitio público es zona gris.
-  Si lo bloquean o reclaman, sacar `fetchPromiedos` y la página vuelve sola a ESPN.
-- **ESPN** (`js/espn.js`): no informa lesiones del fútbol argentino y tiene el DT desactualizado; por eso
-  esos datos salen de Promiedos.
+**Qué no muestra la página, a propósito:** lesionados y DT. ESPN no informa lesiones del fútbol argentino y su
+DT de Vélez está desactualizado. Se evaluaron otras fuentes:
 
-**Promiedos solo lo consulta el deploy** (3 pedidos por hora), nunca el navegador del visitante: así el tráfico
-del sitio no le llega a su API. Como sus datos pueden tener hasta 1 h de atraso, la página se cuida sola:
+- **Promiedos** (datos Opta): tiene lesionados, DT y tablas oficiales (anual, promedios), pero su API no es
+  pública y sus datos están licenciados. La integración quedó en el commit `24cfe32` por si se quiere volver.
+- **API-Football (plan gratis)**: probado en oct-2026, no da acceso a la temporada actual («try from 2022 to
+  2024») ni al parámetro `next`, y no cubre lesiones de la liga argentina ni en planes pagos (`injuries: false`).
 
-- Si hay un partido de liga en juego, o el último terminó después del último deploy, muestra la tabla de ESPN
-  (en vivo) hasta que llegue la de Promiedos, y lo aclara.
-- Si las bajas guardadas son de un partido que ya se jugó, no las muestra como del próximo.
-- Si el deploy no pudo leer Promiedos, no hay `promiedos.json` y todo sale de ESPN (tabla anual calculada con
-  desempate aproximado; suspensiones estimadas por tarjetas; sin lesiones).
+**Tabla anual.** Suma las fases regulares de Apertura y Clausura (sin playoffs) y desempata por diferencia de gol
+y goles a favor. El reglamento tiene más criterios que ESPN no expone. No hay tabla de promedios.
 
 **Historial.** ESPN no tiene partidos de Vélez anteriores a 2001. Para 1931–2000 se usa el dataset
 [Liga Argentina 1931–2023](https://www.kaggle.com/datasets/ivanramosctes/liga-argentina-1931-2023) (licencia
@@ -50,10 +45,9 @@ validó contra ESPN en 2003–2021: coinciden 638 de 641 partidos (rival, local�
 
 Los partidos definidos por penales cuentan como empate en el historial.
 
-**Bajas.** Lesionados y suspendidos del próximo partido salen de la previa de Promiedos. Aparte, «al límite de
-amarillas» se estima con el reglamento de la LPF (cada 5 amarillas en un mismo torneo = 1 fecha; se limpian antes
-de los playoffs) sobre las tarjetas de ESPN. Plantel (Promiedos) y estadísticas (ESPN) se cruzan por nombre
-sin tildes y, si no coincide, por inicial + apellido.
+**Sanciones.** Se estiman con las tarjetas de cada partido según el reglamento de la LPF (cada 5 amarillas en un
+mismo torneo = 1 fecha; se limpian antes de los playoffs; las amarillas de un partido con roja no suman) y con
+las rojas del último partido. La sanción oficial la define el Tribunal de Disciplina.
 
 **Récords** (goleadores, presencias, títulos, goleadores de torneo): Wikipedia, «Anexo:Futbolistas del Club
 Atlético Vélez Sarsfield» (CC BY-SA 4.0). Esas tablas no tienen fecha de actualización.
@@ -65,7 +59,7 @@ de Kaggle **fuera del repo** y correr `node scripts/import-historico.mjs ruta/a/
 ## Desarrollo local
 
 ```bash
-npm run data   # baja todo a data/generated/ (~60 requests a ESPN, 3 a Promiedos + escudos que falten)
+npm run data   # baja snapshot, historial y estadísticas a data/generated/ (~60 requests a ESPN)
 npm run dev    # http://localhost:5173
 npm test
 ```
@@ -80,7 +74,7 @@ Actions → Deploy → Run workflow.
 1. Crear el repo en GitHub y pushear `main`.
 2. En el repo: **Settings → Pages → Build and deployment → Source: GitHub Actions**.
 3. El workflow `.github/workflows/deploy.yml` corre los tests, baja los datos y publica. Corre en cada push a
-   `main`, cada 6 horas y a mano (Actions → Deploy → Run workflow).
+   `main`, cada 1 hora y a mano (Actions → Deploy → Run workflow).
 
 Ojo: GitHub desactiva los workflows programados de repos públicos sin actividad durante 60 días. Si pasa,
 se reactivan desde la pestaña Actions.
