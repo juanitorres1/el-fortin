@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { decodeBody, factsIn, noteLinks, parseNote, unsupportedFacts } from '../scripts/news.mjs';
+import { decodeBody, factsIn, matchFacts, noteLinks, numberWordsIn, parseNote, rankNotes, unsupportedFacts } from '../scripts/news.mjs';
 
 test('noteLinks toma links a notas con su fecha y sin duplicados', () => {
   const html = `<a href="/futbol/notas/2026/10/13/164448_manu-lanzini">x</a>
@@ -34,4 +34,31 @@ test('unsupportedFacts descarta datos que no están en la nota y acepta variante
   assert.deepEqual(unsupportedFacts('La cuota sube a $15.000 desde el 1/11 y Vélez ganó 3-1.', nota), []);
   assert.deepEqual(unsupportedFacts('La cuota sube a $18.000.', nota), ['18.000']);
   assert.deepEqual(unsupportedFacts('Sin números en este punto.', nota), []);
+});
+
+test('números en palabras: se controlan contra la nota, en palabras o en cifras', () => {
+  assert.deepEqual(numberWordsIn('Quedan cuatro partidos y Vélez está quinto; un gol en el primer tiempo.'), ['cuatro', 'quinto']);
+  assert.deepEqual(unsupportedFacts('Quedan cuatro partidos.', 'apuntar a ganar los cuatro partidos que quedan'), []);
+  assert.deepEqual(unsupportedFacts('Quedan cuatro partidos.', 'quedan 4 partidos'), []);
+  assert.deepEqual(unsupportedFacts('Quedan 4 partidos.', 'quedan cuatro partidos'), []);
+  assert.deepEqual(unsupportedFacts('Quedan cinco partidos.', 'quedan cuatro partidos'), ['cinco']);
+  assert.deepEqual(unsupportedFacts('Terminó séptimo.', 'quedó en el quinto puesto'), ['septimo']);
+});
+
+test('rankNotes pone primero fútbol, DT y socios, y dentro de cada sección la más nueva', () => {
+  const n = (section, date) => ({ section, date });
+  const ranked = rankNotes([n('amateur', '2026-10-14'), n('futbol', '2026-10-12'), n('socios', '2026-10-10'), n('futbol', '2026-10-13'), n('columnadt', '2026-10-13')]);
+  assert.deepEqual(ranked.map((x) => `${x.section} ${x.date}`), ['futbol 2026-10-13', 'futbol 2026-10-12', 'columnadt 2026-10-13', 'socios 2026-10-10', 'amateur 2026-10-14']);
+});
+
+test('matchFacts arma el último resultado de la semana y el próximo partido sin IA', () => {
+  const side = (id, name, score) => ({ id, name, score });
+  const now = new Date('2026-10-14T12:00:00Z');
+  const results = [{ completed: true, date: '2026-10-12T19:00Z', comp: 'Liga Profesional', home: side('12', 'Lanús', 2), away: side('21', 'Vélez', 0) }];
+  const fixture = [{ completed: false, date: '2026-10-17T23:00Z', timeValid: true, comp: 'Liga Profesional', venue: 'José Amalfitani', home: side('21', 'Vélez', null), away: side('11972', 'Gimnasia (Mendoza)', null) }];
+  const [res, next] = matchFacts(fixture, results, now);
+  assert.match(res.texto, /^Último resultado: Vélez perdió 2-0 con Lanús \(Liga Profesional, lunes 12\/10\)\.$/);
+  assert.match(next.texto, /^Próximo partido: Vélez vs\. Gimnasia \(Mendoza\), sábado 17\/10 a las 20:00, en José Amalfitani \(Liga Profesional\)\.$/);
+  // Un resultado de hace más de una semana no se informa.
+  assert.equal(matchFacts([], results, new Date('2026-10-25T12:00:00Z')).length, 0);
 });

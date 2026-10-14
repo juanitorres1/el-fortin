@@ -22,9 +22,6 @@ jobs:
           - name: Qwen3-8B
             repo: Qwen/Qwen3-8B-GGUF
             file: Qwen3-8B-Q4_K_M.gguf
-          - name: Qwen3-4B
-            repo: Qwen/Qwen3-4B-GGUF
-            file: Qwen3-4B-Q4_K_M.gguf
     name: ${{ matrix.name }}
     steps:
       - uses: actions/checkout@v7

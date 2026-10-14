@@ -7,6 +7,7 @@
 //
 // Uso: LLM_URL=http://127.0.0.1:8080 MODEL_NAME=Qwen3-8B node scripts/news.mjs
 import { mkdir, writeFile, appendFile } from 'node:fs/promises';
+import { fetchSchedule, velezView } from '../js/espn.js';
 
 const SITE = 'https://velez.com.ar';
 const SECTION_PAGES = ['/', '/noticias', '/futbol', '/club', '/socios', '/futbol/notas', '/club/notas', '/socios/notas'];
@@ -67,18 +68,84 @@ export function factsIn(text) {
   return [...text.matchAll(/(?:\$\s?)?\d+(?:[.,:/-]\d+)*/g)].map((m) => m[0].replace(/^\$\s?/, ''));
 }
 
+// Números en palabras que se controlan. «un/uno/una» y «primer/primero» quedan afuera: son demasiado comunes
+// como artículo o adjetivo («un gol», «primer tiempo») y darían falsos descartes.
+const NUMBER_WORDS = {
+  dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10, once: 11, doce: 12,
+  trece: 13, catorce: 14, quince: 15, dieciseis: 16, diecisiete: 17, dieciocho: 18, diecinueve: 19, veinte: 20,
+  treinta: 30, cuarenta: 40, cincuenta: 50, cien: 100,
+  segundo: 2, segunda: 2, tercero: 3, tercer: 3, tercera: 3, cuarto: 4, cuarta: 4, quinto: 5, quinta: 5,
+  sexto: 6, sexta: 6, septimo: 7, septima: 7, octavo: 8, octava: 8, noveno: 9, novena: 9, decimo: 10, decima: 10,
+};
+const plain = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const wordsOf = (s) => plain(s).match(/[a-zñ]+/g) ?? [];
+
+/** Números escritos con letras («cuatro partidos», «quinto puesto»), normalizados sin tildes. */
+export function numberWordsIn(text) {
+  return wordsOf(text).filter((w) => w in NUMBER_WORDS);
+}
+
 /**
- * Un punto pasa si cada dato numérico que menciona aparece en la nota citada.
- * Devuelve los datos que no se encontraron (vacío = ok).
+ * Un punto pasa si cada dato numérico que menciona aparece en la nota citada, con cifras o en palabras
+ * («4» en el punto vale si la nota dice «cuatro», y al revés). Devuelve los datos que no se encontraron.
  */
 export function unsupportedFacts(pointText, sourceText) {
   const src = normalizeNum(sourceText);
-  return factsIn(pointText).filter((f) => {
+  const srcWords = new Set(wordsOf(sourceText));
+  const srcNumbers = new Set([...(sourceText.match(/\d+/g) ?? []), ...[...srcWords].filter((w) => w in NUMBER_WORDS).map((w) => String(NUMBER_WORDS[w]))]);
+  const digits = factsIn(pointText).filter((f) => {
     if (src.includes(normalizeNum(f))) return false;
     // «3-1» puede venir como «3 a 1» en la nota.
     const score = f.match(/^(\d+)-(\d+)$/);
-    return !(score && new RegExp(`\\b${score[1]}\\s*(?:a|-)\\s*${score[2]}\\b`).test(sourceText));
+    if (score && new RegExp(`\\b${score[1]}\\s*(?:a|-)\\s*${score[2]}\\b`).test(sourceText)) return false;
+    // Un número suelto (sin puntos ni barras) puede estar en palabras en la nota.
+    return !(/^\d+$/.test(f) && srcNumbers.has(String(Number(f))));
   });
+  const words = numberWordsIn(pointText).filter((w) => !srcWords.has(w) && !srcNumbers.has(String(NUMBER_WORDS[w])));
+  return [...digits, ...words];
+}
+
+// ---------- Orden por importancia (función pura, con tests) ----------
+
+// Lo que más le importa a un hincha o socio va primero; el modelo ve las notas en este orden.
+const SECTION_PRIORITY = ['futbol', 'columnadt', 'socios', 'club', 'institucional', 'elecciones', 'abonos', 'hincha', 'entrenamiento', 'reserva'];
+const priorityOf = (section) => {
+  const i = SECTION_PRIORITY.indexOf(section);
+  return i < 0 ? SECTION_PRIORITY.length : i;
+};
+
+/** Ordena por sección (importancia) y, dentro de cada una, de la más nueva a la más vieja. */
+export function rankNotes(notes) {
+  return [...notes].sort((a, b) => priorityOf(a.section) - priorityOf(b.section) || b.date.localeCompare(a.date));
+}
+
+// ---------- Datos fijos del primer equipo (ESPN, sin IA) ----------
+
+const TZ = 'America/Argentina/Buenos_Aires';
+const dayParts = new Intl.DateTimeFormat('es-AR', { timeZone: TZ, weekday: 'long', day: 'numeric', month: 'numeric' });
+// «sábado 17/10» (Intl da «17-10» en es-AR).
+const dayFmt = { format: (d) => { const p = Object.fromEntries(dayParts.formatToParts(d).map((x) => [x.type, x.value])); return `${p.weekday} ${p.day}/${p.month}`; } };
+const timeFmt = new Intl.DateTimeFormat('es-AR', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hour12: false });
+
+/** Último resultado (si fue en la semana) y próximo partido, armados con datos de ESPN. */
+export function matchFacts(fixture, results, now = new Date()) {
+  const facts = [];
+  const last = results.filter((m) => m.completed && Date.parse(m.date) >= now - DAYS * 864e5).at(-1);
+  if (last) {
+    const { velez, rival, result } = velezView(last);
+    const verb = { G: 'le ganó', E: 'empató', P: 'perdió' }[result] ?? 'jugó';
+    // Como se dice en Argentina: el resultado del ganador primero («perdió 2-0 con Lanús»).
+    const score = `${Math.max(velez.score, rival.score)}-${Math.min(velez.score, rival.score)}`;
+    const vs = result === 'G' ? `a ${rival.name}` : `con ${rival.name}`;
+    facts.push({ tipo: 'resultado', texto: `Último resultado: Vélez ${verb} ${score} ${vs} (${last.comp}, ${dayFmt.format(new Date(last.date))}).` });
+  }
+  const next = fixture.find((m) => !m.completed);
+  if (next) {
+    const { velezHome, rival } = velezView(next);
+    const when = `${dayFmt.format(new Date(next.date))}${next.timeValid ? ` a las ${timeFmt.format(new Date(next.date))}` : ''}`;
+    facts.push({ tipo: 'proximo', texto: `Próximo partido: ${velezHome ? 'Vélez vs.' : 'visita a'} ${rival.name}, ${when}${next.venue ? `, en ${next.venue}` : ''} (${next.comp}).` });
+  }
+  return facts;
 }
 
 // ---------- Ejecución ----------
@@ -99,16 +166,19 @@ export async function collectNotes(now = new Date()) {
       console.warn(`No se pudo leer ${page}: ${err.message}`);
     }
   }
-  const recent = [...links.values()].filter((l) => l.date >= since).sort((a, b) => b.date.localeCompare(a.date)).slice(0, MAX_NOTES);
+  const recent = rankNotes([...links.values()].filter((l) => l.date >= since));
   const notes = [];
   for (const l of recent) {
+    if (notes.length >= MAX_NOTES) break;
     try {
-      notes.push({ ...l, ...parseNote(await fetchText(l.url)) });
+      const note = { ...l, ...parseNote(await fetchText(l.url)) };
+      // Notas sin texto (p. ej. «Convocados», que es una imagen) no le sirven al modelo.
+      if (note.title && note.body.length + note.lead.length >= 80) notes.push(note);
     } catch (err) {
       console.warn(`No se pudo leer la nota ${l.url}: ${err.message}`);
     }
   }
-  return notes.filter((n) => n.title);
+  return notes;
 }
 
 const SYSTEM = `Sos redactor de un sitio de hinchas de Vélez Sarsfield. Escribís en español rioplatense, claro y neutral.
@@ -117,7 +187,9 @@ Reglas obligatorias:
 - Copiá números, montos, fechas, horarios y resultados EXACTAMENTE como aparecen en la nota.
 - Si no estás seguro de un dato, no lo incluyas.
 - Cada punto resume UNA nota y debe indicar el número de esa nota.
-- Priorizá lo que más le importa a un hincha o socio: primer equipo, partidos y entradas, cuota y socios, elecciones e institucional. Lo demás, solo si sobra lugar.`;
+- Las notas vienen ordenadas por importancia: la NOTA 1 es la más importante. Seguí ese orden y dejá afuera las del final si no hay lugar.
+- Si una nota pone condiciones o requisitos (qué cuota hay que tener paga, quién puede entrar, hasta cuándo, cómo anotarse), incluilos: son lo más útil para el socio.
+- El resultado del último partido y el próximo partido del primer equipo ya se muestran aparte: no los repitas, salvo que la nota agregue algo nuevo (por ejemplo, lo que dijo el DT).`;
 
 const SCHEMA = {
   type: 'object',
@@ -179,7 +251,8 @@ async function main() {
   const llmUrl = process.env.LLM_URL ?? 'http://127.0.0.1:8080';
   const model = process.env.MODEL_NAME ?? 'desconocido';
   const t0 = Date.now();
-  const notes = await collectNotes();
+  const [notes, fixture, results] = await Promise.all([collectNotes(), fetchSchedule({ fixture: true }), fetchSchedule({})]);
+  const facts = matchFacts(fixture, results);
   const tNotes = Date.now();
   console.log(`Notas de los últimos ${DAYS} días: ${notes.length}`);
   notes.forEach((n, i) => console.log(`  ${i + 1}. ${n.date} [${n.section}] ${n.title} (${n.body.length} caracteres)`));
@@ -202,6 +275,7 @@ async function main() {
     usage,
     timings,
     notes: notes.map(({ body, ...n }) => ({ ...n, chars: body.length })),
+    facts,
     points,
     raw,
   };
@@ -215,6 +289,7 @@ async function main() {
       (timings ? ` · prompt ${Math.round(timings.prompt_per_second)} tok/s, generación ${timings.predicted_per_second?.toFixed(1)} tok/s` : ''),
     `- Puntos: ${points.length} generados, ${ok.length} pasan el control, ${points.length - ok.length} descartados`,
     '',
+    ...facts.map((f) => `📌 ${f.texto} _(ESPN, sin IA)_`),
     ...points.map((p) => `${p.ok ? '✅' : '❌'} ${p.texto}${p.url ? ` ([nota](${p.url}))` : ''}${p.motivo ? `  \n   _descartado: ${p.motivo}_` : ''}`),
     '',
     '<details><summary>Notas usadas</summary>',
