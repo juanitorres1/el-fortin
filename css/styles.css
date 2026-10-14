@@ -162,9 +162,10 @@ table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nu
 th, td { padding: 10px 8px; text-align: center; border-bottom: 1px solid var(--linea); white-space: nowrap; }
 th { font: 700 12px/1 var(--texto); text-transform: uppercase; letter-spacing: 0.08em; color: var(--gris); background: #f6f4ee; }
 td.team, th.team { text-align: left; }
-td.team { font-weight: 600; }
-td.team span { display: flex; align-items: center; gap: 8px; }
-td.team img { width: 22px; height: 22px; object-fit: contain; flex: none; }
+td.team { font-weight: 600; padding-right: 16px; }
+/* max-width: none anula el `img { max-width: 100% }` global: en una tabla, una imagen con max-width en %
+   no suma al ancho mínimo de la columna, y los nombres largos se pisaban con la columna de al lado. */
+td.team img { width: 22px; height: 22px; max-width: none; object-fit: contain; vertical-align: middle; margin: -2px 8px 0 0; }
 td.pts { font: 900 20px/1 var(--display); color: var(--azul); }
 tr.is-velez td { background: #e7eefc; }
 tr.is-velez td.pos { box-shadow: inset 5px 0 0 var(--azul-v); }
