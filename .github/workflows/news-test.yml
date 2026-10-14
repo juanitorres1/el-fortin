@@ -1,0 +1,84 @@
+name: Prueba resumen de noticias (Qwen)
+
+# Solo a mano (Actions → «Prueba resumen de noticias» → Run workflow). No publica nada en el sitio:
+# deja el resultado en el resumen del job y como artifact, para evaluar calidad y tiempos.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  LLAMA_CPP: b11620 # build fijo de llama.cpp, para que la prueba sea reproducible
+
+jobs:
+  resumen:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Qwen3-8B
+            repo: Qwen/Qwen3-8B-GGUF
+            file: Qwen3-8B-Q4_K_M.gguf
+          - name: Qwen3-4B
+            repo: Qwen/Qwen3-4B-GGUF
+            file: Qwen3-4B-Q4_K_M.gguf
+    name: ${{ matrix.name }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          package-manager-cache: false
+
+      - name: Hardware del runner
+        run: nproc && free -h
+
+      # El modelo pesa 2,5–5 GB: se cachea para no bajarlo de Hugging Face en cada corrida.
+      - uses: actions/cache@v6
+        with:
+          path: models
+          key: model-${{ matrix.file }}
+      - name: Bajar modelo (si no está en caché)
+        run: |
+          mkdir -p models
+          if [ ! -f "models/${{ matrix.file }}" ]; then
+            curl -fL --retry 3 -o "models/${{ matrix.file }}" "https://huggingface.co/${{ matrix.repo }}/resolve/main/${{ matrix.file }}"
+          fi
+          ls -lh models
+
+      - name: Bajar llama.cpp
+        run: |
+          curl -fL --retry 3 -o llama.tar.gz "https://github.com/ggml-org/llama.cpp/releases/download/${LLAMA_CPP}/llama-${LLAMA_CPP}-bin-ubuntu-x64.tar.gz"
+          mkdir llama && tar -xzf llama.tar.gz -C llama
+          SERVER=$(find llama -type f -name llama-server | head -1)
+          echo "SERVER=$SERVER" >> "$GITHUB_ENV"
+          echo "LD_LIBRARY_PATH=$(dirname "$SERVER")" >> "$GITHUB_ENV"
+
+      - name: Levantar el modelo
+        run: |
+          "$SERVER" -m "models/${{ matrix.file }}" -c 12288 -t "$(nproc)" --jinja --port 8080 > llama.log 2>&1 &
+          for i in $(seq 1 120); do
+            curl -sf http://127.0.0.1:8080/health > /dev/null && echo "listo en ${i}s" && exit 0
+            sleep 1
+          done
+          echo "El servidor no arrancó"; tail -50 llama.log; exit 1
+
+      - name: Resumir las notas de la semana
+        env:
+          LLM_URL: http://127.0.0.1:8080
+          MODEL_NAME: ${{ matrix.name }}
+        run: node scripts/news.mjs
+
+      - name: Log de llama.cpp (si falló)
+        if: failure()
+        run: tail -80 llama.log
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: resumen-${{ matrix.name }}
+          path: data/generated/resumen.json
+          if-no-files-found: ignore
