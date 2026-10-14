@@ -468,10 +468,12 @@ async function main() {
     return history;
   });
   setupH2H([...old.matches.map(hydrateHistoric), ...results]);
-  loadSquad();
-  // El contenido se carga después del salto inicial al #ancla: lo repetimos con la página ya armada.
-  const target = location.hash && document.getElementById(location.hash.slice(1).split('?')[0]);
-  target?.scrollIntoView();
+  await loadSquad().catch((err) => console.error(err));
+  // El salto inicial al #ancla ocurre con la página vacía: lo repetimos cuando ya está todo armado
+  // (instantáneo: un scroll suave se corta si el contenido de arriba sigue creciendo).
+  const id = location.hash.slice(1).split('?')[0];
+  const target = id ? document.getElementById(id) : null;
+  target?.scrollIntoView({ behavior: 'instant', block: 'start' });
 }
 
 main();
