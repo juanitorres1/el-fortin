@@ -10,6 +10,9 @@ export const isOfficialNoteUrl = (url) => /^https:\/\/velez\.com\.ar\/[a-z-]+\/n
 /** Imágenes: solo las que sirve la web oficial (se muestran directo desde velez.com.ar, con link a la nota). */
 export const isOfficialImageUrl = (url) => /^https:\/\/velez\.com\.ar\/img\/[\w/.-]+\.(?:jpe?g|png|webp|gif)$/i.test(url ?? '');
 
+/** Miniaturas generadas por el deploy (data/generated/img/news/…) o, si no hubo ImageMagick, la imagen oficial. */
+export const isNewsImage = (src) => /^data\/generated\/img\/news\/[a-f0-9]{16}-[tf]\.jpg$/.test(src ?? '') || isOfficialImageUrl(src);
+
 const TZ = 'America/Argentina/Buenos_Aires';
 
 /** «Hoy», «Ayer», «Hace 3 días» o «13/10». Solo días: la hora que publica la web no aclara la zona horaria. */

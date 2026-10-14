@@ -27,6 +27,15 @@ jobs:
           node-version: 22
           package-manager-cache: false # sin dependencias: no hay nada que cachear
       - run: npm test
+      # Miniaturas de las noticias: ImageMagick suele venir en el runner; si no, se instala (unos segundos).
+      - name: ImageMagick
+        run: command -v magick || command -v convert || (sudo apt-get update -qq && sudo apt-get install -y -qq imagemagick)
+      # Las miniaturas ya generadas se reusan entre deploys: solo se procesan las notas nuevas.
+      - uses: actions/cache@v6
+        with:
+          path: data/generated/img/news
+          key: news-thumbs-${{ github.run_id }}
+          restore-keys: news-thumbs-
       - run: npm run data
       # El resumen con IA se genera los lunes (news-weekly.yml); acá se baja el último que salió bien.
       # Si todavía no hay o venció (30 días), la página muestra solo los titulares.

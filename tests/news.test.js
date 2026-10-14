@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { decodeBody, factsIn, noteLinks, numberWordsIn, parseNote, rankNotes, unsupportedFacts } from '../scripts/news.mjs';
-import { isOfficialImageUrl, isOfficialNoteUrl, matchFacts, relativeDay } from '../js/news.js';
+import { decodeBody, factsIn, mediumVariant, noteLinks, numberWordsIn, parseNote, rankNotes, unsupportedFacts } from '../scripts/news.mjs';
+import { isNewsImage, isOfficialImageUrl, isOfficialNoteUrl, matchFacts, relativeDay } from '../js/news.js';
 
 test('noteLinks toma links a notas con su fecha y sin duplicados', () => {
   const html = `<a href="/futbol/notas/2026/10/13/164448_manu-lanzini">x</a>
@@ -89,4 +89,16 @@ test('isOfficialNoteUrl solo acepta notas de velez.com.ar', () => {
   assert.equal(isOfficialNoteUrl('javascript:alert(1)'), false);
   assert.equal(isOfficialNoteUrl('https://velez.com.ar/futbol/notas/2026/10/13/1_x"><script>'), false);
   assert.equal(isOfficialNoteUrl(undefined), false);
+});
+
+test('mediumVariant pide la versión «md» de la foto y no la duplica', () => {
+  assert.equal(mediumVariant('https://velez.com.ar/img/noticias/26/1000794863.jpg'), 'https://velez.com.ar/img/noticias/26/md/1000794863.jpg');
+  assert.equal(mediumVariant('https://velez.com.ar/img/noticias/26/md/1000794863.jpg'), 'https://velez.com.ar/img/noticias/26/md/1000794863.jpg');
+});
+
+test('isNewsImage acepta miniaturas propias o imágenes oficiales, nada más', () => {
+  assert.equal(isNewsImage('data/generated/img/news/0123456789abcdef-t.jpg'), true);
+  assert.equal(isNewsImage('https://velez.com.ar/img/noticias/26/md/x.jpg'), true);
+  assert.equal(isNewsImage('data/generated/img/news/../../club.json'), false);
+  assert.equal(isNewsImage('https://evil.com/x.jpg'), false);
 });

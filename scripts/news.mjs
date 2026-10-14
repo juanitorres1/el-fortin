@@ -7,8 +7,14 @@
 //
 // Resumen: el modelo recibe el texto de cada nota (ordenadas por importancia) y devuelve 4-6 puntos, cada uno
 // citando su nota. Un punto con números o fechas que no aparecen en su nota se descarta antes de publicar.
-import { mkdir, writeFile, appendFile } from 'node:fs/promises';
+import { access, appendFile, mkdir, readdir, rm, writeFile } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 import { NEWS_DAYS as DAYS, OFFICIAL_SITE as SITE, isOfficialImageUrl, isOfficialNoteUrl } from '../js/news.js';
+
+const execFileAsync = promisify(execFile);
 
 const SECTION_PAGES = ['/', '/noticias', '/futbol', '/club', '/socios', '/futbol/notas', '/club/notas', '/socios/notas'];
 const MAX_NOTES = 14;
@@ -241,9 +247,76 @@ export async function writeHeadlines() {
     .filter((n) => isOfficialNoteUrl(n.url))
     .map(({ title, lead, date, section, url, image }) => ({ title, lead, date, section, url, image }));
   await mkdir(OUT, { recursive: true });
+  await addThumbnails(headlines.slice(0, MAX_THUMBS));
   await writeFile(new URL('news.json', OUT), JSON.stringify({ updatedAt: new Date().toISOString(), headlines }));
   return headlines;
 }
+
+// ---------- Miniaturas ----------
+// Las fotos originales de velez.com.ar pesan 2–2,5 MB (3000×4000 px) y su variante «md» 340–590 KB: demasiado para
+// tarjetas de 92 px. El deploy baja la «md» y genera dos recortes livianos con ImageMagick (viene en los runners de
+// GitHub): miniatura cuadrada y foto 16:9 para la nota destacada. Sin ImageMagick (p. ej. en Windows) se usa la «md».
+
+const MAX_THUMBS = 9; // las que muestra la página
+const THUMB_DIR = new URL('img/news/', OUT);
+const SIZES = { t: '184x184', f: '720x405' }; // ×2 de lo que se ve, para pantallas de alta densidad
+
+/** «…/img/noticias/26/foto.jpg» → «…/img/noticias/26/md/foto.jpg» (la versión mediana que usa la web oficial). */
+export const mediumVariant = (url) => url.replace(/\/img\/noticias\/(\d+)\/(?!md\/)/, '/img/noticias/$1/md/');
+
+async function imageMagick() {
+  // En Windows existe un «convert» del sistema que convierte discos FAT a NTFS: nunca llamarlo ahí.
+  const candidates = process.platform === 'win32' ? ['magick'] : ['magick', 'convert'];
+  for (const bin of candidates) {
+    try {
+      await execFileAsync(bin, ['-version']);
+      return bin;
+    } catch {
+      // probar el siguiente
+    }
+  }
+  return null;
+}
+
+async function addThumbnails(headlines) {
+  const bin = await imageMagick();
+  if (!bin) console.warn('Sin ImageMagick: las tarjetas usan la imagen «md» de velez.com.ar (más pesada).');
+  await mkdir(THUMB_DIR, { recursive: true });
+  for (const h of headlines) {
+    if (!isOfficialImageUrl(h.image)) continue;
+    const medium = mediumVariant(h.image);
+    if (!bin) {
+      h.thumb = h.photo = medium;
+      continue;
+    }
+    const key = createHash('sha1').update(h.image).digest('hex').slice(0, 16);
+    const out = Object.fromEntries(Object.keys(SIZES).map((k) => [k, new URL(`${key}-${k}.jpg`, THUMB_DIR)]));
+    try {
+      const missing = [];
+      for (const [k, file] of Object.entries(out)) if (!(await exists(file))) missing.push(k);
+      if (missing.length) {
+        const src = new URL(`${key}-src.jpg`, THUMB_DIR);
+        const res = await fetch(medium, { headers: HEADERS });
+        if (!res.ok) throw new Error(`${res.status} ${medium}`);
+        await writeFile(src, Buffer.from(await res.arrayBuffer()));
+        for (const k of missing) {
+          await execFileAsync(bin, [fileURLToPath(src), '-auto-orient', '-resize', `${SIZES[k]}^`, '-gravity', 'center', '-extent', SIZES[k], '-strip', '-interlace', 'Plane', '-quality', '72', fileURLToPath(out[k])]);
+        }
+        await rm(src, { force: true });
+      }
+      h.thumb = `data/generated/img/news/${key}-t.jpg`;
+      h.photo = `data/generated/img/news/${key}-f.jpg`;
+    } catch (err) {
+      console.warn(`No se pudo generar la miniatura de ${h.url}: ${err.message}`);
+      h.thumb = h.photo = medium;
+    }
+  }
+  // La carpeta se cachea entre deploys: se borran las miniaturas de notas que ya no se muestran.
+  const keep = new Set(headlines.flatMap((h) => [h.thumb, h.photo]).filter(Boolean).map((p) => p.split('/').pop()));
+  for (const file of await readdir(THUMB_DIR)) if (!keep.has(file)) await rm(new URL(file, THUMB_DIR), { force: true });
+}
+
+const exists = (file) => access(file).then(() => true, () => false);
 
 async function writeSummary() {
   const llmUrl = process.env.LLM_URL ?? 'http://127.0.0.1:8080';

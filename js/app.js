@@ -1,5 +1,5 @@
 import { VELEZ_ID, fetchLive, fetchRoster, headToHead, teamLogo, velezView } from './espn.js';
-import { isOfficialImageUrl, isOfficialNoteUrl, matchFacts, relativeDay } from './news.js';
+import { isNewsImage, isOfficialNoteUrl, matchFacts, relativeDay } from './news.js';
 
 const TZ = 'America/Argentina/Buenos_Aires';
 const LIVE_TIMEOUT_MS = 8000;
@@ -11,7 +11,14 @@ const INTERNACIONAL = new Set(['Copa Libertadores', 'Copa Sudamericana', 'Recopa
 const $ = (sel) => document.querySelector(sel);
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 // onerror: ESPN no tiene escudo para todos los equipos chicos; ocultamos la imagen rota.
-const logo = (url, size = 24) => (url ? `<img src="${esc(url)}" alt="" width="${size}" height="${size}" loading="lazy" onerror="this.style.visibility='hidden'">` : '');
+// Los escudos de ESPN vienen en 500×500 (~34 KB) y se muestran a 16–64 px: se piden achicados (×2 para pantallas
+// de alta densidad) a su servicio de redimensionado, ~2 KB cada uno. Hay ~90 escudos en la página.
+const sized = (url, size) => {
+  const m = url?.match(/^https:\/\/a\.espncdn\.com(\/i\/teamlogos\/[\w/.-]+\.png)$/);
+  return m ? `https://a.espncdn.com/combiner/i?img=${m[1]}&w=${size * 2}&h=${size * 2}` : url;
+};
+const logo = (url, size = 24) =>
+  url ? `<img src="${esc(sized(url, size))}" alt="" width="${size}" height="${size}" loading="lazy" decoding="async" onerror="this.style.visibility='hidden'">` : '';
 
 const fmt = {
   day: new Intl.DateTimeFormat('es-AR', { timeZone: TZ, day: '2-digit' }),
@@ -287,7 +294,7 @@ function renderSquad(roster, players) {
       <div class="player-num">${esc(p.jersey ?? '–')}</div>
       <div class="player-main">
         <h4>${esc(p.name)}</h4>
-        <p>${p.flag ? `<img src="${esc(p.flag)}" alt="" width="16" height="16" loading="lazy" onerror="this.remove()">` : ''}${esc(p.nat ?? '')}${p.age ? ` · ${p.age} años` : ''}</p>
+        <p>${p.flag ? `<img src="${esc(sized(p.flag, 16))}" alt="" width="16" height="16" loading="lazy" decoding="async" onerror="this.remove()">` : ''}${esc(p.nat ?? '')}${p.age ? ` · ${p.age} años` : ''}</p>
         ${chips(p.id)}
       </div>
       <dl class="player-stats" title="${esc(current?.label ?? '')}"><div><dt>PJ</dt><dd>${st?.pj ?? 0}</dd></div><div><dt>G</dt><dd>${st?.g ?? 0}</dd></div><div><dt>A</dt><dd>${st?.a ?? 0}</dd></div></dl>
@@ -392,7 +399,12 @@ const shortDate = (iso) => iso.slice(5).split('-').reverse().join('/'); // «202
 let newsData = { news: null, summary: null };
 
 function newsCard(h, featured) {
-  const img = isOfficialImageUrl(h.image) ? `<img class="nw-img" src="${esc(h.image)}" alt="" loading="${featured ? 'eager' : 'lazy'}" onerror="this.remove()">` : '';
+  // Miniatura liviana generada en el deploy (la foto original de la web oficial pesa más de 2 MB).
+  const src = featured ? h.photo : h.thumb;
+  const [w, hgt] = featured ? [720, 405] : [92, 92];
+  const img = isNewsImage(src)
+    ? `<img class="nw-img" src="${esc(src)}" alt="" width="${w}" height="${hgt}" loading="${featured ? 'eager' : 'lazy'}" decoding="async" onerror="this.remove()">`
+    : '';
   return `<a class="nw-card${featured ? ' nw-featured' : ''}" href="${esc(h.url)}" target="_blank" rel="noopener">
     ${featured ? img : ''}
     <div class="nw-body">
@@ -412,7 +424,7 @@ function renderNews(fixture, results) {
     .join('');
 
   const headlines = (news?.headlines ?? []).filter((h) => isOfficialNoteUrl(h.url));
-  const featured = headlines.find((h) => FEATURED_SECTIONS.includes(h.section) && isOfficialImageUrl(h.image)) ?? headlines[0];
+  const featured = headlines.find((h) => FEATURED_SECTIONS.includes(h.section) && isNewsImage(h.photo)) ?? headlines[0];
   const rest = headlines.filter((h) => h !== featured).slice(0, MAX_CARDS - 1);
   $('[data-headlines]').innerHTML = featured
     ? [newsCard(featured, true), ...rest.map((h) => newsCard(h, false))].join('')
@@ -492,10 +504,11 @@ async function loadLive() {
   }
 }
 
-let history = [];
 async function refresh() {
   const { data, live } = await loadLive();
-  const results = mergeResults(history, data.results);
+  // Para «Lo último», la forma y las noticias alcanzan los resultados de la temporada: el historial completo
+  // se carga aparte, solo si el usuario llega a esa sección (ver loadHistoryWhenNear).
+  const results = mergeResults([], data.results);
   renderNext(data.fixture);
   renderLists(data.fixture, results);
   renderTables(espnToTables(data.standings), 'ESPN');
@@ -517,27 +530,48 @@ async function loadSquad() {
   renderStats(players);
 }
 
+// El historial (~860 KB: ESPN desde 2001 + dataset 1931–2000) se baja recién cuando el usuario se acerca a la
+// sección o entra directo con #historial. Antes se cargaba siempre y frenaba la primera carga.
+function loadHistoryWhenNear(currentResults) {
+  let loading = null;
+  const load = () => {
+    loading ??= (async () => {
+      io.disconnect();
+      $('[data-h2h]').innerHTML = '<p class="empty">Cargando historial…</p>';
+      const [hist, old] = await Promise.all([
+        getJson('data/generated/matches.json').catch(() => ({ matches: [] })),
+        getJson('data/historico.json').catch(() => ({ matches: [] })),
+      ]);
+      setupH2H([...old.matches.map(hydrateHistoric), ...mergeResults(hist.matches, currentResults)]);
+    })();
+    return loading;
+  };
+  const io = new IntersectionObserver((entries) => entries.some((e) => e.isIntersecting) && load(), { rootMargin: '1200px 0px' });
+  io.observe(document.getElementById('historial'));
+  // Respaldo: tocar un link a #historial (menú) también lo carga, sin esperar al observer.
+  document.addEventListener('click', (ev) => ev.target.closest('a[href="#historial"]') && load());
+  return load;
+}
+
 async function main() {
-  const [club, hist, old, news, summary] = await Promise.all([
+  const [club, news, summary] = await Promise.all([
     getJson('data/club.json'),
-    getJson('data/generated/matches.json').catch(() => ({ matches: [] })),
-    getJson('data/historico.json').catch(() => ({ matches: [] })),
     getJson('data/generated/news.json').catch(() => null),
     getJson('data/generated/resumen.json').catch(() => null),
   ]);
   newsData = { news, summary };
   renderClub(club);
-  history = hist.matches;
   const results = await refresh().catch((err) => {
     console.error(err);
     $('[data-next]').innerHTML = '<p class="next-label">Próximo partido</p><p class="skeleton">No pudimos cargar los partidos. Probá en un rato.</p>';
-    return history;
+    return [];
   });
-  setupH2H([...old.matches.map(hydrateHistoric), ...results]);
+  const loadHistory = loadHistoryWhenNear(results);
   await loadSquad().catch((err) => console.error(err));
   // El salto inicial al #ancla ocurre con la página vacía: lo repetimos cuando ya está todo armado
   // (instantáneo: un scroll suave se corta si el contenido de arriba sigue creciendo).
   const id = location.hash.slice(1).split('?')[0];
+  if (id === 'historial') await loadHistory();
   const target = id ? document.getElementById(id) : null;
   target?.scrollIntoView({ behavior: 'instant', block: 'start' });
 }
