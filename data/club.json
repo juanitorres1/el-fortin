@@ -1,0 +1,519 @@
+{
+  "_nota": "Contenido editorial mantenido a mano. Los partidos/tablas salen de ESPN; esto no. Fuentes en README.md. Si un dato está mal, corregilo acá.",
+  "frase": "Desde Liniers, con la V en el pecho",
+  "historia": [
+    {
+      "anio": "1910",
+      "titulo": "El nacimiento",
+      "texto": "El 1 de enero, en una casa cercana a la estación Floresta, se funda el club. La idea había nacido entre los pibes que se juntaban en la vieja estación Vélez Sarsfield del Ferrocarril Oeste, que le dio el nombre."
+    },
+    {
+      "anio": "1919",
+      "titulo": "Debut en Primera",
+      "texto": "Primera participación en la máxima categoría, y de entrada termina segundo."
+    },
+    {
+      "anio": "1924",
+      "titulo": "El Fortín de Villa Luro",
+      "texto": "El 16 de marzo se inaugura la cancha de la calle Basualdo. Dos años después ya tiene iluminación artificial: Vélez fue pionero de la luz en el fútbol argentino."
+    },
+    {
+      "anio": "1932",
+      "titulo": "Nace el apodo",
+      "texto": "El diario Crítica llama «fortín» a la cancha de Villa Luro, inexpugnable para los rivales. El nombre nunca se fue."
+    },
+    {
+      "anio": "1933",
+      "titulo": "La V azulada",
+      "texto": "Se adoptan los colores actuales: la camiseta blanca con la V azul, tomada del escudo. Desde entonces es el sello del club."
+    },
+    {
+      "anio": "1940",
+      "titulo": "«No he venido al funeral»",
+      "texto": "El único descenso de su historia. En la asamblea de crisis, José Amalfitani se niega a enterrar al club. Asume en 1941, Vélez gana la Segunda en 1943 y está en Primera sin interrupción desde 1944."
+    },
+    {
+      "anio": "1943",
+      "titulo": "Liniers",
+      "texto": "El 11 de abril se inaugura el estadio de Liniers, con tribunas de madera, en un 2-2 con River."
+    },
+    {
+      "anio": "1951",
+      "titulo": "La casa de cemento",
+      "texto": "El 22 de abril se reinaugura el estadio remodelado en cemento, con un 2-0 a Huracán."
+    },
+    {
+      "anio": "1968",
+      "titulo": "El primer grito",
+      "texto": "Vélez gana el Nacional 1968, su primer título de liga. Ese mismo diciembre, la asamblea de socios bautiza el estadio con el nombre de Amalfitani, que muere en mayo de 1969."
+    },
+    {
+      "anio": "1978",
+      "titulo": "Sede mundialista",
+      "texto": "El José Amalfitani se remodela para la Copa del Mundo de 1978 y recibe partidos del torneo."
+    },
+    {
+      "anio": "1993–1998",
+      "titulo": "Los años dorados",
+      "texto": "Carlos Bianchi vuelve como DT y arma el ciclo más glorioso: Clausura 93, Libertadores e Intercontinental 94, Apertura 95, Clausura 96 e Interamericana 96. La racha sigue con Osvaldo Piazza (Supercopa 96, Recopa 97) y Marcelo Bielsa (Clausura 98)."
+    },
+    {
+      "anio": "2005–2014",
+      "titulo": "El Fortín de Russo y Gareca",
+      "texto": "Clausura 2005 con Miguel Ángel Russo; después Ricardo Gareca suma Clausura 2009, Clausura 2011, Inicial 2012, la Superfinal 2013 ante Newell's y la Supercopa Argentina 2013 ante Arsenal."
+    },
+    {
+      "anio": "2023–2025",
+      "titulo": "Del borde al título",
+      "texto": "En 2023 se salva del descenso en el final. Un año después, con Gustavo Quinteros, es campeón de la Liga Profesional 2024, y en 2025 suma la Supercopa Internacional y la Supercopa Argentina."
+    }
+  ],
+  "estadio": {
+    "nombre": "Estadio José Amalfitani",
+    "apodo": "El Fortín de Liniers",
+    "intro": "Levantado sobre un terreno anegadizo que hubo que rellenar, el estadio de Liniers es la obra que define a Vélez: un club que primero se construyó a sí mismo.",
+    "datos": [
+      {
+        "valor": "49.540",
+        "etiqueta": "Capacidad aprox."
+      },
+      {
+        "valor": "1943",
+        "etiqueta": "Inauguración"
+      },
+      {
+        "valor": "1951",
+        "etiqueta": "Estadio de cemento"
+      },
+      {
+        "valor": "1978",
+        "etiqueta": "Sede del Mundial"
+      }
+    ],
+    "hitos": [
+      {
+        "fecha": "16/03/1924",
+        "texto": "Se inaugura la cancha de la calle Basualdo, el legendario Fortín de Villa Luro."
+      },
+      {
+        "fecha": "11/04/1943",
+        "texto": "Primer partido en Liniers, con tribunas de madera: 2-2 con River."
+      },
+      {
+        "fecha": "22/04/1951",
+        "texto": "Reinauguración en cemento: 2-0 a Huracán."
+      },
+      {
+        "fecha": "07/12/1968",
+        "texto": "La asamblea de socios lo bautiza «José Amalfitani»."
+      },
+      {
+        "fecha": "1978",
+        "texto": "Remodelación para la Copa del Mundo, en la que fue sede."
+      }
+    ]
+  },
+  "frases": [
+    {
+      "texto": "¿Me permite, señor Presidente? Yo no he venido al funeral de Vélez Sarsfield.",
+      "contexto": "Asamblea de 1940, tras el descenso"
+    },
+    {
+      "texto": "Mientras haya 10 socios, el club sigue en pie.",
+      "contexto": "Asamblea de 1940"
+    },
+    {
+      "texto": "¡Qué me importa la segunda división ni la tercera si Vélez Sarsfield paseó su divisa triunfal por todo un continente!",
+      "contexto": "Asamblea de 1940"
+    },
+    {
+      "texto": "El cemento es mudo, pero elocuente.",
+      "contexto": "Mural en Álvarez Jonte"
+    },
+    {
+      "texto": "Cada chico que entra al club es un campeonato ganado.",
+      "contexto": "Mural en Álvarez Jonte"
+    },
+    {
+      "texto": "Después, los campeonatos vienen solos.",
+      "contexto": "Según recuerda su familia, sobre construir el club primero"
+    }
+  ],
+  "momentos": [
+    {
+      "fecha": "31 de agosto de 1994",
+      "lugar": "Morumbí, San Pablo",
+      "titulo": "La noche del Morumbí",
+      "texto": "Después del 1-0 en Liniers y el 0-1 en Brasil, la final de la Libertadores contra el São Paulo de Telê Santana se define por penales. Vélez gana 5-3 y es campeón de América por primera vez.",
+      "marcador": "5-3 pen."
+    },
+    {
+      "fecha": "1 de diciembre de 1994",
+      "lugar": "Estadio Nacional, Tokio",
+      "titulo": "Campeón del mundo",
+      "texto": "Vélez le gana 2-0 al Milan de Fabio Capello en la Copa Intercontinental. Goles de Roberto Trotta, de penal, y de Omar «el Turco» Asad.",
+      "marcador": "2-0"
+    },
+    {
+      "fecha": "1996",
+      "lugar": "Vs. River Plate",
+      "titulo": "El arquero goleador",
+      "texto": "José Luis Chilavert le hace un gol a River de tiro libre desde casi la mitad de cancha. Un arquero que pateaba penales y tiros libres: marca registrada del Fortín de los 90.",
+      "marcador": "Golazo"
+    },
+    {
+      "fecha": "5 de julio de 2009",
+      "lugar": "José Amalfitani",
+      "titulo": "El gol de Moralez",
+      "texto": "Clausura 2009, partido decisivo contra Huracán. Maxi Moralez convierte el 1-0 y Vélez es campeón en Liniers.",
+      "marcador": "1-0"
+    },
+    {
+      "fecha": "15 de diciembre de 2024",
+      "lugar": "José Amalfitani",
+      "titulo": "Campeón otra vez",
+      "texto": "Un año después de pelear el descenso, Vélez le gana 2-0 a Huracán en la última fecha y grita campeón de la Liga Profesional 2024.",
+      "marcador": "2-0"
+    },
+    {
+      "fecha": "1940",
+      "lugar": "Asamblea de socios",
+      "titulo": "El club que no se rindió",
+      "texto": "Descendido y quebrado, Vélez estaba al borde de desaparecer. Amalfitani llegó a salir de garante personal de las deudas para frenar el remate. Ahí empezó todo lo demás.",
+      "marcador": "1940"
+    }
+  ],
+  "palmares": {
+    "Ligas": [
+      "Nacional 1968",
+      "Clausura 1993",
+      "Apertura 1995",
+      "Clausura 1996",
+      "Clausura 1998",
+      "Clausura 2005",
+      "Clausura 2009",
+      "Clausura 2011",
+      "Inicial 2012",
+      "Superfinal 2012/13",
+      "Liga Profesional 2024"
+    ],
+    "Internacionales": [
+      "Copa Libertadores 1994",
+      "Copa Intercontinental 1994",
+      "Copa Interamericana 1996",
+      "Supercopa Sudamericana 1996",
+      "Recopa Sudamericana 1997"
+    ],
+    "Copas nacionales": [
+      "Supercopa Argentina 2013",
+      "Supercopa Internacional 2024",
+      "Supercopa Argentina 2024"
+    ]
+  },
+  "idolos": [
+    {
+      "nombre": "José Amalfitani",
+      "rol": "Presidente",
+      "texto": "«Don Pepe». Presidente en 1923–25 y de 1941 a 1969. Levantó al club después del descenso y construyó el estadio que hoy lleva su nombre. El 14 de mayo es el Día del Dirigente Deportivo en su honor."
+    },
+    {
+      "nombre": "Carlos Bianchi",
+      "rol": "Goleador y DT",
+      "texto": "Máximo goleador de la historia del club, con 206 goles, y técnico de la era dorada de los 90."
+    },
+    {
+      "nombre": "José Luis Chilavert",
+      "rol": "Arquero",
+      "texto": "Paraguayo, caudillo y goleador. El arquero que pateaba tiros libres."
+    },
+    {
+      "nombre": "Daniel Willington",
+      "rol": "Enganche",
+      "texto": "El crack del Nacional 68, el primer título de liga."
+    },
+    {
+      "nombre": "Omar Asad",
+      "rol": "Delantero",
+      "texto": "«El Turco». Su gol en Tokio quedó como una de las imágenes más famosas del club."
+    },
+    {
+      "nombre": "Fabián Cubero",
+      "rol": "Lateral",
+      "texto": "«Poroto». Más de 550 partidos: el jugador con más presencias en la historia de Vélez."
+    }
+  ],
+  "fortin": "El 13 de julio de 1932, el diario Crítica llamó «fortín» a la cancha de Vélez en Villa Luro: para los rivales era inexpugnable. El apodo cruzó la ciudad con el club y hoy el Fortín es Liniers.",
+  "records": {
+    "fuente": "Wikipedia, «Anexo:Futbolistas del Club Atlético Vélez Sarsfield» (CC BY-SA 4.0), consultado en oct-2026. Las tablas no tienen fecha de actualización; los totales de Cubero difieren entre fuentes (536 a 626 partidos).",
+    "goleadores": [
+      {
+        "nombre": "Carlos Bianchi",
+        "goles": 206,
+        "partidos": 324,
+        "periodo": "1967-1973; 1980-1984"
+      },
+      {
+        "nombre": "Juan José Ferraro",
+        "goles": 157,
+        "partidos": 303,
+        "periodo": "1941-1949; 1953-1957"
+      },
+      {
+        "nombre": "Norberto Conde",
+        "goles": 110,
+        "partidos": 225,
+        "periodo": "1952-1959; 1965"
+      },
+      {
+        "nombre": "Agustín Cosso",
+        "goles": 102,
+        "partidos": 144,
+        "periodo": "1933-1936; 1941"
+      },
+      {
+        "nombre": "Patricio Camps",
+        "goles": 89,
+        "partidos": 272,
+        "periodo": "1991-2002"
+      },
+      {
+        "nombre": "Pedro Larraquy",
+        "goles": 82,
+        "partidos": 457,
+        "periodo": "1975-1987"
+      },
+      {
+        "nombre": "Juan Carlos Carone",
+        "goles": 75,
+        "partidos": 149,
+        "periodo": "1964-1969"
+      },
+      {
+        "nombre": "Miguel Ángel Benito",
+        "goles": 75,
+        "partidos": 204,
+        "periodo": "1970-1974"
+      },
+      {
+        "nombre": "Daniel Willington",
+        "goles": 68,
+        "partidos": 211,
+        "periodo": "1962-1970; 1978"
+      },
+      {
+        "nombre": "Omar Pedro Roldán",
+        "goles": 59,
+        "partidos": 146,
+        "periodo": "1976-1979"
+      },
+      {
+        "nombre": "Omar Wehbe",
+        "goles": 57,
+        "partidos": 95,
+        "periodo": "1965-1970"
+      }
+    ],
+    "presencias": [
+      {
+        "nombre": "Fabián Cubero",
+        "partidos": 626,
+        "periodo": "1996-2007; 2008-2019",
+        "goles": 17
+      },
+      {
+        "nombre": "Pedro Larraquy",
+        "partidos": 457,
+        "periodo": "1975-1987",
+        "goles": 82
+      },
+      {
+        "nombre": "Raúl Cardozo",
+        "partidos": 411,
+        "periodo": "1986-1999",
+        "goles": 10
+      },
+      {
+        "nombre": "Ángel Allegri",
+        "partidos": 399,
+        "periodo": "1946-1960",
+        "goles": 37
+      },
+      {
+        "nombre": "Armando Ovide",
+        "partidos": 391,
+        "periodo": "1941-1955",
+        "goles": 2
+      },
+      {
+        "nombre": "José Luis Chilavert",
+        "partidos": 347,
+        "periodo": "1991-2000; 2004",
+        "goles": 48
+      },
+      {
+        "nombre": "Christian Bassedas",
+        "partidos": 331,
+        "periodo": "1990-2000",
+        "goles": 28
+      },
+      {
+        "nombre": "Carlos Bianchi",
+        "partidos": 324,
+        "periodo": "1967-1973; 1980-1984",
+        "goles": 206
+      },
+      {
+        "nombre": "Luis Gregorio Gallo",
+        "partidos": 319,
+        "periodo": "1965-1974",
+        "goles": 7
+      },
+      {
+        "nombre": "Emiliano Papa",
+        "partidos": 306,
+        "periodo": "2006-2007; 2008-2015",
+        "goles": 9
+      },
+      {
+        "nombre": "Juan José Ferraro",
+        "partidos": 303,
+        "periodo": "1941-1948; 1953-1957",
+        "goles": 157
+      },
+      {
+        "nombre": "Juan Carlos Bujedo",
+        "partidos": 296,
+        "periodo": "1979-1987",
+        "goles": 5
+      },
+      {
+        "nombre": "Mario Lucca",
+        "partidos": 279,
+        "periodo": "1984-1991",
+        "goles": 16
+      }
+    ],
+    "titulos": [
+      {
+        "titulos": 9,
+        "jugadores": [
+          "José Luis Chilavert",
+          "Víctor Sotomayor",
+          "Carlos Compagnucci",
+          "Raúl Cardozo",
+          "Christian Bassedas",
+          "Mauricio Pellegrino",
+          "Martín Posse",
+          "Patricio Camps",
+          "Claudio Husaín"
+        ]
+      },
+      {
+        "titulos": 8,
+        "jugadores": [
+          "Marcelo Gómez",
+          "Flavio Zandoná",
+          "Sebastián Méndez"
+        ]
+      },
+      {
+        "titulos": 7,
+        "jugadores": [
+          "Fernando Pandolfi",
+          "Fabián Cubero"
+        ]
+      },
+      {
+        "titulos": 6,
+        "jugadores": [
+          "Omar Asad",
+          "Roberto Trotta",
+          "José Oscar Flores"
+        ]
+      }
+    ],
+    "tecnicos": "Carlos Bianchi es el DT más ganador del club, con 6 títulos oficiales; lo sigue Ricardo Gareca, con 4 títulos locales.",
+    "goleadoresTorneo": [
+      {
+        "nombre": "Salvador Carreras",
+        "torneo": "Campeonato 1920 (AAmF)",
+        "goles": 19
+      },
+      {
+        "nombre": "Agustín Cosso",
+        "torneo": "Primera División 1935",
+        "goles": 33
+      },
+      {
+        "nombre": "Norberto Conde",
+        "torneo": "Primera División 1954",
+        "goles": 19
+      },
+      {
+        "nombre": "Juan Carlos Carone",
+        "torneo": "Primera División 1965",
+        "goles": 19
+      },
+      {
+        "nombre": "Omar Wehbe",
+        "torneo": "Nacional 1968",
+        "goles": 16
+      },
+      {
+        "nombre": "Carlos Bianchi",
+        "torneo": "Nacional 1970",
+        "goles": 18
+      },
+      {
+        "nombre": "Carlos Bianchi",
+        "torneo": "Metropolitano 1971",
+        "goles": 36
+      },
+      {
+        "nombre": "Carlos Bianchi",
+        "torneo": "Nacional 1981",
+        "goles": 15
+      },
+      {
+        "nombre": "Jorge Comas",
+        "torneo": "Nacional 1985",
+        "goles": 12
+      },
+      {
+        "nombre": "Esteban González",
+        "torneo": "Primera División 1990/91",
+        "goles": 18
+      },
+      {
+        "nombre": "José Oscar Flores",
+        "torneo": "Clausura 1995",
+        "goles": 14
+      },
+      {
+        "nombre": "Rolando Zárate",
+        "torneo": "Clausura 2004",
+        "goles": 13
+      },
+      {
+        "nombre": "Mauro Zárate",
+        "torneo": "Apertura 2006",
+        "goles": 12
+      },
+      {
+        "nombre": "Santiago Silva",
+        "torneo": "Apertura 2010",
+        "goles": 11
+      },
+      {
+        "nombre": "Facundo Ferreyra",
+        "torneo": "Inicial 2012",
+        "goles": 13
+      },
+      {
+        "nombre": "Lucas Pratto",
+        "torneo": "Primera División 2014",
+        "goles": 11
+      }
+    ]
+  }
+}

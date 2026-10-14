@@ -1,0 +1,137 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { aggregateStats, annualTable, discipline, headToHead, normalizeEvent, normalizeStandings, playersFromSummary, velezView } from '../js/espn.js';
+
+const side = (id, name, homeAway, score, extra = {}) => ({
+  homeAway,
+  team: { id, displayName: name, logos: [{ href: `logo-${id}` }] },
+  score: score == null ? undefined : { value: score, displayValue: String(score) },
+  ...extra,
+});
+
+const event = ({ id = '1', date = '2026-01-01T20:00Z', home, away, state = 'post', league = { slug: 'arg.1', name: 'Argentine Liga Profesional de Fútbol' } }) => ({
+  id,
+  date,
+  league,
+  competitions: [{ competitors: [home, away], status: { type: { state, completed: state === 'post', shortDetail: 'FT' } }, venue: { fullName: 'José Amalfitani' } }],
+});
+
+test('normalizeEvent toma local/visitante por homeAway, no por orden', () => {
+  const m = normalizeEvent(event({ away: side('16', 'River Plate', 'away', 1), home: side('21', 'Vélez Sarsfield', 'home', 2) }));
+  assert.equal(m.home.name, 'Vélez');
+  assert.equal(m.home.score, 2);
+  assert.equal(m.away.id, '16');
+  assert.equal(m.comp, 'Liga Profesional');
+  assert.equal(m.completed, true);
+});
+
+test('normalizeEvent: partido sin jugar tiene score null y logo de respaldo', () => {
+  const home = side('21', 'Vélez Sarsfield', 'home');
+  const away = { homeAway: 'away', team: { id: '99', displayName: 'Rival' } };
+  const m = normalizeEvent(event({ home, away, state: 'pre' }));
+  assert.equal(m.home.score, null);
+  assert.equal(m.completed, false);
+  assert.match(m.away.logo, /\/99\.png$/);
+});
+
+test('normalizeEvent traduce competencias', () => {
+  const m = normalizeEvent(event({ home: side('21', 'Vélez Sarsfield', 'home', 2), away: side('8', 'Estudiantes', 'away', 0), league: { slug: 'x', name: 'Argentine Supercopa Internacional' } }));
+  assert.equal(m.comp, 'Supercopa Internacional');
+});
+
+test('velezView resuelve resultado desde la óptica de Vélez, de local o visitante', () => {
+  const visit = normalizeEvent(event({ home: side('12', 'Lanús', 'home', 2), away: side('21', 'Vélez Sarsfield', 'away', 0) }));
+  assert.deepEqual([velezView(visit).result, velezView(visit).velezHome, velezView(visit).rival.name], ['P', false, 'Lanús']);
+  const draw = normalizeEvent(event({ home: side('21', 'Vélez Sarsfield', 'home', 1), away: side('5', 'Boca Juniors', 'away', 1) }));
+  assert.equal(velezView(draw).result, 'E');
+});
+
+test('velezView: empate definido por penales usa el flag winner', () => {
+  const m = normalizeEvent(event({ home: side('21', 'Vélez Sarsfield', 'home', 1, { winner: true }), away: side('5', 'Boca Juniors', 'away', 1, { winner: false }) }));
+  assert.equal(velezView(m).result, 'G');
+});
+
+test('headToHead acumula por rival, cuenta penales como empate e ignora amistosos y no jugados', () => {
+  const ms = [
+    event({ id: 'a', date: '2020-01-01T00:00Z', home: side('21', 'Vélez Sarsfield', 'home', 3), away: side('16', 'River Plate', 'away', 1) }),
+    event({ id: 'b', date: '2021-01-01T00:00Z', home: side('16', 'River Plate', 'home', 2), away: side('21', 'Vélez Sarsfield', 'away', 2, { winner: true }) }),
+    event({ id: 'c', date: '2022-01-01T00:00Z', home: side('21', 'Vélez Sarsfield', 'home', 0), away: side('16', 'River Plate', 'away', 0), league: { slug: 'f', name: 'Club Friendly' } }),
+    event({ id: 'd', date: '2026-12-01T00:00Z', home: side('21', 'Vélez Sarsfield', 'home'), away: side('16', 'River Plate', 'away'), state: 'pre' }),
+    event({ id: 'e', date: '2022-01-01T00:00Z', home: side('5', 'Boca Juniors', 'home', 1), away: side('21', 'Vélez Sarsfield', 'away', 0) }),
+  ].map(normalizeEvent);
+  const [river, boca] = headToHead(ms);
+  assert.deepEqual({ pj: river.pj, g: river.g, e: river.e, p: river.p, gf: river.gf, gc: river.gc }, { pj: 2, g: 1, e: 1, p: 0, gf: 5, gc: 3 });
+  assert.deepEqual(river.matches.map((m) => m.id), ['b', 'a']);
+  assert.deepEqual({ pj: boca.pj, p: boca.p }, { pj: 1, p: 1 });
+});
+
+test('normalizeStandings renombra zonas y ordena por posición', () => {
+  const stat = (name, value) => ({ name, value });
+  const entry = (id, rank, pts) => ({ team: { id, displayName: id === '21' ? 'Vélez Sarsfield' : `T${id}` }, stats: [stat('rank', rank), stat('points', pts), stat('gamesPlayed', 1), stat('wins', 0), stat('ties', 0), stat('losses', 0), stat('pointsFor', 0), stat('pointsAgainst', 0), stat('pointDifferential', 0)] });
+  const [zona] = normalizeStandings({ children: [{ name: 'Group A', standings: { entries: [entry('21', 2, 3), entry('5', 1, 6)] } }] });
+  assert.equal(zona.name, 'Zona A');
+  assert.deepEqual(zona.rows.map((r) => r.name), ['T5', 'Vélez']);
+});
+
+test('annualTable suma fases por equipo y ordena por puntos, DG y GF', () => {
+  const row = (id, pts, dg, gf, pj = 1) => ({ id, name: `T${id}`, logo: null, pj, g: 0, e: 0, p: 0, gf, gc: gf - dg, dg, pts });
+  const apertura = [{ name: 'Zona A', rows: [row('21', 10, 2, 8), row('5', 12, 1, 5)] }, { name: 'Zona B', rows: [row('16', 9, 5, 9)] }];
+  const clausura = [{ name: 'Zona A', rows: [row('21', 6, 1, 4), row('16', 7, 0, 3)] }, { name: 'Zona B', rows: [row('5', 4, 2, 6)] }];
+  const t = annualTable([apertura, clausura]);
+  // Los tres empatan en 16 pts: T16 (DG +5), T21 (DG +3, GF 12), T5 (DG +3, GF 11).
+  assert.deepEqual(t.map((r) => [r.id, r.pts, r.rank]), [['16', 16, 1], ['21', 16, 2], ['5', 16, 3]]);
+  assert.equal(t.find((r) => r.id === '21').pj, 2);
+});
+
+// ---------- Jugadores ----------
+const summaryOf = (players) => ({
+  rosters: [
+    { team: { id: '5' }, roster: [] },
+    {
+      team: { id: '21' },
+      roster: players.map(([id, { starter = true, subbedIn = false, ...stats }]) => ({
+        starter, subbedIn, athlete: { id, displayName: `J${id}` },
+        stats: Object.entries({ appearances: starter || subbedIn ? 1 : 0, ...stats }).map(([name, value]) => ({ name, value })),
+      })),
+    },
+  ],
+});
+const liga = (id, round = 'Torneo Clausura', date = `2026-08-${String(id).padStart(2, '0')}T20:00Z`) => ({ id: String(id), date, comp: 'Liga Profesional', round });
+
+test('playersFromSummary toma solo a Vélez y a los que entraron', () => {
+  const ps = playersFromSummary(summaryOf([['1', { totalGoals: 2 }], ['2', { starter: false }], ['3', { starter: false, subbedIn: true, goalAssists: 1 }]]));
+  assert.deepEqual(ps.map((p) => [p.id, p.starter, p.stats.g, p.stats.a]), [['1', true, 2, 0], ['3', false, 0, 1]]);
+});
+
+test('aggregateStats separa Apertura, Clausura y copas y pone primero el torneo más reciente', () => {
+  const p = (stats) => playersFromSummary(summaryOf([['1', stats]]));
+  const t = aggregateStats([
+    { match: liga(1, 'Torneo Apertura', '2026-03-01T20:00Z'), players: p({ totalGoals: 1 }) },
+    { match: liga(2), players: p({ totalGoals: 2, yellowCards: 1 }) },
+    { match: liga(3), players: p({ totalGoals: 1 }) },
+    { match: { id: '9', date: '2026-07-01T20:00Z', comp: 'Copa Argentina' }, players: p({}) },
+  ]);
+  assert.deepEqual(t.map((x) => [x.label, x.matches]), [['Clausura 2026', 2], ['Copa Argentina 2026', 1], ['Apertura 2026', 1]]);
+  assert.deepEqual([t[0].players[0].pj, t[0].players[0].g, t[0].players[0].am, t[0].players[0].tit], [2, 3, 1, 2]);
+});
+
+test('discipline: quinta amarilla en el último partido = suspendido; cuatro = al límite; roja = suspendido', () => {
+  const g = (id, players) => ({ match: liga(id), players: playersFromSummary(summaryOf(players)) });
+  const games = [
+    g(1, [['A', { yellowCards: 1 }], ['B', { yellowCards: 1 }], ['C', { yellowCards: 1 }]]),
+    g(2, [['A', { yellowCards: 1 }], ['B', { yellowCards: 1 }], ['C', { yellowCards: 1 }]]),
+    g(3, [['A', { yellowCards: 1 }], ['B', { yellowCards: 1 }], ['C', { yellowCards: 1 }]]),
+    g(4, [['A', { yellowCards: 1 }], ['B', { yellowCards: 1 }], ['C', { yellowCards: 1 }]]),
+    g(5, [['A', { yellowCards: 1 }], ['B', {}], ['C', {}], ['D', { yellowCards: 1, redCards: 1 }]]),
+  ];
+  const d = discipline(games, new Set(['Clausura-2026']));
+  const by = Object.fromEntries(d.map((x) => [x.id, x.kind]));
+  assert.deepEqual(by, { A: 'amarillas', B: 'limite', C: 'limite', D: 'roja' });
+});
+
+test('discipline ignora torneos sin partidos por jugar y la quinta amarilla ya cumplida', () => {
+  const g = (id, players) => ({ match: liga(id), players: playersFromSummary(summaryOf(players)) });
+  const games = [1, 2, 3, 4, 5].map((i) => g(i, [['A', { yellowCards: 1 }]])).concat([g(6, [['A', {}]])]);
+  assert.deepEqual(discipline(games, new Set(['Clausura-2026'])), []);
+  assert.deepEqual(discipline(games.slice(0, 5), new Set()), []);
+});
