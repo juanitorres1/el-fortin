@@ -41,14 +41,19 @@ function renderJuega(data, results) {
   const isLive = next.status === 'in';
   const team = (t) => `<div class="juega-team">${logo(t.logo, 56)}<span>${esc(t.name)}</span></div>`;
   const center = isLive ? `<span class="juega-score num">${next.home.score ?? 0}-${next.away.score ?? 0}</span>` : '<span class="juega-vs">vs</span>';
+  // Dos columnas en escritorio (el partido | cuenta regresiva y datos); una en celular.
   box.innerHTML = `
-    <h2 class="juega-title">${isLive ? '<span class="live-pill">En vivo</span>' : 'Juega Vélez'}</h2>
-    <p class="juega-comp">${esc(next.comp)}${next.round ? ` · ${esc(next.round.replace('Torneo ', ''))}` : ''}</p>
-    <div class="juega-teams">${team(next.home)}${center}${team(next.away)}</div>
-    <p class="juega-when">${esc(capitalize(fmt.long.format(d)))}${next.timeValid ? ` · ${fmt.time.format(d)} h` : ' · hora a confirmar'}${next.venue ? `<br>${esc(next.venue)}` : ''}</p>
-    ${isLive ? '' : '<div class="countdown" data-countdown role="timer" aria-label="Falta para el partido"></div>'}
-    <dl class="juega-facts">${lastHtml}${posHtml}</dl>
-    <a class="btn btn-on-accent" href="partidos.html">Fixture y tablas</a>`;
+    <div class="juega-main">
+      <h2 class="juega-title">${isLive ? '<span class="live-pill">En vivo</span>' : 'Juega Vélez'}</h2>
+      <p class="juega-comp">${esc(next.comp)}${next.round ? ` · ${esc(next.round.replace('Torneo ', ''))}` : ''}</p>
+      <div class="juega-teams">${team(next.home)}${center}${team(next.away)}</div>
+      <p class="juega-when">${esc(capitalize(fmt.long.format(d)))}${next.timeValid ? ` · ${fmt.time.format(d)} h` : ' · hora a confirmar'}${next.venue ? ` · ${esc(next.venue)}` : ''}</p>
+    </div>
+    <div class="juega-side">
+      ${isLive ? '' : '<div class="countdown" data-countdown role="timer" aria-label="Falta para el partido"></div>'}
+      <dl class="juega-facts">${lastHtml}${posHtml}</dl>
+      <a class="btn btn-on-accent" href="partidos.html">Fixture y tablas</a>
+    </div>`;
   if (isLive) return;
   const cd = box.querySelector('[data-countdown]');
   const tick = () => {
@@ -68,7 +73,7 @@ function renderJuega(data, results) {
 // ---------- Noticias ----------
 
 const SUMMARY_MAX_AGE_DAYS = 10; // si el workflow semanal falló, no mostrar un resumen viejo como si fuera de esta semana
-const MAX_CARDS = 9;
+const MAX_CARDS = 7; // destacada (2×2) + 6: llena la grilla de 4 columnas en escritorio
 const FEATURED_SECTIONS = ['futbol', 'columnadt', 'socios', 'club']; // la destacada sale de acá si hay
 const SECTION_NAMES = {
   futbol: 'Fútbol', columnadt: 'Palabra del DT', socios: 'Socios', club: 'Club', reserva: 'Reserva', amateur: 'Juveniles',
@@ -78,22 +83,19 @@ const SECTION_NAMES = {
 const sectionName = (s) => SECTION_NAMES[s] ?? capitalize(s.replace(/-/g, ' '));
 const shortDate = (iso) => iso.slice(5).split('-').reverse().join('/'); // «2026-10-13» → «13/10»
 
+// Grilla de noticias: la primera (de fútbol, DT, socios o club, si hay) va destacada y más grande.
 function newsCard(h, featured) {
-  // Miniaturas livianas generadas en el deploy (la foto original de la web oficial pesa más de 2 MB).
-  const src = featured ? h.photo : h.thumb;
-  const [w, hgt] = featured ? [720, 405] : [92, 92];
-  const img = isNewsImage(src)
-    ? `<img class="nw-img" src="${esc(src)}" alt="" width="${w}" height="${hgt}" loading="${featured ? 'eager' : 'lazy'}" decoding="async" onerror="this.remove()">`
+  const img = isNewsImage(h.photo)
+    ? `<img class="nw-img" src="${esc(h.photo)}" alt="" width="720" height="405" loading="${featured ? 'eager' : 'lazy'}" decoding="async" onerror="this.remove()">`
     : '';
   return `<a class="nw-card${featured ? ' nw-featured' : ''}" href="${esc(h.url)}" target="_blank" rel="noopener">
-    ${featured ? img : ''}
+    ${img}
     <div class="nw-body">
-      <p class="nw-source">Vélez Sarsfield · ${esc(sectionName(h.section))}</p>
+      <p class="kicker">${esc(sectionName(h.section))} <span class="nw-time">· ${esc(relativeDay(h.date))}</span></p>
       <h3 class="nw-title">${esc(h.title)}</h3>
       ${featured && h.lead ? `<p class="nw-lead">${esc(h.lead)}</p>` : ''}
-      <p class="nw-time">${esc(relativeDay(h.date))}<span class="sr-only"> · abre velez.com.ar en otra pestaña</span></p>
+      <span class="sr-only">Abre velez.com.ar en otra pestaña</span>
     </div>
-    ${featured ? '' : img}
   </a>`;
 }
 

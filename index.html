@@ -30,27 +30,30 @@
     </div>
   </header>
 
-  <main id="contenido" class="wrap home">
+  <main id="contenido">
     <h1 class="sr-only">El Fortín: noticias y partidos de Vélez Sarsfield</h1>
-    <aside class="juega" data-juega aria-label="Próximo partido de Vélez">
-      <div class="skeleton sk-juega" aria-hidden="true"></div>
-    </aside>
-
-    <section class="home-news" aria-labelledby="t-noticias">
-      <div class="section-head">
-        <h2 class="h2" id="t-noticias">Noticias</h2>
-        <a class="more" href="https://velez.com.ar/noticias" target="_blank" rel="noopener">Todas en velez.com.ar</a>
-      </div>
-      <div class="news-grid" data-headlines>
-        <div class="skeleton sk-featured" aria-hidden="true"></div>
-        <div class="skeleton sk-card" aria-hidden="true"></div><div class="skeleton sk-card" aria-hidden="true"></div><div class="skeleton sk-card" aria-hidden="true"></div>
-      </div>
-      <details class="news-summary" data-summary hidden></details>
+    <section class="match-band" aria-label="Próximo partido de Vélez">
+      <div class="wrap juega" data-juega><div class="skeleton sk-juega" aria-hidden="true"></div></div>
     </section>
 
-    <a class="home-quote" href="club.html#don-pepe">
-      <blockquote>«Yo no he venido al funeral de Vélez Sarsfield.»</blockquote>
-      <span>José Amalfitani, 1940 · Conocé la historia del club</span>
+    <section class="band band-gray" aria-labelledby="t-noticias">
+      <div class="wrap">
+        <div class="section-head">
+          <h2 class="display" id="t-noticias">Noticias</h2>
+          <a class="btn btn-outline" href="https://velez.com.ar/noticias" target="_blank" rel="noopener">Todas en velez.com.ar</a>
+        </div>
+        <div class="news-grid" data-headlines>
+          <div class="skeleton sk-card" aria-hidden="true"></div><div class="skeleton sk-card" aria-hidden="true"></div><div class="skeleton sk-card" aria-hidden="true"></div><div class="skeleton sk-card" aria-hidden="true"></div>
+        </div>
+        <details class="news-summary" data-summary hidden></details>
+      </div>
+    </section>
+
+    <a class="band band-blue home-quote" href="club.html#don-pepe">
+      <span class="wrap">
+        <blockquote>«Yo no he venido al funeral de Vélez Sarsfield.»</blockquote>
+        <span class="home-quote-by">José Amalfitani, 1940 · Conocé la historia del club →</span>
+      </span>
     </a>
   </main>
 

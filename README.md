@@ -34,7 +34,11 @@ oscuro.
 - **Tipografía:** Barlow Condensed para marcadores, números y títulos; Montserrat para el texto. Base 17 px, mínimo
   12 px, en `rem` (respeta el tamaño de letra del navegador).
 - **Controles de 44 px como mínimo**; en celular, barra inferior con las 5 secciones.
-- **Una sola firma:** la V de la camiseta, tono sobre tono, en la tarjeta «Juega Vélez».
+- **Azul del club con identidad propia:** barra azul, bandas de color y pie azul oscuro, pero sin copiar los rasgos
+  característicos de la web oficial (portada partida foto + columna, cortes diagonales, tarjetas azules alternadas,
+  fechas en cajas azules con cursiva, esquinas rectas). En su lugar: **el partido primero** (banda «Juega Vélez» arriba
+  de todo, con la V de la camiseta tono sobre tono), la **muesca en V** en el borde de las bandas, títulos en Barlow
+  Condensed, esquinas suaves y botones tipo píldora.
 - Esqueletos mientras cargan los datos; se respetan «reducir movimiento» y «aumentar contraste».
 
 ## Cómo funcionan los datos

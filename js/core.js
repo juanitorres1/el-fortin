@@ -86,9 +86,15 @@ export function matchItem(m, { showYear = false } = {}) {
 /** Placeholders con la forma del contenido mientras cargan los datos (`loading.md`: mostrar algo enseguida). */
 export const skeletonRows = (n, cls = 'sk-row') => Array.from({ length: n }, () => `<li class="skeleton ${cls}" aria-hidden="true"></li>`).join('');
 
-/** Si se entró con #ancla, se repite el salto cuando la página ya está armada (el inicial ocurre con la página vacía). */
-export function scrollToHash() {
+/**
+ * Si se entró con #ancla, se repite el salto cuando la página ya está armada: el inicial ocurre con la página vacía,
+ * y además hay que esperar las tipografías (Montserrat es más ancha que la de respaldo: al cargar, los textos ocupan
+ * más líneas y empujan la sección más de 1000 px hacia abajo en celular).
+ */
+export async function scrollToHash() {
   const id = location.hash.slice(1);
   const target = id ? document.getElementById(id) : null;
-  target?.scrollIntoView({ behavior: 'instant', block: 'start' });
+  if (!target) return;
+  await document.fonts.ready;
+  target.scrollIntoView({ behavior: 'instant', block: 'start' });
 }
