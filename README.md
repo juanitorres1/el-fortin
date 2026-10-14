@@ -1,6 +1,7 @@
 # El Fortín · Vélez Sarsfield
 
-Sitio de hinchas (no oficial) de Vélez: próximo partido con cuenta regresiva, fixture, resultados, tabla de la
+Sitio de hinchas (no oficial) de Vélez: próximo partido con cuenta regresiva, fixture, resultados, noticias del
+club con un resumen semanal hecho por IA, tabla de la
 Liga Profesional por zonas y anual, copas en curso, plantel con sanciones estimadas, estadísticas de jugadores
 por torneo, historial contra cada rival desde 1931, historia, estadio, frases de José Amalfitani, momentos,
 palmarés, ídolos y récords históricos.
@@ -15,6 +16,8 @@ Sitio estático sin build ni dependencias: HTML + CSS + JS (módulos ES). Se pub
 | Tabla anual | Calculada sumando las fases regulares de ESPN (Apertura + Clausura) | En cada visita |
 | Respaldo de todo lo anterior | `data/generated/snapshot.json` | Cada 1 h, en GitHub Actions |
 | Estadísticas de jugadores por torneo, suspendidos y «al límite de amarillas» | `data/generated/players.json`, sumando el detalle (`/summary`) de ESPN de cada partido del año | Cada 1 h, en GitHub Actions |
+| Titulares de la semana («Últimas del club») | `data/generated/news.json`, leyendo las páginas de sección de velez.com.ar (no tiene RSS) | Cada 1 h, en GitHub Actions |
+| Resumen de la semana con IA | `resumen.json`, generado por `.github/workflows/news-weekly.yml` con **Qwen3-8B** y guardado como artifact; el deploy baja el último | Lunes 9:00 (hora argentina) |
 | Historial vs. rivales desde 2001 (todas las competiciones) | `data/generated/matches.json`, armado desde ESPN | Cada 1 h, en GitHub Actions |
 | Historial vs. rivales 1931–2000 (solo Primera División) | `data/historico.json`, generado una vez con `scripts/import-historico.mjs` | Nunca (el pasado no cambia) |
 | Historia, estadio, frases, momentos, palmarés, ídolos, récords | `data/club.json` (a mano) | Cuando lo edites |
@@ -33,6 +36,21 @@ DT de Vélez está desactualizado. Se evaluaron otras fuentes:
 
 **Tabla anual.** Suma las fases regulares de Apertura y Clausura (sin playoffs) y desempata por diferencia de gol
 y goles a favor. El reglamento tiene más criterios que ESPN no expone. No hay tabla de promedios.
+
+**Resumen semanal con IA.** Los lunes, `news-weekly.yml` corre **Qwen3-8B** (licencia Apache 2.0) con
+llama.cpp en la CPU del runner de GitHub (gratis, sin API keys; ~5–8 min) sobre las notas oficiales de la semana:
+
+- Las notas le llegan ordenadas por importancia (fútbol, palabra del DT, socios, club, después el resto).
+- Cada punto cita su nota y la página la linkea. Solo se linkean URLs de `velez.com.ar/…/notas/…`.
+- **Control automático:** si un punto tiene números, montos o fechas (también en palabras: «cuatro», «quinto»)
+  que no aparecen en su nota, se descarta. Si quedan menos de 2 puntos, no se publica y la página muestra solo
+  los titulares. Las opiniones o adjetivos que agregue el modelo no se pueden detectar así: por eso el aviso.
+- La página lo muestra con el aviso «generado por IA, puede contener errores: verificá cada punto en su nota», y
+  lo oculta si tiene más de 10 días (por si el workflow semanal falló).
+- El último resultado y el próximo partido de la sección **no** son del modelo: salen de ESPN en vivo.
+- Para regenerarlo a mano: Actions → «Resumen semanal de noticias (Qwen)» → Run workflow.
+
+Se usan solo título, fecha, link y un resumen breve: nunca el texto completo de las notas.
 
 **Historial.** ESPN no tiene partidos de Vélez anteriores a 2001. Para 1931–2000 se usa el dataset
 [Liga Argentina 1931–2023](https://www.kaggle.com/datasets/ivanramosctes/liga-argentina-1931-2023) (licencia
@@ -59,7 +77,7 @@ de Kaggle **fuera del repo** y correr `node scripts/import-historico.mjs ruta/a/
 ## Desarrollo local
 
 ```bash
-npm run data   # baja snapshot, historial y estadísticas a data/generated/ (~60 requests a ESPN)
+npm run data   # baja snapshot, historial, estadísticas y titulares a data/generated/ (~60 requests a ESPN, ~20 a velez.com.ar)
 npm run dev    # http://localhost:5173
 npm test
 ```

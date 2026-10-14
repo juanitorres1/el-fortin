@@ -14,7 +14,7 @@
   <script type="module" src="js/app.js"></script>
 </head>
 <body>
-  <a class="skip" href="#partidos">Saltar al contenido</a>
+  <a class="skip" href="#noticias">Saltar al contenido</a>
 
   <header class="topbar">
     <a class="brand" href="#inicio" aria-label="Inicio">
@@ -22,6 +22,7 @@
       <span>El Fortín</span>
     </a>
     <nav class="nav" aria-label="Secciones">
+      <a href="#noticias">Noticias</a>
       <a href="#partidos">Partidos</a>
       <a href="#tablas">Tablas</a>
       <a href="#plantel">Plantel</a>
@@ -36,6 +37,17 @@
   </header>
 
   <main>
+    <section class="news-top" id="noticias" aria-labelledby="noticias-titulo">
+      <div class="wrap">
+        <header class="news-head">
+          <h2 id="noticias-titulo">Noticias</h2>
+          <ul class="facts" data-facts></ul>
+        </header>
+        <div class="news-grid" data-headlines></div>
+        <details class="news-summary" data-summary hidden></details>
+      </div>
+    </section>
+
     <section class="hero" id="inicio">
       <div class="hero-v" aria-hidden="true"></div>
       <div class="wrap hero-grid">

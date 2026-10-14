@@ -1,28 +1,26 @@
-name: Prueba resumen de noticias (Qwen)
+name: Resumen semanal de noticias (Qwen)
 
-# Solo a mano (Actions → «Prueba resumen de noticias» → Run workflow). No publica nada en el sitio:
-# deja el resultado en el resumen del job y como artifact, para evaluar calidad y tiempos.
+# Los lunes a las 9:00 (hora argentina) resume las notas de la semana de velez.com.ar con Qwen3-8B corriendo en
+# CPU (llama.cpp). El resultado se guarda como artifact «resumen-semanal»; el deploy de cada hora baja el último.
 on:
+  schedule:
+    - cron: '0 12 * * 1' # 12:00 UTC = 9:00 en Argentina
   workflow_dispatch:
 
 permissions:
   contents: read
+  actions: write # para lanzar el deploy al terminar
 
 env:
-  LLAMA_CPP: b11620 # build fijo de llama.cpp, para que la prueba sea reproducible
+  LLAMA_CPP: b11620 # build fijo de llama.cpp: que el resumen no cambie de comportamiento con cada versión
+  MODEL_NAME: Qwen3-8B
+  MODEL_REPO: Qwen/Qwen3-8B-GGUF # licencia Apache 2.0
+  MODEL_FILE: Qwen3-8B-Q4_K_M.gguf
 
 jobs:
   resumen:
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: Qwen3-8B
-            repo: Qwen/Qwen3-8B-GGUF
-            file: Qwen3-8B-Q4_K_M.gguf
-    name: ${{ matrix.name }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -33,16 +31,16 @@ jobs:
       - name: Hardware del runner
         run: nproc && free -h
 
-      # El modelo pesa 2,5–5 GB: se cachea para no bajarlo de Hugging Face en cada corrida.
+      # El modelo pesa 5 GB: se cachea para no bajarlo de Hugging Face en cada corrida.
       - uses: actions/cache@v6
         with:
           path: models
-          key: model-${{ matrix.file }}
+          key: model-${{ env.MODEL_FILE }}
       - name: Bajar modelo (si no está en caché)
         run: |
           mkdir -p models
-          if [ ! -f "models/${{ matrix.file }}" ]; then
-            curl -fL --retry 3 -o "models/${{ matrix.file }}" "https://huggingface.co/${{ matrix.repo }}/resolve/main/${{ matrix.file }}"
+          if [ ! -f "models/${{ env.MODEL_FILE }}" ]; then
+            curl -fL --retry 3 -o "models/${{ env.MODEL_FILE }}" "https://huggingface.co/${{ env.MODEL_REPO }}/resolve/main/${{ env.MODEL_FILE }}"
           fi
           ls -lh models
 
@@ -56,7 +54,7 @@ jobs:
 
       - name: Levantar el modelo
         run: |
-          "$SERVER" -m "models/${{ matrix.file }}" -c 12288 -t "$(nproc)" --jinja --port 8080 > llama.log 2>&1 &
+          "$SERVER" -m "models/${{ env.MODEL_FILE }}" -c 12288 -t "$(nproc)" --jinja --port 8080 > llama.log 2>&1 &
           for i in $(seq 1 120); do
             curl -sf http://127.0.0.1:8080/health > /dev/null && echo "listo en ${i}s" && exit 0
             sleep 1
@@ -66,16 +64,20 @@ jobs:
       - name: Resumir las notas de la semana
         env:
           LLM_URL: http://127.0.0.1:8080
-          MODEL_NAME: ${{ matrix.name }}
-        run: node scripts/news.mjs
+        run: node scripts/news.mjs resumen
 
       - name: Log de llama.cpp (si falló)
         if: failure()
         run: tail -80 llama.log
 
       - uses: actions/upload-artifact@v7
-        if: always()
         with:
-          name: resumen-${{ matrix.name }}
+          name: resumen-semanal
           path: data/generated/resumen.json
-          if-no-files-found: ignore
+          retention-days: 30
+
+      # Publicar enseguida en vez de esperar al deploy de la hora siguiente.
+      - name: Lanzar el deploy
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deploy.yml --ref main --repo "${{ github.repository }}"

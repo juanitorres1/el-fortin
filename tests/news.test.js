@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { decodeBody, factsIn, matchFacts, noteLinks, numberWordsIn, parseNote, rankNotes, unsupportedFacts } from '../scripts/news.mjs';
+import { decodeBody, factsIn, noteLinks, numberWordsIn, parseNote, rankNotes, unsupportedFacts } from '../scripts/news.mjs';
+import { isOfficialImageUrl, isOfficialNoteUrl, matchFacts, relativeDay } from '../js/news.js';
 
 test('noteLinks toma links a notas con su fecha y sin duplicados', () => {
   const html = `<a href="/futbol/notas/2026/10/13/164448_manu-lanzini">x</a>
@@ -12,12 +13,31 @@ test('noteLinks toma links a notas con su fecha y sin duplicados', () => {
 test('parseNote saca título sin «/ Vélez Sarsfield», bajada y párrafos del cuerpo', () => {
   const html = `<meta property="og:title" content="Manu Lanzini sigue en el Fort&iacute;n  / V&eacute;lez Sarsfield">
     <meta property="og:description" content="Renov&oacute; hasta 2027.">
+    <meta property="og:image" content="//velez.com.ar/img/noticias/26/1000794863.jpg" />
+    <meta property="article:published_time" content="2026-10-13T16:41:00+00:00" />
     <p>Menú que no es parte de la nota pero es un texto bastante largo para pasar el filtro</p>
     <div class="nxl-noticia nxl-cuerpo"><p>Manuel Lanzini firm&oacute; su contrato hasta el 31 de diciembre de 2027 en Liniers.</p><p>corto</p></div>`;
   const n = parseNote(html);
   assert.equal(n.title, 'Manu Lanzini sigue en el Fortín');
   assert.equal(n.lead, 'Renovó hasta 2027.');
   assert.equal(n.body, 'Manuel Lanzini firmó su contrato hasta el 31 de diciembre de 2027 en Liniers.');
+  assert.equal(n.image, 'https://velez.com.ar/img/noticias/26/1000794863.jpg');
+  assert.equal(n.published, '2026-10-13T16:41:00+00:00');
+});
+
+test('isOfficialImageUrl solo acepta imágenes de velez.com.ar/img', () => {
+  assert.equal(isOfficialImageUrl('https://velez.com.ar/img/noticias/26/1000794863.jpg'), true);
+  assert.equal(isOfficialImageUrl('https://otro.com/img/x.jpg'), false);
+  assert.equal(isOfficialImageUrl('https://velez.com.ar/img/x.jpg" onerror="alert(1)'), false);
+  assert.equal(isOfficialImageUrl(null), false);
+});
+
+test('relativeDay: hoy, ayer, hace N días y fecha para lo más viejo', () => {
+  const now = new Date('2026-10-14T15:00:00Z'); // 12:00 en Argentina
+  assert.equal(relativeDay('2026-10-14', now), 'Hoy');
+  assert.equal(relativeDay('2026-10-13', now), 'Ayer');
+  assert.equal(relativeDay('2026-10-10', now), 'Hace 4 días');
+  assert.equal(relativeDay('2026-10-01', now), '01/10');
 });
 
 test('decodeBody respeta el charset de la cabecera HTTP', () => {
@@ -61,4 +81,12 @@ test('matchFacts arma el último resultado de la semana y el próximo partido si
   assert.match(next.texto, /^Próximo partido: Vélez vs\. Gimnasia \(Mendoza\), sábado 17\/10 a las 20:00, en José Amalfitani \(Liga Profesional\)\.$/);
   // Un resultado de hace más de una semana no se informa.
   assert.equal(matchFacts([], results, new Date('2026-10-25T12:00:00Z')).length, 0);
+});
+
+test('isOfficialNoteUrl solo acepta notas de velez.com.ar', () => {
+  assert.equal(isOfficialNoteUrl('https://velez.com.ar/futbol/notas/2026/10/13/164448_manu-lanzini-sigue-en-el-fortin'), true);
+  assert.equal(isOfficialNoteUrl('https://velez.com.ar.evil.com/futbol/notas/2026/10/13/1_x'), false);
+  assert.equal(isOfficialNoteUrl('javascript:alert(1)'), false);
+  assert.equal(isOfficialNoteUrl('https://velez.com.ar/futbol/notas/2026/10/13/1_x"><script>'), false);
+  assert.equal(isOfficialNoteUrl(undefined), false);
 });

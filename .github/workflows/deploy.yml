@@ -4,11 +4,12 @@ on:
   push:
     branches: [main]
   schedule:
-    - cron: '17 * * * *' # cada 1 h: estadísticas de jugadores, sanciones, snapshot e historial
+    - cron: '17 * * * *' # cada 1 h: estadísticas de jugadores, sanciones, titulares, snapshot e historial
   workflow_dispatch:
 
 permissions:
   contents: read
+  actions: read # para bajar el artifact del resumen semanal
   pages: write
   id-token: write
 
@@ -27,6 +28,18 @@ jobs:
           package-manager-cache: false # sin dependencias: no hay nada que cachear
       - run: npm test
       - run: npm run data
+      # El resumen con IA se genera los lunes (news-weekly.yml); acá se baja el último que salió bien.
+      # Si todavía no hay o venció (30 días), la página muestra solo los titulares.
+      - name: Bajar el último resumen semanal
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          RUN=$(gh run list --repo "${{ github.repository }}" --workflow news-weekly.yml --status success --limit 1 --json databaseId -q '.[0].databaseId')
+          if [ -n "$RUN" ]; then
+            gh run download "$RUN" --repo "${{ github.repository }}" -n resumen-semanal -D data/generated || echo "No se pudo bajar el resumen de la corrida $RUN"
+          else
+            echo "Todavía no hay resumen semanal"
+          fi
       - name: Armar sitio
         run: |
           mkdir _site

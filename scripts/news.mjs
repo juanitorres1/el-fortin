@@ -1,17 +1,16 @@
-// Resumen semanal de noticias de la web oficial de Vélez con un LLM open source (Qwen) corriendo local
-// (llama.cpp en GitHub Actions). PRUEBA: todavía no se publica en el sitio.
+// Noticias de la web oficial de Vélez (velez.com.ar, que no tiene RSS: se leen las páginas de sección).
 //
-// 1. Junta las notas de los últimos 7 días de velez.com.ar (no tiene RSS: se leen las páginas de sección).
-// 2. Le pasa al modelo el texto de cada nota y le pide 4-6 puntos, cada uno citando su nota.
-// 3. Control automático: un punto con números o fechas que no aparecen literalmente en su nota se descarta.
+//   node scripts/news.mjs titulares → data/generated/news.json: últimos titulares con link. Sin IA, cada hora
+//                                     desde scripts/update-data.mjs.
+//   node scripts/news.mjs resumen   → data/generated/resumen.json: resumen de la semana con un LLM open source
+//                                     (Qwen3-8B con llama.cpp, en .github/workflows/news-weekly.yml, los lunes).
 //
-// Uso: LLM_URL=http://127.0.0.1:8080 MODEL_NAME=Qwen3-8B node scripts/news.mjs
+// Resumen: el modelo recibe el texto de cada nota (ordenadas por importancia) y devuelve 4-6 puntos, cada uno
+// citando su nota. Un punto con números o fechas que no aparecen en su nota se descarta antes de publicar.
 import { mkdir, writeFile, appendFile } from 'node:fs/promises';
-import { fetchSchedule, velezView } from '../js/espn.js';
+import { NEWS_DAYS as DAYS, OFFICIAL_SITE as SITE, isOfficialImageUrl, isOfficialNoteUrl } from '../js/news.js';
 
-const SITE = 'https://velez.com.ar';
 const SECTION_PAGES = ['/', '/noticias', '/futbol', '/club', '/socios', '/futbol/notas', '/club/notas', '/socios/notas'];
-const DAYS = 7;
 const MAX_NOTES = 14;
 const MAX_CHARS_PER_NOTE = 1400; // para que el prompt entre en el contexto y el CPU no tarde de más
 const HEADERS = { 'User-Agent': 'Mozilla/5.0 (El Fortin; sitio de hinchas)' };
@@ -41,7 +40,7 @@ export function noteLinks(html) {
   return [...out.values()];
 }
 
-/** Título, bajada y párrafos del cuerpo de una nota. */
+/** Título, bajada, párrafos del cuerpo, imagen y fecha de publicación de una nota. */
 export function parseNote(html) {
   const meta = (p) => decodeEntities(html.match(new RegExp(`<meta property="${p}" content="([^"]*)"`))?.[1] ?? '').trim();
   const title = meta('og:title').replace(/\s*\/\s*Vélez Sarsfield\s*$/, '').trim();
@@ -50,7 +49,16 @@ export function parseNote(html) {
   const start = html.search(/class="[^"]*nxl-cuerpo/);
   const scope = start >= 0 ? html.slice(start) : html;
   const paragraphs = [...scope.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/g)].map((m) => stripTags(m[1])).filter((p) => p.length > 40 && !p.includes('-->'));
-  return { title, lead, body: paragraphs.join('\n') };
+  // La imagen viene sin protocolo («//velez.com.ar/img/…»).
+  const rawImage = meta('og:image');
+  const image = rawImage.startsWith('//') ? `https:${rawImage}` : rawImage;
+  return {
+    title,
+    lead,
+    body: paragraphs.join('\n'),
+    image: isOfficialImageUrl(image) ? image : null,
+    published: meta('article:published_time') || null,
+  };
 }
 
 /** Decodifica según la cabecera HTTP (la web dice UTF-8 en el HTML pero manda ISO-8859-1). */
@@ -119,35 +127,6 @@ export function rankNotes(notes) {
   return [...notes].sort((a, b) => priorityOf(a.section) - priorityOf(b.section) || b.date.localeCompare(a.date));
 }
 
-// ---------- Datos fijos del primer equipo (ESPN, sin IA) ----------
-
-const TZ = 'America/Argentina/Buenos_Aires';
-const dayParts = new Intl.DateTimeFormat('es-AR', { timeZone: TZ, weekday: 'long', day: 'numeric', month: 'numeric' });
-// «sábado 17/10» (Intl da «17-10» en es-AR).
-const dayFmt = { format: (d) => { const p = Object.fromEntries(dayParts.formatToParts(d).map((x) => [x.type, x.value])); return `${p.weekday} ${p.day}/${p.month}`; } };
-const timeFmt = new Intl.DateTimeFormat('es-AR', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hour12: false });
-
-/** Último resultado (si fue en la semana) y próximo partido, armados con datos de ESPN. */
-export function matchFacts(fixture, results, now = new Date()) {
-  const facts = [];
-  const last = results.filter((m) => m.completed && Date.parse(m.date) >= now - DAYS * 864e5).at(-1);
-  if (last) {
-    const { velez, rival, result } = velezView(last);
-    const verb = { G: 'le ganó', E: 'empató', P: 'perdió' }[result] ?? 'jugó';
-    // Como se dice en Argentina: el resultado del ganador primero («perdió 2-0 con Lanús»).
-    const score = `${Math.max(velez.score, rival.score)}-${Math.min(velez.score, rival.score)}`;
-    const vs = result === 'G' ? `a ${rival.name}` : `con ${rival.name}`;
-    facts.push({ tipo: 'resultado', texto: `Último resultado: Vélez ${verb} ${score} ${vs} (${last.comp}, ${dayFmt.format(new Date(last.date))}).` });
-  }
-  const next = fixture.find((m) => !m.completed);
-  if (next) {
-    const { velezHome, rival } = velezView(next);
-    const when = `${dayFmt.format(new Date(next.date))}${next.timeValid ? ` a las ${timeFmt.format(new Date(next.date))}` : ''}`;
-    facts.push({ tipo: 'proximo', texto: `Próximo partido: ${velezHome ? 'Vélez vs.' : 'visita a'} ${rival.name}, ${when}${next.venue ? `, en ${next.venue}` : ''} (${next.comp}).` });
-  }
-  return facts;
-}
-
 // ---------- Ejecución ----------
 
 async function fetchText(url) {
@@ -156,7 +135,11 @@ async function fetchText(url) {
   return decodeBody(Buffer.from(await res.arrayBuffer()), res.headers.get('content-type') ?? '');
 }
 
-export async function collectNotes(now = new Date()) {
+/**
+ * Notas de la última semana. `ranked`: ordenadas por importancia (para el modelo); si no, de la más nueva a la
+ * más vieja (para la lista de titulares).
+ */
+export async function collectNotes({ ranked = true, now = new Date() } = {}) {
   const since = new Date(now.getTime() - DAYS * 864e5).toISOString().slice(0, 10);
   const links = new Map();
   for (const page of SECTION_PAGES) {
@@ -166,7 +149,8 @@ export async function collectNotes(now = new Date()) {
       console.warn(`No se pudo leer ${page}: ${err.message}`);
     }
   }
-  const recent = rankNotes([...links.values()].filter((l) => l.date >= since));
+  const inWeek = [...links.values()].filter((l) => l.date >= since);
+  const recent = ranked ? rankNotes(inWeek) : inWeek.sort((a, b) => b.date.localeCompare(a.date));
   const notes = [];
   for (const l of recent) {
     if (notes.length >= MAX_NOTES) break;
@@ -186,6 +170,7 @@ Reglas obligatorias:
 - Usá SOLO la información de las notas que te paso. No agregues nada que no esté escrito ahí.
 - Copiá números, montos, fechas, horarios y resultados EXACTAMENTE como aparecen en la nota.
 - Si no estás seguro de un dato, no lo incluyas.
+- Solo hechos: sin adjetivos ni valoraciones propias («decepcionante», «gran», «histórico»), salvo que estén en la nota.
 - Cada punto resume UNA nota y debe indicar el número de esa nota.
 - Las notas vienen ordenadas por importancia: la NOTA 1 es la más importante. Seguí ese orden y dejá afuera las del final si no hay lugar.
 - Si una nota pone condiciones o requisitos (qué cuota hay que tener paga, quién puede entrar, hasta cuándo, cómo anotarse), incluilos: son lo más útil para el socio.
@@ -247,12 +232,24 @@ async function summarize(notes, llmUrl) {
   return { raw: content, parsed: JSON.parse(content.replace(/<think>[\s\S]*?<\/think>/g, '').trim()), usage, timings };
 }
 
-async function main() {
+const OUT = new URL('../data/generated/', import.meta.url);
+
+/** Titulares de la semana (sin IA): para la lista «Últimas del club». */
+export async function writeHeadlines() {
+  const notes = await collectNotes({ ranked: false });
+  const headlines = notes
+    .filter((n) => isOfficialNoteUrl(n.url))
+    .map(({ title, lead, date, section, url, image }) => ({ title, lead, date, section, url, image }));
+  await mkdir(OUT, { recursive: true });
+  await writeFile(new URL('news.json', OUT), JSON.stringify({ updatedAt: new Date().toISOString(), headlines }));
+  return headlines;
+}
+
+async function writeSummary() {
   const llmUrl = process.env.LLM_URL ?? 'http://127.0.0.1:8080';
   const model = process.env.MODEL_NAME ?? 'desconocido';
   const t0 = Date.now();
-  const [notes, fixture, results] = await Promise.all([collectNotes(), fetchSchedule({ fixture: true }), fetchSchedule({})]);
-  const facts = matchFacts(fixture, results);
+  const notes = await collectNotes();
   const tNotes = Date.now();
   console.log(`Notas de los últimos ${DAYS} días: ${notes.length}`);
   notes.forEach((n, i) => console.log(`  ${i + 1}. ${n.date} [${n.section}] ${n.title} (${n.body.length} caracteres)`));
@@ -263,33 +260,39 @@ async function main() {
 
   const points = (parsed.puntos ?? []).map((p) => {
     const note = notes[p.nota - 1];
-    if (!note) return { ...p, ok: false, motivo: `cita una nota que no existe (${p.nota})` };
+    if (!note || !isOfficialNoteUrl(note.url)) return { ...p, ok: false, motivo: `cita una nota que no existe (${p.nota})` };
     const missing = unsupportedFacts(p.texto, `${note.title}\n${note.lead}\n${note.body}`);
     return { ...p, url: note.url, titulo: note.title, ok: missing.length === 0, motivo: missing.length ? `datos que no están en la nota: ${missing.join(', ')}` : null };
   });
+  const ok = points.filter((p) => p.ok);
+  // Con menos de 2 puntos válidos no vale la pena publicar: la página muestra solo los titulares.
+  if (ok.length < 2) throw new Error(`Solo ${ok.length} puntos pasaron el control: no se publica el resumen.`);
 
+  const dates = notes.map((n) => n.date).sort();
   const result = {
     model,
     generatedAt: new Date().toISOString(),
-    seconds: { notas: Math.round((tNotes - t0) / 1000), modelo: Math.round((tLlm - tNotes) / 1000) },
-    usage,
-    timings,
-    notes: notes.map(({ body, ...n }) => ({ ...n, chars: body.length })),
-    facts,
-    points,
-    raw,
+    period: { from: dates[0], to: dates.at(-1) },
+    points: ok.map(({ texto, url, titulo }) => ({ texto, url, titulo })),
+    // Para revisar la corrida: no se usa en la página.
+    audit: {
+      seconds: { notas: Math.round((tNotes - t0) / 1000), modelo: Math.round((tLlm - tNotes) / 1000) },
+      usage,
+      timings,
+      discarded: points.filter((p) => !p.ok),
+      notes: notes.map(({ body, ...n }) => ({ ...n, chars: body.length })),
+      raw,
+    },
   };
-  await mkdir(new URL('../data/generated/', import.meta.url), { recursive: true });
-  await writeFile(new URL('../data/generated/resumen.json', import.meta.url), JSON.stringify(result, null, 2));
+  await mkdir(OUT, { recursive: true });
+  await writeFile(new URL('resumen.json', OUT), JSON.stringify(result, null, 2));
 
-  const ok = points.filter((p) => p.ok);
   const lines = [
     `## Resumen semanal · ${model}`,
-    `- Notas leídas: ${notes.length} (${result.seconds.notas} s) · Modelo: ${result.seconds.modelo} s` +
+    `- Notas leídas: ${notes.length} (${result.audit.seconds.notas} s) · Modelo: ${result.audit.seconds.modelo} s` +
       (timings ? ` · prompt ${Math.round(timings.prompt_per_second)} tok/s, generación ${timings.predicted_per_second?.toFixed(1)} tok/s` : ''),
-    `- Puntos: ${points.length} generados, ${ok.length} pasan el control, ${points.length - ok.length} descartados`,
+    `- Puntos: ${points.length} generados, ${ok.length} publicados, ${points.length - ok.length} descartados`,
     '',
-    ...facts.map((f) => `📌 ${f.texto} _(ESPN, sin IA)_`),
     ...points.map((p) => `${p.ok ? '✅' : '❌'} ${p.texto}${p.url ? ` ([nota](${p.url}))` : ''}${p.motivo ? `  \n   _descartado: ${p.motivo}_` : ''}`),
     '',
     '<details><summary>Notas usadas</summary>',
@@ -301,8 +304,16 @@ async function main() {
   if (process.env.GITHUB_STEP_SUMMARY) await appendFile(process.env.GITHUB_STEP_SUMMARY, `${lines.join('\n')}\n`);
 }
 
-if (import.meta.url === `file://${process.argv[1]?.replace(/\\/g, '/')}` || process.argv[1]?.endsWith('news.mjs')) {
-  main().catch((err) => {
+const MODES = { titulares: writeHeadlines, resumen: writeSummary };
+
+// Solo corre si se ejecuta el archivo (no al importarlo desde los tests o desde update-data.mjs).
+if (process.argv[1]?.replaceAll('\\', '/').endsWith('scripts/news.mjs')) {
+  const mode = MODES[process.argv[2]];
+  if (!mode) {
+    console.error('Uso: node scripts/news.mjs titulares|resumen');
+    process.exit(1);
+  }
+  mode().catch((err) => {
     console.error(err);
     process.exit(1);
   });

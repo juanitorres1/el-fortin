@@ -1,9 +1,12 @@
 // Genera data/generated/{snapshot,matches,players}.json desde ESPN.
 // - snapshot.json: respaldo de fixture/resultados/tabla por si la API no responde desde el navegador.
 // - matches.json: todos los partidos oficiales de Vélez que ESPN tiene (desde 2001) para el historial.
+// - news.json: titulares de la semana de velez.com.ar (sin IA). El resumen semanal con IA lo genera
+//   .github/workflows/news-weekly.yml y el deploy lo baja como artifact.
 // - players.json: estadísticas de jugadores por torneo del año y sanciones probables (desde el detalle de cada partido).
 // Uso: node scripts/update-data.mjs
 import { mkdir, writeFile } from 'node:fs/promises';
+import { writeHeadlines } from './news.mjs';
 import { aggregateStats, discipline, fetchLive, fetchRoster, fetchSchedule, fetchSummary, playersFromSummary, tournamentOf } from '../js/espn.js';
 
 const OUT = new URL('../data/generated/', import.meta.url);
@@ -29,6 +32,14 @@ async function main() {
   console.log(`snapshot: ${live.fixture.length} próximos, ${live.results.length} resultados, ${live.standings.groups.length} zonas, ${live.roster.players.length} jugadores`);
 
   await writePlayers(live);
+
+  // Titulares de la web oficial (sin IA). Si falla, la página oculta la lista: no frena el deploy.
+  try {
+    const headlines = await writeHeadlines();
+    console.log(`titulares: ${headlines.length} notas de la semana`);
+  } catch (err) {
+    console.warn('No se pudieron leer los titulares de velez.com.ar:', err.message);
+  }
 
   const byId = new Map();
   const lastSeason = new Date().getFullYear();

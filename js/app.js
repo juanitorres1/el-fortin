@@ -1,4 +1,5 @@
 import { VELEZ_ID, fetchLive, fetchRoster, headToHead, teamLogo, velezView } from './espn.js';
+import { isOfficialImageUrl, isOfficialNoteUrl, matchFacts, relativeDay } from './news.js';
 
 const TZ = 'America/Argentina/Buenos_Aires';
 const LIVE_TIMEOUT_MS = 8000;
@@ -372,6 +373,67 @@ function renderRecords(rec) {
     <p class="fine records-source">${esc(rec.fuente)}</p>`;
 }
 
+// ---------- Noticias ----------
+// Arriba de todo, estilo Google Noticias: tarjetas con foto que llevan a la nota oficial (velez.com.ar).
+// Chips con datos fijos (último resultado y próximo partido): ESPN en vivo, sin IA.
+// Resumen de la semana: IA (Qwen), generado los lunes por news-weekly.yml, desplegable debajo de las tarjetas.
+
+const SUMMARY_MAX_AGE_DAYS = 10; // si el workflow semanal falló, no mostrar un resumen viejo como si fuera de esta semana
+const MAX_CARDS = 9;
+const FEATURED_SECTIONS = ['futbol', 'columnadt', 'socios', 'club']; // la nota destacada sale de acá si hay
+const SECTION_NAMES = {
+  futbol: 'Fútbol', columnadt: 'Palabra del DT', socios: 'Socios', club: 'Club', reserva: 'Reserva', amateur: 'Juveniles',
+  senior: 'Senior', entrenamiento: 'Entrenamiento', acreditaciones: 'Prensa', rrpp: 'Eventos', 'velez-social': 'Vélez Social',
+  vmasculino: 'Vóley', vfemenino: 'Vóley', bmasculino: 'Básquet', bfemenino: 'Básquet', futbolfemenino: 'Fútbol femenino',
+};
+const sectionName = (s) => SECTION_NAMES[s] ?? s.replace(/-/g, ' ').replace(/^./, (c) => c.toUpperCase());
+const shortDate = (iso) => iso.slice(5).split('-').reverse().join('/'); // «2026-10-13» → «13/10»
+
+let newsData = { news: null, summary: null };
+
+function newsCard(h, featured) {
+  const img = isOfficialImageUrl(h.image) ? `<img class="nw-img" src="${esc(h.image)}" alt="" loading="${featured ? 'eager' : 'lazy'}" onerror="this.remove()">` : '';
+  return `<a class="nw-card${featured ? ' nw-featured' : ''}" href="${esc(h.url)}" target="_blank" rel="noopener">
+    ${featured ? img : ''}
+    <div class="nw-body">
+      <p class="nw-source"><img src="assets/v.svg" alt="" width="16" height="16">Vélez Sarsfield · ${esc(sectionName(h.section))}</p>
+      <h3 class="nw-title">${esc(h.title)}</h3>
+      ${featured && h.lead ? `<p class="nw-lead">${esc(h.lead)}</p>` : ''}
+      <p class="nw-time">${esc(relativeDay(h.date))}</p>
+    </div>
+    ${featured ? '' : img}
+  </a>`;
+}
+
+function renderNews(fixture, results) {
+  const { news, summary } = newsData;
+  $('[data-facts]').innerHTML = matchFacts(fixture, results)
+    .map((f) => `<li class="fact fact-${f.tipo}"><span class="fact-tag">${f.tipo === 'resultado' ? 'Resultado' : 'Próximo'}</span>${esc(f.texto.replace(/^(Último resultado|Próximo partido): /, ''))}</li>`)
+    .join('');
+
+  const headlines = (news?.headlines ?? []).filter((h) => isOfficialNoteUrl(h.url));
+  const featured = headlines.find((h) => FEATURED_SECTIONS.includes(h.section) && isOfficialImageUrl(h.image)) ?? headlines[0];
+  const rest = headlines.filter((h) => h !== featured).slice(0, MAX_CARDS - 1);
+  $('[data-headlines]').innerHTML = featured
+    ? [newsCard(featured, true), ...rest.map((h) => newsCard(h, false))].join('')
+    : '<p class="empty">No pudimos leer las notas del club. Mirá las novedades en <a href="https://velez.com.ar" target="_blank" rel="noopener">velez.com.ar</a>.</p>';
+
+  const ageDays = summary ? (Date.now() - Date.parse(summary.generatedAt)) / 864e5 : Infinity;
+  const points = (summary?.points ?? []).filter((p) => isOfficialNoteUrl(p.url));
+  const box = $('[data-summary]');
+  box.hidden = !(ageDays <= SUMMARY_MAX_AGE_DAYS && points.length);
+  if (!box.hidden && !box.dataset.ready) {
+    box.dataset.ready = '1'; // no re-renderizar en cada refresco: cerraría el desplegable si el usuario lo abrió
+    box.innerHTML = `
+      <summary><span class="ai-badge">IA</span> Resumen de la semana <span class="fine">del ${esc(shortDate(summary.period.from))} al ${esc(shortDate(summary.period.to))}</span></summary>
+      <ul class="summary-points">${points
+        .map((p) => `<li><p>${esc(p.texto)}</p><a href="${esc(p.url)}" target="_blank" rel="noopener">Ver la nota →</a></li>`)
+        .join('')}</ul>
+      <p class="ai-note"><strong>Generado automáticamente por IA (${esc(summary.model)})</strong> a partir de las notas oficiales.
+        Puede contener errores u omisiones: verificá cada punto en su nota. Actualizado el ${esc(fmt.stamp.format(new Date(summary.generatedAt)))}.</p>`;
+  }
+}
+
 // ---------- Contenido del club ----------
 
 function renderClub(club) {
@@ -438,6 +500,7 @@ async function refresh() {
   renderLists(data.fixture, results);
   renderTables(espnToTables(data.standings), 'ESPN');
   renderCups(data.fixture, results);
+  renderNews(data.fixture, results);
   const badge = $('[data-badge]');
   badge.classList.toggle('is-stale', !live);
   badge.textContent = live ? `En vivo desde ESPN · ${fmt.stamp.format(new Date())}` : `Datos guardados del ${fmt.stamp.format(new Date(data.updatedAt))}`;
@@ -455,11 +518,14 @@ async function loadSquad() {
 }
 
 async function main() {
-  const [club, hist, old] = await Promise.all([
+  const [club, hist, old, news, summary] = await Promise.all([
     getJson('data/club.json'),
     getJson('data/generated/matches.json').catch(() => ({ matches: [] })),
     getJson('data/historico.json').catch(() => ({ matches: [] })),
+    getJson('data/generated/news.json').catch(() => null),
+    getJson('data/generated/resumen.json').catch(() => null),
   ]);
+  newsData = { news, summary };
   renderClub(club);
   history = hist.matches;
   const results = await refresh().catch((err) => {
