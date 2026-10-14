@@ -2,221 +2,62 @@
 <html lang="es-AR">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>El Fortín · Vélez Sarsfield</title>
-  <meta name="description" content="Próximos partidos, tablas, historial contra cada rival e historia de Vélez Sarsfield. Sitio de hinchas.">
-  <meta name="theme-color" content="#123a8c">
+  <meta name="description" content="Noticias, próximo partido y resultados de Vélez Sarsfield. Sitio de hinchas.">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0f1115" media="(prefers-color-scheme: dark)">
   <link rel="icon" href="assets/v.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Big+Shoulders+Display:wght@600;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/styles.css">
-  <script type="module" src="js/app.js"></script>
+  <script type="module" src="js/pages/inicio.js"></script>
 </head>
 <body>
-  <a class="skip" href="#noticias">Saltar al contenido</a>
-
+  <a class="skip" href="#contenido">Saltar al contenido</a>
   <header class="topbar">
-    <a class="brand" href="#inicio" aria-label="Inicio">
-      <img src="assets/v.svg" alt="" width="34" height="34">
-      <span>El Fortín</span>
-    </a>
-    <nav class="nav" aria-label="Secciones">
-      <a href="#noticias">Noticias</a>
-      <a href="#partidos">Partidos</a>
-      <a href="#tablas">Tablas</a>
-      <a href="#plantel">Plantel</a>
-      <a href="#historial">Historial</a>
-      <a href="#historia">Historia</a>
-      <a href="#estadio">Estadio</a>
-      <a href="#amalfitani">Don Pepe</a>
-      <a href="#momentos">Momentos</a>
-      <a href="#palmares">Palmarés</a>
-      <a href="#records">Récords</a>
-    </nav>
+    <div class="wrap topbar-in">
+      <a class="brand" href="./"><img src="assets/v.svg" alt="" width="28" height="28"><span>El Fortín</span></a>
+      <nav class="tabbar" aria-label="Secciones">
+        <a href="./" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg><span>Inicio</span></a>
+        <a href="partidos.html"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span>Partidos</span></a>
+        <a href="plantel.html"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3 3 6l2 5 2-1v11h10V10l2 1 2-5-5-3a4 4 0 0 1-8 0z"/></svg><span>Plantel</span></a>
+        <a href="historial.html"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Historial</span></a>
+        <a href="club.html"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v6c0 4.5 3.4 8.2 8 9 4.6-.8 8-4.5 8-9V6z"/><path d="m9 9 3 6 3-6"/></svg><span>Club</span></a>
+      </nav>
+    </div>
   </header>
 
-  <main>
-    <section class="news-top" id="noticias" aria-labelledby="noticias-titulo">
-      <div class="wrap">
-        <header class="news-head">
-          <h2 id="noticias-titulo">Noticias</h2>
-          <ul class="facts" data-facts></ul>
-        </header>
-        <div class="news-grid" data-headlines></div>
-        <details class="news-summary" data-summary hidden></details>
+  <main id="contenido" class="wrap home">
+    <h1 class="sr-only">El Fortín: noticias y partidos de Vélez Sarsfield</h1>
+    <aside class="juega" data-juega aria-label="Próximo partido de Vélez">
+      <div class="skeleton sk-juega" aria-hidden="true"></div>
+    </aside>
+
+    <section class="home-news" aria-labelledby="t-noticias">
+      <div class="section-head">
+        <h2 class="h2" id="t-noticias">Noticias</h2>
+        <a class="more" href="https://velez.com.ar/noticias" target="_blank" rel="noopener">Todas en velez.com.ar</a>
       </div>
+      <div class="news-grid" data-headlines>
+        <div class="skeleton sk-featured" aria-hidden="true"></div>
+        <div class="skeleton sk-card" aria-hidden="true"></div><div class="skeleton sk-card" aria-hidden="true"></div><div class="skeleton sk-card" aria-hidden="true"></div>
+      </div>
+      <details class="news-summary" data-summary hidden></details>
     </section>
 
-    <section class="hero" id="inicio">
-      <div class="hero-v" aria-hidden="true"></div>
-      <div class="wrap hero-grid">
-        <div class="hero-copy">
-          <p class="eyebrow">Club Atlético Vélez Sarsfield · Liniers · 1910</p>
-          <h1>El Fortín</h1>
-          <p class="hero-sub" data-frase>Desde Liniers, con la V en el pecho</p>
-          <ul class="form-strip" data-form aria-label="Últimos resultados"></ul>
-        </div>
-        <article class="next-card" data-next aria-live="polite">
-          <p class="next-label">Próximo partido</p>
-          <div class="skeleton">Cargando fixture…</div>
-        </article>
-      </div>
-    </section>
-
-    <div class="palisade" aria-hidden="true"></div>
-
-    <section class="section" id="partidos">
-      <div class="wrap">
-        <header class="section-head">
-          <h2>Partidos</h2>
-          <p class="data-badge" data-badge></p>
-        </header>
-        <div class="two-col">
-          <div>
-            <h3 class="col-title">Lo que viene</h3>
-            <ol class="match-list" data-fixture></ol>
-          </div>
-          <div>
-            <h3 class="col-title">Lo último</h3>
-            <ol class="match-list" data-results></ol>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="section section-blue" id="tablas">
-      <div class="wrap">
-        <header class="section-head">
-          <h2>Tablas</h2>
-          <p class="section-note" data-standings-title></p>
-        </header>
-        <div class="tabs" role="tablist" data-standings-tabs></div>
-        <div class="table-scroll" data-standings></div>
-        <div class="cups" data-cups></div>
-      </div>
-    </section>
-
-    <section class="section" id="plantel">
-      <div class="wrap">
-        <header class="section-head">
-          <h2>Plantel</h2>
-        </header>
-        <div class="alerts" data-alerts></div>
-        <div class="squad" data-squad></div>
-
-        <h3 class="col-title stats-title">Estadísticas</h3>
-        <div class="tabs tabs-light" role="tablist" data-stats-tabs></div>
-        <div class="leaders" data-leaders></div>
-        <div class="table-scroll" data-stats></div>
-        <p class="fine" data-stats-note></p>
-      </div>
-    </section>
-
-    <section class="section" id="historial">
-      <div class="wrap">
-        <header class="section-head">
-          <h2>Historial</h2>
-          <p class="section-note" data-h2h-note>Cargando historial…</p>
-        </header>
-        <div class="h2h-controls">
-          <label>
-            <span>Rival</span>
-            <select data-h2h-rival></select>
-          </label>
-          <label>
-            <span>Época</span>
-            <select data-h2h-era>
-              <option value="todas">Desde 1931</option>
-              <option value="historico">1931–2000</option>
-              <option value="espn">Desde 2001</option>
-            </select>
-          </label>
-          <label>
-            <span>Competición</span>
-            <select data-h2h-comp>
-              <option value="todas">Todas</option>
-              <option value="liga">Torneos locales</option>
-              <option value="copas">Copas</option>
-              <option value="internacional">Internacional</option>
-            </select>
-          </label>
-        </div>
-        <div class="h2h" data-h2h></div>
-        <h3 class="col-title">Los más enfrentados</h3>
-        <div class="table-scroll" data-h2h-top></div>
-      </div>
-    </section>
-
-    <section class="section section-cream" id="historia">
-      <div class="wrap">
-        <header class="section-head">
-          <h2>Historia</h2>
-        </header>
-        <blockquote class="fortin-quote" data-fortin></blockquote>
-        <ol class="timeline" data-timeline></ol>
-      </div>
-    </section>
-
-    <section class="section stadium" id="estadio">
-      <div class="stadium-bg" aria-hidden="true"></div>
-      <div class="wrap">
-        <header class="section-head">
-          <h2>El Estadio</h2>
-          <p class="section-note" data-stadium-apodo></p>
-        </header>
-        <p class="stadium-intro" data-stadium-intro></p>
-        <dl class="stadium-stats" data-stadium-stats></dl>
-        <ol class="stadium-hitos" data-stadium-hitos></ol>
-      </div>
-    </section>
-
-    <section class="section section-cream quotes-section" id="amalfitani">
-      <div class="wrap">
-        <header class="section-head">
-          <h2>Don Pepe</h2>
-          <p class="section-note">José Amalfitani (1894–1969), presidente 1923–25 y 1941–69</p>
-        </header>
-        <div class="quotes" data-quotes></div>
-      </div>
-    </section>
-
-    <section class="section section-blue" id="momentos">
-      <div class="wrap">
-        <header class="section-head">
-          <h2>Momentos</h2>
-        </header>
-        <div class="moments" data-moments></div>
-      </div>
-    </section>
-
-    <section class="section" id="palmares">
-      <div class="wrap">
-        <header class="section-head">
-          <h2>Palmarés</h2>
-          <p class="section-note" data-palmares-total></p>
-        </header>
-        <div class="trophies" data-palmares></div>
-        <h3 class="col-title">Ídolos</h3>
-        <div class="idols" data-idols></div>
-      </div>
-    </section>
-    <section class="section section-blue" id="records">
-      <div class="wrap">
-        <header class="section-head">
-          <h2>Récords</h2>
-          <p class="section-note">Fuente: Wikipedia (CC BY-SA) y RSSSF</p>
-        </header>
-        <div class="records" data-records></div>
-      </div>
-    </section>
+    <a class="home-quote" href="club.html#don-pepe">
+      <blockquote>«Yo no he venido al funeral de Vélez Sarsfield.»</blockquote>
+      <span>José Amalfitani, 1940 · Conocé la historia del club</span>
+    </a>
   </main>
 
-  <div class="palisade palisade-flip" aria-hidden="true"></div>
   <footer class="footer">
     <div class="wrap">
-      <p><strong>El Fortín</strong> es un sitio no oficial hecho por hinchas. No está afiliado al Club Atlético Vélez Sarsfield.</p>
-      <p>Partidos, tablas, plantel y estadísticas: ESPN (actualización automática). Historial 1931–2000: dataset «Liga Argentina 1931–2023» (Kaggle, dominio público). Historia: textos propios.</p>
+      <p><strong>El Fortín</strong> es un sitio de hinchas, no oficial. No está afiliado al Club Atlético Vélez Sarsfield.</p>
+      <p class="muted">Partidos, tablas, plantel y estadísticas: ESPN. Noticias: velez.com.ar. Historial 1931–2000: dataset «Liga Argentina 1931–2023» (dominio público). Récords: Wikipedia (CC BY-SA).</p>
     </div>
   </footer>
 </body>

@@ -8,11 +8,40 @@ palmarés, ídolos y récords históricos.
 
 Sitio estático sin build ni dependencias: HTML + CSS + JS (módulos ES). Se publica en GitHub Pages.
 
+## Estructura
+
+| Página | Qué tiene | Módulo |
+| --- | --- | --- |
+| `index.html` (Inicio) | «Juega Vélez» (próximo partido, cuenta regresiva, último resultado, posición) y noticias | `js/pages/inicio.js` |
+| `partidos.html` | Lo que viene, resultados, racha, tablas y copas | `js/pages/partidos.js` |
+| `plantel.html` | Sanciones estimadas, jugadores y estadísticas por torneo | `js/pages/plantel.js` |
+| `historial.html` | Historial contra cada rival desde 1931 | `js/pages/historial.js` |
+| `club.html` | Historia, estadio, Don Pepe, momentos, palmarés, ídolos y récords | `js/pages/club.js` |
+
+`js/core.js` tiene lo común (formato, escudos, carga de ESPN con respaldo, fila de partido). Cada página carga solo
+sus datos. El encabezado, el menú y el pie están escritos en cada HTML (sin paso de build): si se cambian, hay que
+cambiarlos en las 5 páginas; `tests/pages.test.js` falla si quedan distintos o si hay links internos rotos. Los links
+viejos con `#ancla` (de cuando era una sola página) redirigen a la página nueva.
+
+## Diseño
+
+Revisado con las pautas de diseño de Apple (HIG) aplicadas a web: accesibilidad, color, tipografía, layout y modo
+oscuro.
+
+- **Paleta oficial de Vélez** y **modo noche automático** (sigue al sistema; sin selector propio, como recomiendan las
+  HIG). Contraste mínimo 4,5:1 en todo el texto, medido: azul `#0061A8` 6,4:1 sobre blanco; en modo noche el azul se
+  aclara a `#4EA3F0` (7,0:1) porque el oficial no se lee sobre fondo oscuro (2,95:1).
+- **Tipografía:** Barlow Condensed para marcadores, números y títulos; Montserrat para el texto. Base 17 px, mínimo
+  12 px, en `rem` (respeta el tamaño de letra del navegador).
+- **Controles de 44 px como mínimo**; en celular, barra inferior con las 5 secciones.
+- **Una sola firma:** la V de la camiseta, tono sobre tono, en la tarjeta «Juega Vélez».
+- Esqueletos mientras cargan los datos; se respetan «reducir movimiento» y «aumentar contraste».
+
 ## Cómo funcionan los datos
 
 | Qué | De dónde | Cuándo se actualiza |
 | --- | --- | --- |
-| Fixture, resultados, copas, tabla por zonas y plantel | API de **ESPN**, desde el navegador | En cada visita (cada 5 min; cada 1 min si hay partido en vivo) |
+| Fixture, resultados, copas, tabla por zonas y plantel | API de **ESPN**, desde el navegador | En cada visita (Inicio y Partidos se refrescan cada 5 min; cada 1 min si hay partido en vivo) |
 | Tabla anual | Calculada sumando las fases regulares de ESPN (Apertura + Clausura) | En cada visita |
 | Respaldo de todo lo anterior | `data/generated/snapshot.json` | Cada 1 h, en GitHub Actions |
 | Estadísticas de jugadores por torneo, suspendidos y «al límite de amarillas» | `data/generated/players.json`, sumando el detalle (`/summary`) de ESPN de cada partido del año | Cada 1 h, en GitHub Actions |

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Historial · El Fortín</title>
+  <meta name="description" content="Historial de Vélez Sarsfield contra cada rival desde 1931.">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0f1115" media="(prefers-color-scheme: dark)">
+  <link rel="icon" href="assets/v.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+  <script type="module" src="js/pages/historial.js"></script>
+</head>
+<body>
+  <a class="skip" href="#contenido">Saltar al contenido</a>
+  <header class="topbar">
+    <div class="wrap topbar-in">
+      <a class="brand" href="./"><img src="assets/v.svg" alt="" width="28" height="28"><span>El Fortín</span></a>
+      <nav class="tabbar" aria-label="Secciones">
+        <a href="./"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg><span>Inicio</span></a>
+        <a href="partidos.html"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span>Partidos</span></a>
+        <a href="plantel.html"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3 3 6l2 5 2-1v11h10V10l2 1 2-5-5-3a4 4 0 0 1-8 0z"/></svg><span>Plantel</span></a>
+        <a href="historial.html" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Historial</span></a>
+        <a href="club.html"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v6c0 4.5 3.4 8.2 8 9 4.6-.8 8-4.5 8-9V6z"/><path d="m9 9 3 6 3-6"/></svg><span>Club</span></a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="contenido" class="wrap page">
+    <header class="page-head">
+      <h1 class="page-title">Historial</h1>
+      <p class="muted small" data-h2h-note>Cargando historial…</p>
+    </header>
+
+    <div class="h2h-controls">
+      <label><span>Rival</span><select data-h2h-rival></select></label>
+      <label><span>Época</span>
+        <select data-h2h-era>
+          <option value="todas">Desde 1931</option>
+          <option value="historico">1931–2000</option>
+          <option value="espn">Desde 2001</option>
+        </select>
+      </label>
+      <label><span>Competición</span>
+        <select data-h2h-comp>
+          <option value="todas">Todas</option>
+          <option value="liga">Torneos locales</option>
+          <option value="copas">Copas</option>
+          <option value="internacional">Internacional</option>
+        </select>
+      </label>
+    </div>
+    <div class="h2h" data-h2h><div class="skeleton sk-h2h" aria-hidden="true"></div></div>
+
+    <section class="block" aria-labelledby="t-enfrentados">
+      <h2 class="h2" id="t-enfrentados">Los más enfrentados</h2>
+      <div class="table-scroll" data-h2h-top></div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap">
+      <p><strong>El Fortín</strong> es un sitio de hinchas, no oficial. No está afiliado al Club Atlético Vélez Sarsfield.</p>
+      <p class="muted">Partidos, tablas, plantel y estadísticas: ESPN. Noticias: velez.com.ar. Historial 1931–2000: dataset «Liga Argentina 1931–2023» (dominio público). Récords: Wikipedia (CC BY-SA).</p>
+    </div>
+  </footer>
+</body>
+</html>

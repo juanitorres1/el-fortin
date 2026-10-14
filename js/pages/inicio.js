@@ -1,0 +1,140 @@
+// Inicio: «Juega Vélez» (próximo partido, último resultado, posición) y noticias del club estilo Google Noticias.
+import { VELEZ_ID, velezView } from '../espn.js';
+import { isNewsImage, isOfficialNoteUrl, relativeDay } from '../news.js';
+import { $, REFRESH_LIVE_MS, REFRESH_MS, RESULT_LABEL, capitalize, esc, fmt, getJson, loadLive, logo, mergeResults } from '../core.js';
+
+// Antes todo estaba en una sola página: los links viejos con #ancla llevan a la página nueva.
+const LEGACY = {
+  partidos: 'partidos.html', tablas: 'partidos.html#tablas', plantel: 'plantel.html', historial: 'historial.html',
+  historia: 'club.html#historia', estadio: 'club.html#estadio', amalfitani: 'club.html#don-pepe', momentos: 'club.html#momentos',
+  palmares: 'club.html#palmares', records: 'club.html#records',
+};
+const legacy = LEGACY[location.hash.slice(1)];
+if (legacy) location.replace(legacy);
+
+// ---------- Juega Vélez ----------
+
+let countdownTimer;
+function renderJuega(data, results) {
+  const box = $('[data-juega]');
+  clearInterval(countdownTimer);
+  const next = data.fixture.find((m) => m.status === 'in') ?? data.fixture.find((m) => !m.completed);
+  const last = results.at(-1);
+  const zone = data.standings.groups.find((g) => g.rows.some((r) => r.id === VELEZ_ID));
+  const row = zone?.rows.find((r) => r.id === VELEZ_ID);
+
+  const lastHtml = last
+    ? (() => {
+        const { velezHome, velez, rival, result } = velezView(last);
+        const [h, a] = velezHome ? [velez, rival] : [rival, velez];
+        return `<div><dt>Último resultado</dt><dd><span class="res res-${result}" title="${RESULT_LABEL[result]}"><span class="sr-only">${RESULT_LABEL[result]}</span><span aria-hidden="true">${result}</span></span>
+          ${esc(h.name)} ${h.score}-${a.score} ${esc(a.name)}</dd></div>`;
+      })()
+    : '';
+  const posHtml = row ? `<div><dt>Posición</dt><dd><b class="num">${row.rank}°</b> en la ${esc(zone.name)} · ${row.pts} pts</dd></div>` : '';
+
+  if (!next) {
+    box.innerHTML = `<h2 class="juega-title">Juega Vélez</h2><p class="juega-empty">Todavía no hay partidos programados.</p><dl class="juega-facts">${lastHtml}${posHtml}</dl>`;
+    return;
+  }
+  const d = new Date(next.date);
+  const isLive = next.status === 'in';
+  const team = (t) => `<div class="juega-team">${logo(t.logo, 56)}<span>${esc(t.name)}</span></div>`;
+  const center = isLive ? `<span class="juega-score num">${next.home.score ?? 0}-${next.away.score ?? 0}</span>` : '<span class="juega-vs">vs</span>';
+  box.innerHTML = `
+    <h2 class="juega-title">${isLive ? '<span class="live-pill">En vivo</span>' : 'Juega Vélez'}</h2>
+    <p class="juega-comp">${esc(next.comp)}${next.round ? ` · ${esc(next.round.replace('Torneo ', ''))}` : ''}</p>
+    <div class="juega-teams">${team(next.home)}${center}${team(next.away)}</div>
+    <p class="juega-when">${esc(capitalize(fmt.long.format(d)))}${next.timeValid ? ` · ${fmt.time.format(d)} h` : ' · hora a confirmar'}${next.venue ? `<br>${esc(next.venue)}` : ''}</p>
+    ${isLive ? '' : '<div class="countdown" data-countdown role="timer" aria-label="Falta para el partido"></div>'}
+    <dl class="juega-facts">${lastHtml}${posHtml}</dl>
+    <a class="btn btn-on-accent" href="partidos.html">Fixture y tablas</a>`;
+  if (isLive) return;
+  const cd = box.querySelector('[data-countdown]');
+  const tick = () => {
+    const diff = Math.max(0, d - Date.now());
+    const parts = [
+      [Math.floor(diff / 864e5), 'días'],
+      [Math.floor(diff / 36e5) % 24, 'horas'],
+      [Math.floor(diff / 6e4) % 60, 'min'],
+    ];
+    cd.innerHTML = parts.map(([n, l]) => `<div><b class="num">${String(n).padStart(2, '0')}</b><span>${l}</span></div>`).join('');
+  };
+  tick();
+  // Cada 30 s alcanza: la cuenta muestra minutos (sin segundos que obliguen a redibujar cada segundo).
+  countdownTimer = setInterval(tick, 30_000);
+}
+
+// ---------- Noticias ----------
+
+const SUMMARY_MAX_AGE_DAYS = 10; // si el workflow semanal falló, no mostrar un resumen viejo como si fuera de esta semana
+const MAX_CARDS = 9;
+const FEATURED_SECTIONS = ['futbol', 'columnadt', 'socios', 'club']; // la destacada sale de acá si hay
+const SECTION_NAMES = {
+  futbol: 'Fútbol', columnadt: 'Palabra del DT', socios: 'Socios', club: 'Club', reserva: 'Reserva', amateur: 'Juveniles',
+  senior: 'Senior', entrenamiento: 'Entrenamiento', acreditaciones: 'Prensa', rrpp: 'Eventos', 'velez-social': 'Vélez Social',
+  vmasculino: 'Vóley', vfemenino: 'Vóley', bmasculino: 'Básquet', bfemenino: 'Básquet', futbolfemenino: 'Fútbol femenino',
+};
+const sectionName = (s) => SECTION_NAMES[s] ?? capitalize(s.replace(/-/g, ' '));
+const shortDate = (iso) => iso.slice(5).split('-').reverse().join('/'); // «2026-10-13» → «13/10»
+
+function newsCard(h, featured) {
+  // Miniaturas livianas generadas en el deploy (la foto original de la web oficial pesa más de 2 MB).
+  const src = featured ? h.photo : h.thumb;
+  const [w, hgt] = featured ? [720, 405] : [92, 92];
+  const img = isNewsImage(src)
+    ? `<img class="nw-img" src="${esc(src)}" alt="" width="${w}" height="${hgt}" loading="${featured ? 'eager' : 'lazy'}" decoding="async" onerror="this.remove()">`
+    : '';
+  return `<a class="nw-card${featured ? ' nw-featured' : ''}" href="${esc(h.url)}" target="_blank" rel="noopener">
+    ${featured ? img : ''}
+    <div class="nw-body">
+      <p class="nw-source">Vélez Sarsfield · ${esc(sectionName(h.section))}</p>
+      <h3 class="nw-title">${esc(h.title)}</h3>
+      ${featured && h.lead ? `<p class="nw-lead">${esc(h.lead)}</p>` : ''}
+      <p class="nw-time">${esc(relativeDay(h.date))}<span class="sr-only"> · abre velez.com.ar en otra pestaña</span></p>
+    </div>
+    ${featured ? '' : img}
+  </a>`;
+}
+
+function renderNews(news, summary) {
+  const headlines = (news?.headlines ?? []).filter((h) => isOfficialNoteUrl(h.url));
+  const featured = headlines.find((h) => FEATURED_SECTIONS.includes(h.section) && isNewsImage(h.photo)) ?? headlines[0];
+  const rest = headlines.filter((h) => h !== featured).slice(0, MAX_CARDS - 1);
+  $('[data-headlines]').innerHTML = featured
+    ? [newsCard(featured, true), ...rest.map((h) => newsCard(h, false))].join('')
+    : '<p class="empty">No pudimos leer las notas del club. Mirá las novedades en <a href="https://velez.com.ar" target="_blank" rel="noopener">velez.com.ar</a>.</p>';
+
+  const ageDays = summary ? (Date.now() - Date.parse(summary.generatedAt)) / 864e5 : Infinity;
+  const points = (summary?.points ?? []).filter((p) => isOfficialNoteUrl(p.url));
+  const box = $('[data-summary]');
+  box.hidden = !(ageDays <= SUMMARY_MAX_AGE_DAYS && points.length);
+  if (box.hidden) return;
+  box.innerHTML = `
+    <summary><span class="ai-badge">IA</span> Resumen de la semana <span class="muted">del ${esc(shortDate(summary.period.from))} al ${esc(shortDate(summary.period.to))}</span></summary>
+    <ul class="summary-points">${points
+      .map((p) => `<li><p>${esc(p.texto)}</p><a href="${esc(p.url)}" target="_blank" rel="noopener">Ver la nota</a></li>`)
+      .join('')}</ul>
+    <p class="ai-note">Lo escribe una IA (${esc(summary.model)}) a partir de las notas oficiales de la semana. Puede equivocarse: cada punto tiene su nota para chequearlo. Actualizado el ${esc(fmt.stamp.format(new Date(summary.generatedAt)))}.</p>`;
+}
+
+// ---------- Arranque ----------
+
+async function refresh() {
+  try {
+    const { data } = await loadLive();
+    const results = mergeResults([], data.results);
+    renderJuega(data, results);
+    setTimeout(refresh, data.fixture.some((m) => m.status === 'in') ? REFRESH_LIVE_MS : REFRESH_MS);
+  } catch (err) {
+    console.error(err);
+    $('[data-juega]').innerHTML = '<h2 class="juega-title">Juega Vélez</h2><p class="juega-empty">No pudimos cargar los partidos. Probá en un rato.</p>';
+  }
+}
+
+const [news, summary] = await Promise.all([
+  getJson('data/generated/news.json').catch(() => null),
+  getJson('data/generated/resumen.json').catch(() => null),
+]);
+renderNews(news, summary);
+refresh();
