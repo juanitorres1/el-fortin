@@ -61,5 +61,35 @@ function render(club) {
   renderRecords(club.records);
 }
 
+// Submenú: marca la sección que se está leyendo (la última cuyo título ya pasó debajo del menú fijo).
+function trackSection() {
+  const nav = $('.subnav');
+  const links = [...nav.querySelectorAll('a[href^="#"]')];
+  const targets = links.map((a) => document.getElementById(a.hash.slice(1)));
+  let current = null;
+  const update = () => {
+    const line = nav.getBoundingClientRect().bottom + 24;
+    let i = targets.findLastIndex((t) => t && t.getBoundingClientRect().top <= line);
+    if (i < 0) i = 0;
+    if (links[i] === current) return;
+    current?.removeAttribute('aria-current');
+    current = links[i];
+    current.setAttribute('aria-current', 'true');
+    // En celular el submenú se desplaza de costado: que el botón marcado quede a la vista.
+    nav.scrollTo({ left: current.offsetLeft - nav.clientWidth / 2 + current.offsetWidth / 2, behavior: 'instant' });
+  };
+  let queued = false;
+  addEventListener('scroll', () => {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(() => {
+      queued = false;
+      update();
+    });
+  }, { passive: true });
+  update();
+}
+
 render(await getJson('data/club.json'));
-scrollToHash();
+await scrollToHash();
+trackSection();

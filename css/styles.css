@@ -436,10 +436,13 @@ select:hover { border-color: var(--accent); }
 /* ---------- El club ---------- */
 .subnav {
   position: sticky; top: var(--topbar-h); z-index: 10; display: flex; gap: 0.4rem; overflow-x: auto; scrollbar-width: none;
-  margin: 0 calc(-1 * var(--gutter)); padding: 0.6rem var(--gutter); background: var(--bg); border-bottom: 1px solid var(--line);
+  margin: 0 calc(-1 * var(--gutter)); padding: 0.6rem var(--gutter); background: var(--bg);
+  /* Fondo y línea a todo el ancho de la ventana (si no, sobre las bandas azules queda una caja suelta). */
+  box-shadow: 0 0 0 100vmax var(--bg), 0 1px 0 100vmax var(--line); clip-path: inset(0 -100vmax -1px);
 }
 .subnav a { flex: none; display: inline-flex; align-items: center; min-height: var(--tap); padding: 0 1rem; border-radius: 999px; background: var(--bg-2); color: var(--text); text-decoration: none; font-weight: 600; font-size: 0.9rem; }
-.subnav a:hover { border-color: var(--accent); color: var(--accent); }
+.subnav a:hover { color: var(--accent); }
+.subnav a[aria-current='true'] { background: var(--accent); color: var(--bg); }
 html:has(.subnav) { scroll-padding-top: calc(var(--topbar-h) + 4.5rem); }
 .fortin { margin: 0 0 1.75rem; padding: 1.25rem 1.4rem; background: var(--bg-2); border-left: 5px solid var(--accent); max-width: 50rem; }
 .fortin .h3 { text-transform: uppercase; font-weight: 800; }
