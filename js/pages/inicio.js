@@ -3,7 +3,7 @@ import { VELEZ_ID, fetchSummary, keyEvents, velezView } from '../espn.js';
 import { isNewsImage, isOfficialNoteUrl, relativeDay } from '../news.js';
 import { monthDay, streakLines } from '../facts.js';
 import { fetchForecast, wantsForecast } from '../weather.js';
-import { $, LIVE_TIMEOUT_MS, REFRESH_LIVE_MS, REFRESH_MS, RESULT_LABEL, capitalize, esc, fmt, getJson, loadLive, logo, mergeResults, withTimeout } from '../core.js';
+import { $, LIVE_TIMEOUT_MS, REFRESH_LIVE_MS, REFRESH_MS, RESULT_LABEL, capitalize, esc, fmt, getJson, loadLive, logo, mergeResults, updateLiveTitle, withTimeout } from '../core.js';
 
 // Antes todo estaba en una sola página: los links viejos con #ancla llevan a la página nueva.
 const LEGACY = {
@@ -221,6 +221,7 @@ async function refresh() {
     const { data } = await loadLive();
     const results = mergeResults([], data.results);
     renderJuega(data, results);
+    updateLiveTitle(data.fixture);
     renderPrevia(await factsPromise, data);
     setTimeout(refresh, data.fixture.some((m) => m.status === 'in') ? REFRESH_LIVE_MS : REFRESH_MS);
   } catch (err) {

@@ -85,6 +85,52 @@ export function rivalFacts(matches, rivalId) {
   };
 }
 
+// ESPN marca un «local» aunque se juegue en cancha neutral (y su campo neutralSite viene en false): se deduce por
+// competencia. Copas nacionales y supercopas van en cancha neutral; también las finales y, en la Copa de la Liga, las
+// semifinales. Los playoffs de la Liga se juegan en la cancha del mejor ubicado (local de verdad).
+const NEUTRAL_COMPS = new Set(['Copa Argentina', 'Supercopa Argentina', 'Supercopa Internacional', 'Trofeo de Campeones']);
+export const isNeutral = (m) =>
+  NEUTRAL_COMPS.has(m.comp) || /Final$/.test(m.round ?? '') || (m.comp === 'Copa de la Liga' && /Semifinal/.test(m.round ?? ''));
+
+/**
+ * Detalle del historial con un rival (para su página): de local y de visitante, mayor goleada y peor derrota,
+ * últimos triunfos de local y de visitante. `list` = partidos contra ese rival, en cualquier orden.
+ * Cada partido devuelto es { year, score, comp, where: 'local' | 'visitante' | 'neutral' }.
+ */
+export function rivalDetail(list) {
+  const played = list.filter(official);
+  // Del más viejo al más nuevo: los históricos (sin fecha) por año y antes que los de ESPN del mismo año.
+  const ordered = [...played].sort((a, b) => (a.date ? Date.parse(a.date) : Date.UTC(a.year, 0, 1)) - (b.date ? Date.parse(b.date) : Date.UTC(b.year, 0, 1)));
+  const where = (m) => (isNeutral(m) ? 'neutral' : m.home.id === VELEZ_ID ? 'local' : 'visitante');
+  const info = (m) => (m ? { year: when(m), score: scoreline(m), comp: m.comp, where: where(m) } : null);
+  const split = (w) => {
+    const rs = ordered.filter((m) => where(m) === w).map(scoreResult);
+    return { g: rs.filter((r) => r === 'G').length, e: rs.filter((r) => r === 'E').length, p: rs.filter((r) => r === 'P').length };
+  };
+  const diff = (m) => {
+    const [v, r] = m.home.id === VELEZ_ID ? [m.home.score, m.away.score] : [m.away.score, m.home.score];
+    return { d: v - r, v, r };
+  };
+  // Mayor goleada: más diferencia; si empata, más goles de Vélez; si empata, la más reciente.
+  let best = null;
+  let worst = null;
+  for (const m of ordered) {
+    const x = diff(m);
+    if (x.d > 0 && (!best || x.d > best.x.d || (x.d === best.x.d && x.v >= best.x.v))) best = { m, x };
+    if (x.d < 0 && (!worst || x.d < worst.x.d || (x.d === worst.x.d && x.r >= worst.x.r))) worst = { m, x };
+  }
+  const lastWin = (w) => [...ordered].reverse().find((m) => where(m) === w && scoreResult(m) === 'G');
+  return {
+    home: split('local'),
+    away: split('visitante'),
+    neutral: split('neutral'),
+    biggestWin: info(best?.m),
+    worstLoss: info(worst?.m),
+    lastHomeWin: info(lastWin('local')),
+    lastAwayWin: info(lastWin('visitante')),
+  };
+}
+
 // ---------- Un día como hoy ----------
 
 // ESPN llama «Liga Profesional» a toda la Primera; la LPF existe desde 2020.

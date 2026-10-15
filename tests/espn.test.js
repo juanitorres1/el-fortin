@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { aggregateStats, annualTable, averagesTable, discipline, headToHead, keyEvents, normalizeEvent, normalizeStandings, playersFromSummary, relegation, velezView } from '../js/espn.js';
+import { aggregateStats, annualTable, averagesTable, discipline, headToHead, keyEvents, normalizeEvent, normalizeScorers, normalizeStandings, playersFromSummary, relegation, velezView } from '../js/espn.js';
 
 const side = (id, name, homeAway, score, extra = {}) => ({
   homeAway,
@@ -186,4 +186,16 @@ test('relegation: último de promedios y último de la anual; si coinciden, el a
   const ids = (...xs) => xs.map((id) => ({ id }));
   assert.deepEqual(relegation(ids('a', 'b', 'c'), ids('x', 'y', 'z')), { promedios: 'c', anual: 'z' });
   assert.deepEqual(relegation(ids('a', 'b', 'c'), ids('x', 'y', 'c')), { promedios: 'c', anual: 'y' });
+});
+
+test('normalizeScorers: nombre, goles, partidos y equipo actual', () => {
+  const json = { leaders: { categories: [{ name: 'goalsLeaders', leaders: [
+    { value: 9, displayValue: 'Matches: 11, Goals: 9', athlete: { id: 1, displayName: 'Agustín Módica' }, team: { id: 11972, displayName: 'Gimnasia (Mendoza)', logos: [{ href: 'logo' }] } },
+    { value: 6, displayValue: 'raro', athlete: { id: 2, displayName: 'Ronaldo Martínez' }, team: { id: 21, displayName: 'Vélez Sarsfield' } },
+  ] }] } };
+  const out = normalizeScorers(json);
+  assert.deepEqual(out[0], { id: '1', name: 'Agustín Módica', goals: 9, pj: 11, team: { id: '11972', name: 'Gimnasia (Mendoza)', logo: 'logo' } });
+  assert.equal(out[1].pj, null);
+  assert.equal(out[1].team.name, 'Vélez');
+  assert.deepEqual(normalizeScorers({}), []);
 });

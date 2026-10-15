@@ -13,9 +13,9 @@ Sitio estático sin build ni dependencias: HTML + CSS + JS (módulos ES). Se pub
 | Página | Qué tiene | Módulo |
 | --- | --- | --- |
 | `index.html` (Inicio) | «Juega Vélez» (próximo partido, cuenta regresiva, pronóstico, minuto a minuto en vivo, último resultado, posición), noticias y «La previa» (rachas, historial con el rival, un día como hoy) | `js/pages/inicio.js` |
-| `partidos.html` | Lo que viene (con calendario para suscribirse), resultados, racha, tablas (zonas, anual y promedios) y copas | `js/pages/partidos.js` |
+| `partidos.html` | Lo que viene (con calendario para suscribirse), resultados, racha, tablas (zonas, anual y promedios), goleadores del torneo, camino a los playoffs y copas | `js/pages/partidos.js` |
 | `plantel.html` | Sanciones estimadas, jugadores y estadísticas por torneo | `js/pages/plantel.js` |
-| `historial.html` | Historial contra cada rival desde 1931 | `js/pages/historial.js` |
+| `historial.html` | Historial contra cada rival desde 1931, con local/visitante/neutral, mayor goleada, últimos triunfos y link para compartir (`?rival=id`) | `js/pages/historial.js` |
 | `club.html` | Historia, estadio (y cómo llegar), Don Pepe, momentos, palmarés, ídolos y récords | `js/pages/club.js` |
 
 `js/core.js` tiene lo común (formato, escudos, carga de ESPN con respaldo, fila de partido). Cada página carga solo
@@ -52,6 +52,8 @@ oscuro.
 | Promedios | `data/generated/promedios.json` (fases regulares de las últimas 3 temporadas) + la fase en curso en vivo | Cada 1 h / en cada visita |
 | La previa (rachas, historial con el rival, un día como hoy) | `data/generated/facts.json`; las rachas se recalculan con los resultados en vivo | Cada 1 h, en GitHub Actions |
 | Calendario para suscribirse | `data/generated/velez.ics` (partidos del año y los que vienen) | Cada 1 h, en GitHub Actions |
+| Goleadores del torneo | ESPN `site/v3/.../arg.1/leaders?season=&seasontype=` (solo el top 10), desde el navegador | Cada 15 min |
+| Camino a los playoffs | Tabla de la zona en vivo + partidos que quedan de toda la liga (scoreboard de ESPN, mes por mes) | Cada 15 min |
 | Pronóstico a la hora del partido | **Open-Meteo** (gratis, sin key, CC BY 4.0), desde el navegador, con la ciudad de la sede que informa ESPN | Si el partido es dentro de 7 días |
 | Estadísticas de jugadores por torneo, suspendidos y «al límite de amarillas» | `data/generated/players.json`, sumando el detalle (`/summary`) de ESPN de cada partido del año | Cada 1 h, en GitHub Actions |
 | Titulares de la semana («Últimas del club») | `data/generated/news.json`, leyendo las páginas de sección de velez.com.ar (no tiene RSS) | Cada 1 h, en GitHub Actions |
@@ -82,6 +84,18 @@ los 30 equipos en puntos, partidos y promedio. Promiedos **no** se usa en el sit
 último de los promedios y al último de la anual (si es el mismo, al anteúltimo de la anual). Empates en zona de
 descenso se definen con un partido que la página no puede anticipar. Cuando cambie el año, las temporadas que cuentan
 se corren solas (`fetchAverageParts` en `js/espn.js`); si la LPF cambia el reglamento, revisar ahí.
+
+**Camino a los playoffs.** Pasan 8 por zona. Para cada equipo se calcula el máximo de puntos posible con los partidos
+que le quedan. «Clasificado»: menos de 8 rivales pueden igualarlo; «Eliminado»: 8 rivales ya tienen más de lo que él
+puede sumar; «Asegura con N»: los puntos que le alcanzan sin depender de nadie. Es conservador a propósito (cuenta los
+empates en puntos como amenaza y no descuenta que dos rivales se enfrenten entre sí): lo que dice es seguro, pero puede
+confirmarlo una fecha más tarde que un cálculo exacto.
+
+**Cancha neutral.** ESPN marca local aunque se juegue en cancha neutral (su `neutralSite` viene en false). En el
+historial se deduce por competencia (`isNeutral` en `js/facts.js`): Copa Argentina, supercopas, finales y las
+semifinales de la Copa de la Liga.
+
+**Árbitros.** ESPN publica el árbitro recién cuando el partido empieza (no antes), así que no se puede anticipar.
 
 **Calendario.** `velez.ics` usa el id de ESPN como UID: si cambia un horario, el evento se actualiza en vez de
 duplicarse. Google Calendar refresca los calendarios suscriptos cada varias horas (no se puede forzar).

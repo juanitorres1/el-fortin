@@ -1,5 +1,5 @@
 // Lo que comparten todas las páginas: formato, escape de HTML, escudos, carga de datos y la fila de partido.
-import { fetchLive, velezView } from './espn.js';
+import { VELEZ_ID, fetchLive, velezView } from './espn.js';
 
 export const TZ = 'America/Argentina/Buenos_Aires';
 export const LIVE_TIMEOUT_MS = 8000;
@@ -81,6 +81,64 @@ export function matchItem(m, { showYear = false } = {}) {
     </div>
     <div class="match-score">${right}</div>
   </li>`;
+}
+
+// ---------- Título de la pestaña en vivo y alerta de gol ----------
+
+let baseTitle = null; // el título original de la página (se toma la primera vez: este módulo también se usa en tests)
+const GOAL_ALERT_MS = 30_000;
+let lastScore = null; // { id, home, away }
+let blinkTimer = null;
+
+/** Texto del título con el marcador: «2-1 Vélez vs Boca (67')». */
+export function scoreTitle(m) {
+  return `${m.home.score ?? 0}-${m.away.score ?? 0} ${m.home.name} vs ${m.away.name}${m.clock ? ` (${m.clock})` : ''}`;
+}
+
+/** ¿Quién hizo un gol desde el marcador anterior? 'velez', 'rival' o null. */
+export function goalBy(prev, m) {
+  if (!prev || prev.id !== m.id) return null;
+  const velezHome = m.home.id === VELEZ_ID;
+  const [v, r] = velezHome ? [m.home.score ?? 0, m.away.score ?? 0] : [m.away.score ?? 0, m.home.score ?? 0];
+  const [pv, pr] = velezHome ? [prev.home, prev.away] : [prev.away, prev.home];
+  if (v > pv) return 'velez';
+  if (r > pr) return 'rival';
+  return null;
+}
+
+/**
+ * Mientras Vélez juega, el título de la pestaña muestra el marcador; si hay gol, parpadea con «¡GOL DE VÉLEZ!»
+ * durante 30 s (o hasta que se vuelve a la pestaña). Sirve a quien tiene el sitio abierto en otra pestaña.
+ */
+export function updateLiveTitle(fixture) {
+  baseTitle ??= document.title;
+  const m = fixture.find((x) => x.status === 'in');
+  if (!m) {
+    lastScore = null;
+    clearInterval(blinkTimer);
+    document.title = baseTitle;
+    return;
+  }
+  const base = `● ${scoreTitle(m)} · El Fortín`;
+  const who = goalBy(lastScore, m);
+  lastScore = { id: m.id, home: m.home.score ?? 0, away: m.away.score ?? 0 };
+  clearInterval(blinkTimer);
+  document.title = base;
+  if (!who) return;
+  const rival = m.home.id === VELEZ_ID ? m.away.name : m.home.name;
+  const alert = who === 'velez' ? `⚽ ¡GOL DE VÉLEZ! ${m.home.score}-${m.away.score}` : `Gol de ${rival} · ${m.home.score}-${m.away.score}`;
+  const until = Date.now() + GOAL_ALERT_MS;
+  let on = true;
+  document.title = alert;
+  blinkTimer = setInterval(() => {
+    if (Date.now() > until || (document.visibilityState === 'visible' && document.hasFocus())) {
+      clearInterval(blinkTimer);
+      document.title = base;
+      return;
+    }
+    on = !on;
+    document.title = on ? alert : base;
+  }, 1000);
 }
 
 /** Placeholders con la forma del contenido mientras cargan los datos (`loading.md`: mostrar algo enseguida). */

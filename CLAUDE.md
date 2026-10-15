@@ -13,6 +13,7 @@ Sitio estático **sin build ni dependencias** (HTML + CSS + JS en módulos ES; n
 - `js/core.js`: lo común (formato, `esc`, escudos achicados, `loadLive` de ESPN con respaldo, fila de partido,
   esqueletos, `scrollToHash`). `js/espn.js`: cliente y normalizador de ESPN. `js/news.js`: utilidades de noticias
   compartidas entre navegador y scripts.
+- `js/playoffs.js`: camino a los playoffs (cálculo conservador de clasificación).
 - `js/facts.js`: rachas, historial con el próximo rival y «un día como hoy» (navegador y scripts). `js/weather.js`: pronóstico
   de Open-Meteo para la hora del partido.
 - `css/styles.css`: sistema de diseño completo (tokens claro y noche, componentes).
@@ -30,7 +31,7 @@ Comandos (en Git Bash):
 ```bash
 npm run data   # baja datos a data/generated/ (~60 pedidos a ESPN y ~20 a velez.com.ar)
 npm run dev    # http://localhost:5173 (también está en .claude/launch.json como "fortin")
-npm test       # 50 tests: espn, news, pages, ics, weather, facts
+npm test       # 62 tests: espn, news, pages, ics, weather, facts, playoffs, core
 ```
 
 ## Fuentes de datos (resumen)

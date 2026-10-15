@@ -148,6 +148,7 @@ export async function fetchStandings(fetchImpl) {
     season: season?.displayName ?? null,
     phase: phases.at(-1)?.name ?? null,
     phaseKey: phases.length ? phaseKey('arg.1', season.year, phases.at(-1).id) : null, // para reemplazar esta fase en los promedios
+    phaseEnd: phases.at(-1)?.endDate ?? null, // fin de la fase regular: hasta ahí se piden los partidos que quedan
     year: season?.year ?? null,
     groups: normalizeStandings(json),
     annual: phaseTables.length ? { phases: phases.map((t) => t.name), rows: annualTable(phaseTables) } : null,
@@ -216,6 +217,47 @@ export function relegation(averageRows, annualRows) {
   const promedios = averageRows.at(-1)?.id ?? null;
   const anual = [...annualRows].reverse().find((r) => r.id !== promedios)?.id ?? null;
   return { promedios, anual };
+}
+
+/**
+ * Partidos de la fase regular en curso que todavía no se jugaron, de todos los equipos (para «Camino a los playoffs»).
+ * El scoreboard de ESPN no acepta rangos de fechas largos: se pide mes por mes hasta el fin de la fase.
+ */
+export async function fetchPhaseRemaining(standings, fetchImpl, now = new Date()) {
+  const slug = (standings.phase ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, '-');
+  const end = standings.phaseEnd ? new Date(standings.phaseEnd) : new Date(now.getFullYear(), now.getMonth() + 1, 28);
+  const months = [];
+  for (let d = new Date(now.getFullYear(), now.getMonth(), 1); d <= end && months.length < 6; d.setMonth(d.getMonth() + 1)) {
+    months.push(`${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}`);
+  }
+  const lists = await Promise.all(months.map((m) => getJson(`${SITE}/arg.1/scoreboard?dates=${m}`, fetchImpl)));
+  return lists
+    .flatMap((json) => json.events ?? [])
+    .filter((ev) => ev.season?.slug === slug)
+    .map(normalizeEvent)
+    .filter((m) => !m.completed);
+}
+
+// ---------- Goleadores del torneo ----------
+
+/** Top 10 de goleadores (ESPN solo da los 10 primeros): [{ id, name, goals, pj, team: { id, name, logo } }]. */
+export function normalizeScorers(json) {
+  const cat = json.leaders?.categories?.find((c) => c.name === 'goalsLeaders');
+  return (cat?.leaders ?? []).map((l) => ({
+    id: String(l.athlete?.id ?? ''),
+    name: l.athlete?.displayName ?? '',
+    goals: Number(l.value ?? 0),
+    pj: Number(String(l.displayValue ?? '').match(/Matches: (\d+)/)?.[1] ?? NaN) || null,
+    team: l.team ? { id: String(l.team.id), name: teamName(l.team.displayName), logo: l.team.logos?.[0]?.href ?? teamLogo(l.team.id) } : null,
+  }));
+}
+
+/** Goleadores de la fase en curso (Apertura o Clausura). `standings` = fetchStandings(). */
+export async function fetchScorers(standings, fetchImpl) {
+  const type = standings.phaseKey?.split('-').at(-1);
+  // Sin la fase exacta ESPN devuelve otra (por ejemplo, los octavos del Apertura): mejor no mostrar nada.
+  if (!standings.year || !type) return [];
+  return normalizeScorers(await getJson(`https://site.api.espn.com/apis/site/v3/sports/soccer/arg.1/leaders?season=${standings.year}&seasontype=${type}`, fetchImpl));
 }
 
 /** Lo que cambia día a día: próximos partidos, resultados de la temporada y la tabla. */

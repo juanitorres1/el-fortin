@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { monthDay, onThisDay, parseDay, rivalFacts, scoreResult, streakLines } from '../js/facts.js';
+import { isNeutral, monthDay, onThisDay, parseDay, rivalDetail, rivalFacts, scoreResult, streakLines } from '../js/facts.js';
 
 let seq = 0;
 // Partido de Vélez (id 21) contra un rival; `vs` = goles de Vélez, `rs` = del rival.
@@ -61,4 +61,30 @@ test('onThisDay: momentos del club y triunfos, sin repetir el partido de un mome
   const out = onThisDay('07-05', { matches: [win2009, win2015, loss], club });
   assert.deepEqual(out.map((d) => d.year), [1951, 2009, 2015]);
   assert.equal(out[2].text, 'Vélez le ganó 2-0 a River Plate, por la Primera División');
+});
+
+test('isNeutral: copas nacionales y finales en cancha neutral; playoffs de la Liga no', () => {
+  assert.equal(isNeutral({ comp: 'Copa Argentina', round: 'Round of 64' }), true);
+  assert.equal(isNeutral({ comp: 'Liga Profesional', round: 'Clausura - Final' }), true);
+  assert.equal(isNeutral({ comp: 'Liga Profesional', round: 'Clausura - Semifinals' }), false);
+  assert.equal(isNeutral({ comp: 'Copa de la Liga', round: 'Semifinals' }), true);
+  assert.equal(isNeutral({ comp: 'Liga Profesional', round: 'Torneo Clausura' }), false);
+});
+
+test('rivalDetail: local, visitante y neutral por separado; mayor goleada y últimos triunfos', () => {
+  const ms = [
+    game(3, 0, { year: 1990 }),
+    game(5, 2, { date: '2010-03-01T20:00:00Z' }),
+    game(0, 4, { home: false, date: '2015-03-01T20:00:00Z' }),
+    game(2, 1, { home: false, date: '2018-03-01T20:00:00Z' }),
+    game(1, 0, { home: false, date: '2024-03-01T20:00:00Z', comp: 'Copa Argentina' }),
+  ];
+  const d = rivalDetail(ms);
+  assert.deepEqual(d.home, { g: 2, e: 0, p: 0 });
+  assert.deepEqual(d.away, { g: 1, e: 0, p: 1 });
+  assert.deepEqual(d.neutral, { g: 1, e: 0, p: 0 });
+  assert.deepEqual(d.biggestWin, { year: '2010', score: '5-2', comp: 'Liga Profesional', where: 'local' }); // misma diferencia que 3-0, más goles
+  assert.deepEqual(d.worstLoss, { year: '2015', score: '0-4', comp: 'Liga Profesional', where: 'visitante' });
+  assert.equal(d.lastAwayWin.year, '2018'); // el 1-0 de 2024 fue en cancha neutral
+  assert.equal(d.lastHomeWin.year, '2010');
 });
