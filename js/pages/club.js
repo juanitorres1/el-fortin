@@ -31,6 +31,15 @@ function render(club) {
   $('[data-stadium-intro]').textContent = e.intro;
   $('[data-stadium-stats]').innerHTML = e.datos.map((d) => `<div><dt>${esc(d.etiqueta)}</dt><dd class="num">${esc(d.valor)}</dd></div>`).join('');
   $('[data-stadium-hitos]').innerHTML = e.hitos.map((h) => `<li><b>${esc(h.fecha)}</b><span>${esc(h.texto)}</span></li>`).join('');
+  const c = e.comoLlegar;
+  $('[data-arrive]').innerHTML = `
+    <p class="arrive-address">${esc(c.direccion)}</p>
+    <ul class="arrive-list">${c.opciones.map((o) => `<li><strong>${esc(o.titulo)}</strong><p>${esc(o.texto)}</p></li>`).join('')}</ul>
+    <p class="muted small">${esc(c.consejos)}</p>
+    <div class="cal-links">
+      <a class="btn btn-outline" href="${esc(c.mapa)}" target="_blank" rel="noopener">Cómo llegar en Google Maps</a>
+      <a class="btn btn-outline" href="${esc(c.comoLlegoUrl)}" target="_blank" rel="noopener">BA Cómo Llego</a>
+    </div>`;
 
   const [first, ...rest] = club.frases;
   $('[data-quotes]').innerHTML = [first && `<figure class="quote quote-main"><blockquote>${esc(first.texto)}</blockquote><figcaption>${esc(first.contexto)}</figcaption></figure>`]

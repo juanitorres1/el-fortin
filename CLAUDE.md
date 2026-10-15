@@ -13,9 +13,11 @@ Sitio estático **sin build ni dependencias** (HTML + CSS + JS en módulos ES; n
 - `js/core.js`: lo común (formato, `esc`, escudos achicados, `loadLive` de ESPN con respaldo, fila de partido,
   esqueletos, `scrollToHash`). `js/espn.js`: cliente y normalizador de ESPN. `js/news.js`: utilidades de noticias
   compartidas entre navegador y scripts.
+- `js/facts.js`: rachas, historial con el próximo rival y «un día como hoy» (navegador y scripts). `js/weather.js`: pronóstico
+  de Open-Meteo para la hora del partido.
 - `css/styles.css`: sistema de diseño completo (tokens claro y noche, componentes).
 - `scripts/update-data.mjs`: genera `data/generated/` (snapshot, historial, estadísticas, titulares y miniaturas).
-  `scripts/news.mjs`: titulares y resumen con IA. `scripts/import-historico.mjs`: uso único, ya corrido.
+  `scripts/news.mjs`: titulares y resumen con IA. `scripts/ics.mjs`: calendario `velez.ics`. `scripts/import-historico.mjs`: uso único, ya corrido.
   `scripts/serve.mjs`: servidor local.
 - `data/club.json`: contenido editorial a mano (historia, estadio, frases de Don Pepe, momentos, palmarés, ídolos,
   récords). `data/historico.json`: partidos 1931–2000 (dataset público, validado).
@@ -28,7 +30,7 @@ Comandos (en Git Bash):
 ```bash
 npm run data   # baja datos a data/generated/ (~60 pedidos a ESPN y ~20 a velez.com.ar)
 npm run dev    # http://localhost:5173 (también está en .claude/launch.json como "fortin")
-npm test       # 29 tests: espn, news, pages
+npm test       # 50 tests: espn, news, pages, ics, weather, facts
 ```
 
 ## Fuentes de datos (resumen)
@@ -42,6 +44,10 @@ npm test       # 29 tests: espn, news, pages
   con números o fechas que no estén en su nota; aviso visible de que lo escribe una IA; se oculta a los 10 días.
 - **Historial:** 1931–2000 del dataset de Kaggle (dominio público) y desde 2001 de ESPN.
 - **Récords:** Wikipedia (CC BY-SA).
+- **Promedios:** calculados con ESPN (últimas 3 temporadas, sin playoffs). Validados una vez contra Promiedos (oct-2026,
+  coinciden los 30 equipos); Promiedos no se usa en el sitio.
+- **Pronóstico:** Open-Meteo (sin key, CC BY 4.0), con la ciudad de la sede de ESPN.
+- **Imagen para compartir:** `assets/og.png` (1200×630), hecha a mano con Pillow; si se cambia el diseño, regenerarla.
 
 ## Decisiones tomadas (no reabrir sin que lo pida el usuario)
 
@@ -86,5 +92,6 @@ npm test       # 29 tests: espn, news, pages
 
 ## Ideas no hechas (solo si el usuario las pide)
 
+- Trivia de Vélez: pendiente, la vamos a iterar de a poco con el usuario.
 - Historial de la era amateur (1919–1930) y copas anteriores a 2001 (fuente posible: RSSSF, formato irregular).
 - Migrar a Astro si se suman muchas páginas (por ejemplo, una página por rival o por jugador).

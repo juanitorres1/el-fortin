@@ -1,6 +1,6 @@
 // Partidos: lo que viene, resultados, racha, tablas (zonas + anual) y copas. Todo de ESPN en vivo.
-import { VELEZ_ID, velezView } from '../espn.js';
-import { $, REFRESH_LIVE_MS, REFRESH_MS, RESULT_LABEL, esc, loadLive, logo, matchItem, mergeResults, scrollToHash, sourceNote } from '../core.js';
+import { VELEZ_ID, averagesTable, relegation, velezView } from '../espn.js';
+import { $, REFRESH_LIVE_MS, REFRESH_MS, RESULT_LABEL, esc, getJson, loadLive, logo, matchItem, mergeResults, scrollToHash, sourceNote } from '../core.js';
 
 function renderLists(fixture, results) {
   const upcoming = fixture.filter((m) => !m.completed);
@@ -18,7 +18,18 @@ function renderLists(fixture, results) {
 
 const isVelezRow = (r) => r.id === VELEZ_ID;
 
-function espnToTables(standings) {
+// Promedios: las fases guardadas por el deploy, con la fase en curso reemplazada por la tabla en vivo.
+function averagesFrom(promedios, standings) {
+  if (!promedios?.parts?.length) return null;
+  const parts = promedios.parts.filter((p) => p.key !== standings.phaseKey);
+  if (standings.phaseKey) parts.push({ key: standings.phaseKey, season: standings.year, groups: standings.groups });
+  const currentIds = new Set(standings.groups.flatMap((g) => g.rows).map((r) => r.id));
+  return currentIds.size ? averagesTable(parts, currentIds) : null;
+}
+
+const DESC = 'Hoy descendería';
+
+function espnToTables(standings, promedios) {
   const cols = [
     { key: 'pts', title: 'Pts', bold: true }, { key: 'pj', title: 'PJ' }, { key: 'goles', title: 'Goles' },
     { key: 'dg', title: 'Dif' }, { key: 'g', title: 'G' }, { key: 'e', title: 'E' }, { key: 'p', title: 'P' },
@@ -28,8 +39,26 @@ function espnToTables(standings) {
   const tables = standings.groups
     .filter((g) => g.rows.length)
     .map((g) => ({ phase, name: `${g.name}${phase ? ` · ${phase}` : ''}`, columns: cols, rows: g.rows.map(toRow) }));
+  const avg = averagesFrom(promedios, standings);
+  const rel = avg && standings.annual?.rows.length ? relegation(avg.rows, standings.annual.rows) : {};
   if (standings.annual?.rows.length) {
-    tables.push({ phase: null, name: 'Tabla anual', columns: cols, rows: standings.annual.rows.map(toRow), note: 'Suma de las fases regulares (Apertura + Clausura); desempate por diferencia de gol y goles a favor.' });
+    tables.push({
+      phase: null, name: 'Tabla anual', columns: cols,
+      rows: standings.annual.rows.map((r) => ({ ...toRow(r), mark: r.id === rel.anual ? DESC : null })),
+      note: 'Suma de las fases regulares (Apertura + Clausura); desempate por diferencia de gol y goles a favor.',
+    });
+  }
+  if (avg?.rows.length) {
+    const seasonCols = avg.seasons.map((y) => ({ key: `t${y}`, title: String(y) }));
+    tables.push({
+      phase: null, name: 'Promedios',
+      columns: [{ key: 'prom', title: 'Prom', bold: true }, ...seasonCols, { key: 'pts', title: 'Pts' }, { key: 'pj', title: 'PJ' }],
+      rows: avg.rows.map((r) => ({
+        pos: r.rank, id: r.id, name: r.name, logo: r.logo, mark: r.id === rel.promedios ? DESC : null,
+        values: { prom: r.prom.toFixed(3), pts: r.pts, pj: r.pj, ...Object.fromEntries(avg.seasons.map((y) => [`t${y}`, r.bySeason[y] ?? '–'])) },
+      })),
+      note: `Puntos ÷ partidos de las temporadas ${avg.seasons.join(', ')}, sin playoffs; los ascendidos cuentan desde que llegaron a Primera. Descienden el último de los promedios y el último de la tabla anual (si es el mismo equipo, el anteúltimo de la anual). Empates en zona de descenso: partido de desempate.`,
+    });
   }
   return tables;
 }
@@ -59,8 +88,8 @@ function renderTables(tables, note) {
     <caption class="sr-only">${esc(table.name)}</caption>
     <thead><tr><th scope="col">#</th><th scope="col" class="team">Equipo</th>${table.columns.map((c) => `<th scope="col">${esc(c.title)}</th>`).join('')}</tr></thead>
     <tbody>${table.rows
-      .map((r) => `<tr${isVelezRow(r) ? ' class="is-velez" aria-current="true"' : ''}>
-        <td class="pos">${r.pos}</td><td class="team">${logo(r.logo, 22)}${esc(r.name)}</td>
+      .map((r) => `<tr${isVelezRow(r) ? ' class="is-velez" aria-current="true"' : r.mark ? ' class="is-desc"' : ''}>
+        <td class="pos">${r.pos}</td><td class="team">${logo(r.logo, 22)}${esc(r.name)}${r.mark ? `<span class="tag tag-desc">${esc(r.mark)}</span>` : ''}</td>
         ${table.columns.map((c) => `<td${c.bold ? ' class="pts"' : ''}>${cell(c, r.values[c.key])}</td>`).join('')}
       </tr>`)
       .join('')}</tbody></table>`;
@@ -85,7 +114,7 @@ async function refresh() {
     const { data, live } = await loadLive();
     const results = mergeResults([], data.results);
     renderLists(data.fixture, results);
-    renderTables(espnToTables(data.standings), sourceNote(live, data.updatedAt));
+    renderTables(espnToTables(data.standings, await promediosPromise), sourceNote(live, data.updatedAt));
     renderCups(data.fixture, results);
     $('[data-source]').textContent = sourceNote(live, data.updatedAt);
     if (first) scrollToHash();
@@ -97,4 +126,8 @@ async function refresh() {
   }
 }
 
+const promediosPromise = getJson('data/generated/promedios.json').catch(() => null);
+
+// Desde el Inicio se llega con #agendar: abrir el desplegable.
+if (location.hash === '#agendar') $('#agendar').open = true;
 refresh();

@@ -178,6 +178,13 @@ a:hover { text-decoration-thickness: 2px; }
 .link-btn:hover { color: var(--accent); text-decoration: underline; }
 .link-btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 
+/* Agendar partidos: desplegable debajo del fixture */
+.cal { margin-top: 1rem; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 0 1.1rem; }
+.cal > summary { cursor: pointer; min-height: var(--tap); display: flex; align-items: center; font-weight: 700; color: var(--accent); }
+.cal[open] { padding-bottom: 1rem; }
+.cal-links { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.cal p { margin: 0.5rem 0 0.75rem; }
+
 /* Control segmentado (elegir tabla o torneo) */
 .segmented { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; }
 .seg {
@@ -231,7 +238,37 @@ a:hover { text-decoration-thickness: 2px; }
 .juega-facts dd { margin: 0.2rem 0 0; display: flex; align-items: center; gap: 0.5rem; font-weight: 600; }
 .juega-facts .num { font-size: 1.5rem; line-height: 1; }
 .juega .btn { width: 100%; }
+/* Minuto a minuto (en vivo), sobre la banda azul */
+.live-events-title { margin: 0 0 0.5rem; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; opacity: 0.88; }
+.live-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.35rem; max-height: 20rem; overflow-y: auto; }
+.live-list li { display: grid; grid-template-columns: 3.5rem 1fr; gap: 0.5rem; align-items: baseline; padding: 0.4rem 0.6rem; background: rgba(255, 255, 255, 0.1); border-radius: var(--radius-sm); font-size: 0.9375rem; }
+.live-list .ev-pausa { background: none; font-weight: 700; }
+.live-list .ev-gol { background: rgba(255, 255, 255, 0.22); font-weight: 700; }
+.ev-min { font-size: 1.15rem; }
+.ev-tag { display: inline-block; padding: 0 0.4rem; margin-right: 0.25rem; border-radius: 4px; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; background: rgba(255, 255, 255, 0.2); }
+.ev-gol .ev-tag { background: #fff; color: var(--velez); }
+.ev-amarilla .ev-tag { background: #f5c518; color: #1b1d21; }
+.ev-roja .ev-tag { background: #c62828; color: #fff; }
+.ev-team { opacity: 0.88; font-weight: 500; }
+.ev-note { margin: 0.5rem 0 0; font-size: 0.75rem; opacity: 0.88; }
+.juega-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 1.5rem; margin-top: -0.5rem; }
+.juega-link { color: var(--on-velez); font-weight: 600; min-height: var(--tap); display: inline-flex; align-items: center; }
 .juega .res { border: 1px solid rgba(255, 255, 255, 0.6); }
+
+/* La previa: rachas, historial con el rival y un día como hoy */
+.previa-title { margin-bottom: 1.25rem; }
+.previa-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr)); align-items: start; }
+.previa-card { display: grid; gap: 0.75rem; border-top: 4px solid var(--accent); }
+.previa-card a { font-weight: 700; min-height: var(--tap); display: inline-flex; align-items: center; }
+.previa-lines, .previa-days { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.4rem; }
+.previa-lines li { font-weight: 600; }
+.previa-days li { display: grid; grid-template-columns: 3.25rem 1fr; gap: 0.5rem; align-items: baseline; }
+.previa-days b { font-size: 1.35rem; color: var(--accent); }
+.previa-days a { min-height: 0; display: inline; }
+.previa-h2h { margin: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
+.previa-h2h div { background: var(--accent-soft); border-radius: var(--radius-sm); padding: 0.5rem; text-align: center; display: flex; flex-direction: column-reverse; }
+.previa-h2h dt { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-2); }
+.previa-h2h dd { margin: 0; font-size: 1.9rem; line-height: 1.1; color: var(--accent); }
 
 /* Noticias: grilla uniforme; la primera, destacada (2×2 en escritorio) */
 .news-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr)); }
@@ -321,6 +358,8 @@ td.pos { color: var(--text-2); width: 2.5rem; font-family: var(--display); font-
 td.pts { font: 700 1.3rem/1 var(--display); }
 tr.is-velez td { background: var(--accent-soft); font-weight: 800; }
 tr.is-velez td.pos { box-shadow: inset 5px 0 0 var(--accent); color: var(--text); }
+tr.is-desc td.pos { box-shadow: inset 5px 0 0 var(--loss); }
+.tag-desc { display: table; background: var(--loss); color: var(--on-signal); margin: 0.25rem 0 0 calc(22px + 0.5rem); white-space: nowrap; }
 
 /* ---------- Plantel ---------- */
 .alerts { display: grid; gap: 0.75rem; margin-bottom: 0.75rem; }
@@ -421,6 +460,11 @@ html:has(.subnav) { scroll-padding-top: calc(var(--topbar-h) + 4.5rem); }
 .stadium-stats dd { margin: 0; font-size: clamp(2.25rem, 5vw, 3rem); line-height: 1; }
 .stadium-hitos { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr)); }
 .stadium-hitos li { background: var(--card); border: 1px solid var(--line); border-top: 4px solid var(--accent); padding: 0.9rem 1rem; }
+.arrive { margin-top: 2rem; }
+.arrive-address { margin: 0 0 1rem; font-weight: 700; }
+.arrive-list { list-style: none; margin: 0 0 1rem; padding: 0; display: grid; gap: 0.5rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); }
+.arrive-list li { background: var(--card); border: 1px solid var(--line); padding: 0.9rem 1rem; }
+.arrive-list p { margin: 0.25rem 0 0; }
 .stadium-hitos b { display: block; font: 700 1.2rem/1.2 var(--display); color: var(--accent); margin-bottom: 0.2rem; }
 .quotes { display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 18rem), 1fr)); margin-top: 1.25rem; }
 .quote { margin: 0; background: var(--velez-deep); color: var(--on-velez); padding: 1.2rem 1.25rem; }
@@ -479,7 +523,7 @@ html:has(.subnav) { scroll-padding-top: calc(var(--topbar-h) + 4.5rem); }
 }
 
 /* ---------- Esquinas suaves (identidad propia: la web oficial usa esquinas rectas) ---------- */
-.card, .match, .player, .alert, .table-scroll, .stadium-stats div, .stadium-hitos li, .quote, .leader, .h2h-card,
+.card, .match, .player, .alert, .table-scroll, .stadium-stats div, .stadium-hitos li, .arrive-list li, .quote, .leader, .h2h-card,
 .fortin, .empty, .skeleton, .ai-note, .timeline li { border-radius: var(--radius); }
 .h2h-stats div, select, .tag, .chip, .res, .ai-badge, .countdown div { border-radius: var(--radius-sm); }
 .match, .player, .timeline li, .table-scroll, .h2h-card, .alert { overflow: hidden; }

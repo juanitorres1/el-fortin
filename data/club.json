@@ -72,6 +72,26 @@
     "nombre": "Estadio José Amalfitani",
     "apodo": "El Fortín de Liniers",
     "intro": "Levantado sobre un terreno anegadizo que hubo que rellenar, el estadio de Liniers es la obra que define a Vélez: un club que primero se construyó a sí mismo.",
+    "comoLlegar": {
+      "direccion": "Av. Juan B. Justo 9200, Liniers, Ciudad de Buenos Aires",
+      "mapa": "https://www.google.com/maps/dir/?api=1&destination=Estadio%20Jos%C3%A9%20Amalfitani%2C%20Av.%20Juan%20B.%20Justo%209200%2C%20Buenos%20Aires",
+      "opciones": [
+        {
+          "titulo": "Tren Sarmiento",
+          "texto": "Sale de Once y pasa por Caballito, Flores, Floresta y Villa Luro. Bajate en la estación Liniers: son unos 700 metros, menos de 10 minutos caminando."
+        },
+        {
+          "titulo": "Metrobus Juan B. Justo",
+          "texto": "El estadio está sobre la avenida Juan B. Justo: el Metrobus deja prácticamente en la puerta y llega desde Palermo y Villa Crespo."
+        },
+        {
+          "titulo": "Colectivos",
+          "texto": "Pasan muchas líneas por el Metrobus Juan B. Justo y por la avenida Rivadavia, a la altura de la estación Liniers. Los recorridos cambian: buscá el tuyo en BA Cómo Llego."
+        }
+      ],
+      "consejos": "Los días de partido hay cortes de tránsito alrededor del estadio y el estacionamiento es difícil: conviene ir en transporte público y con tiempo.",
+      "comoLlegoUrl": "https://mapa.buenosaires.gob.ar/comollego/"
+    },
     "datos": [
       {
         "valor": "49.540",

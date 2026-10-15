@@ -71,6 +71,8 @@ export function normalizeEvent(e) {
     detail: st.shortDetail ?? '',
     clock: c.status?.displayClock ?? null,
     venue: c.venue?.fullName ?? null,
+    city: c.venue?.address?.city ?? null, // para el pronóstico del tiempo
+    country: c.venue?.address?.country ?? null,
     home: normalizeSide(home),
     away: normalizeSide(away),
   };
@@ -145,9 +147,75 @@ export async function fetchStandings(fetchImpl) {
     name: json.name ?? 'Liga Profesional',
     season: season?.displayName ?? null,
     phase: phases.at(-1)?.name ?? null,
+    phaseKey: phases.length ? phaseKey('arg.1', season.year, phases.at(-1).id) : null, // para reemplazar esta fase en los promedios
+    year: season?.year ?? null,
     groups: normalizeStandings(json),
     annual: phaseTables.length ? { phases: phases.map((t) => t.name), rows: annualTable(phaseTables) } : null,
   };
+}
+
+// ---------- Promedios ----------
+
+const phaseKey = (league, season, type) => `${league}-${season}${type ? `-${type}` : ''}`;
+// Torneos fuera de arg.1 en ESPN que cuentan para los promedios (fase de grupos, sin playoffs).
+const EXTRA_AVERAGE_PHASES = { 2024: ['arg.copa_lpf'] }; // Copa de la Liga 2024
+
+/**
+ * Tablas de cada fase regular de las últimas 3 temporadas (la actual y las 2 anteriores), que es lo que cuenta para
+ * los promedios: puntos / partidos jugados en esas temporadas, sin playoffs. Validado contra Promiedos en oct-2026
+ * (coinciden los 30 equipos en puntos, partidos y promedio).
+ */
+export async function fetchAverageParts(year, fetchImpl) {
+  const parts = [];
+  for (const season of [year - 2, year - 1, year]) {
+    for (const league of EXTRA_AVERAGE_PHASES[season] ?? []) {
+      parts.push({ key: phaseKey(league, season), season, groups: normalizeStandings(await getJson(`${STANDINGS}/${league}/standings?season=${season}`, fetchImpl)) });
+    }
+    const json = await getJson(`${STANDINGS}/arg.1/standings?season=${season}`, fetchImpl);
+    const types = (json.seasons?.find((s) => s.year === season)?.types ?? []).filter((t) => t.hasStandings && new Date(t.startDate) <= Date.now());
+    for (const t of types) {
+      const groups = normalizeStandings(await getJson(`${STANDINGS}/arg.1/standings?season=${season}&seasontype=${t.id}`, fetchImpl));
+      parts.push({ key: phaseKey('arg.1', season, t.id), season, groups });
+    }
+  }
+  return parts;
+}
+
+/**
+ * Tabla de promedios. `parts` = [{ key, season, groups }]; `currentIds` = equipos que juegan la temporada actual
+ * (los que descendieron no figuran; los ascendidos dividen solo por los partidos que jugaron en Primera).
+ * Empate en el promedio: orden alfabético (en la zona de descenso el reglamento pide un partido de desempate).
+ */
+export function averagesTable(parts, currentIds) {
+  const seasons = [...new Set(parts.map((p) => p.season))].sort();
+  const byTeam = new Map();
+  for (const p of parts) {
+    for (const r of p.groups.flatMap((g) => g.rows)) {
+      const acc = byTeam.get(r.id) ?? { id: r.id, name: r.name, logo: r.logo, pts: 0, pj: 0, bySeason: {} };
+      acc.name = r.name ?? acc.name;
+      acc.logo = r.logo ?? acc.logo;
+      acc.pts += r.pts ?? 0;
+      acc.pj += r.pj ?? 0;
+      acc.bySeason[p.season] = (acc.bySeason[p.season] ?? 0) + (r.pts ?? 0);
+      byTeam.set(r.id, acc);
+    }
+  }
+  const rows = [...byTeam.values()]
+    .filter((r) => currentIds.has(r.id) && r.pj > 0)
+    .map((r) => ({ ...r, prom: r.pts / r.pj }))
+    .sort((a, b) => b.prom - a.prom || a.name.localeCompare(b.name, 'es'))
+    .map((r, i) => ({ ...r, rank: i + 1 }));
+  return { seasons, rows };
+}
+
+/**
+ * Quiénes descenderían hoy (reglamento 2026): el último de los promedios y el último de la tabla anual; si es el mismo
+ * equipo, el segundo descenso es para el anteúltimo de la anual. Devuelve { promedios: id, anual: id }.
+ */
+export function relegation(averageRows, annualRows) {
+  const promedios = averageRows.at(-1)?.id ?? null;
+  const anual = [...annualRows].reverse().find((r) => r.id !== promedios)?.id ?? null;
+  return { promedios, anual };
 }
 
 /** Lo que cambia día a día: próximos partidos, resultados de la temporada y la tabla. */
@@ -234,6 +302,37 @@ export async function fetchRoster(fetchImpl) {
 
 export async function fetchSummary(match, fetchImpl) {
   return getJson(`${SITE}/${match.compSlug ?? 'all'}/summary?event=${match.id}`, fetchImpl);
+}
+
+/**
+ * Minuto a minuto: los eventos importantes del partido (goles, tarjetas, cambios, penales), del más nuevo al más viejo.
+ * ESPN manda el texto en inglés: se arma en castellano con el tipo de evento y los jugadores.
+ * En un gol en contra, `team` es el equipo beneficiado (como lo informa ESPN).
+ */
+export function keyEvents(summary) {
+  const teams = Object.fromEntries((summary.header?.competitions?.[0]?.competitors ?? []).map((c) => [String(c.team.id), teamName(c.team.displayName)]));
+  const out = [];
+  for (const e of summary.keyEvents ?? []) {
+    const type = e.type?.type ?? '';
+    const [p0, p1] = (e.participants ?? []).map((p) => p.athlete?.displayName);
+    let kind = null;
+    let text = null;
+    if (type === 'own-goal') [kind, text] = ['gol', `Gol en contra de ${p0}`];
+    else if (type === 'penalty---scored') [kind, text] = ['gol', `Gol de penal de ${p0}`];
+    else if (type.startsWith('goal')) [kind, text] = ['gol', `Gol de ${p0}${p1 ? ` (asistencia de ${p1})` : ''}`];
+    else if (type === 'yellow-card') [kind, text] = ['amarilla', `Amarilla para ${p0}`];
+    else if (type === 'red-card') [kind, text] = ['roja', `Roja para ${p0}`];
+    else if (type === 'substitution') [kind, text] = ['cambio', p1 ? `Entra ${p0} por ${p1}` : `Entra ${p0}`];
+    else if (type === 'penalty---missed') [kind, text] = ['penal', `${p0} erró un penal`];
+    else if (type === 'penalty---saved') [kind, text] = ['penal', `Le atajaron un penal a ${p0}`];
+    else if (type === 'halftime') [kind, text] = ['pausa', 'Entretiempo'];
+    else if (type === 'end-regular-time') [kind, text] = ['pausa', 'Fin del tiempo reglamentario'];
+    if (!kind || (kind !== 'pausa' && !p0)) continue;
+    if (e.shootout) text = `Penales: ${text.replace('Gol de ', 'convirtió ')}`;
+    const teamId = e.team?.id != null ? String(e.team.id) : null;
+    out.push({ id: String(e.id), minute: e.clock?.displayValue || '', kind, text, team: teamId && teams[teamId] ? teams[teamId] : null, velez: teamId === VELEZ_ID });
+  }
+  return out.reverse();
 }
 
 /** Torneo al que pertenece un partido: Apertura/Clausura por separado, copas por nombre. */

@@ -12,11 +12,11 @@ Sitio estático sin build ni dependencias: HTML + CSS + JS (módulos ES). Se pub
 
 | Página | Qué tiene | Módulo |
 | --- | --- | --- |
-| `index.html` (Inicio) | «Juega Vélez» (próximo partido, cuenta regresiva, último resultado, posición) y noticias | `js/pages/inicio.js` |
-| `partidos.html` | Lo que viene, resultados, racha, tablas y copas | `js/pages/partidos.js` |
+| `index.html` (Inicio) | «Juega Vélez» (próximo partido, cuenta regresiva, pronóstico, minuto a minuto en vivo, último resultado, posición), noticias y «La previa» (rachas, historial con el rival, un día como hoy) | `js/pages/inicio.js` |
+| `partidos.html` | Lo que viene (con calendario para suscribirse), resultados, racha, tablas (zonas, anual y promedios) y copas | `js/pages/partidos.js` |
 | `plantel.html` | Sanciones estimadas, jugadores y estadísticas por torneo | `js/pages/plantel.js` |
 | `historial.html` | Historial contra cada rival desde 1931 | `js/pages/historial.js` |
-| `club.html` | Historia, estadio, Don Pepe, momentos, palmarés, ídolos y récords | `js/pages/club.js` |
+| `club.html` | Historia, estadio (y cómo llegar), Don Pepe, momentos, palmarés, ídolos y récords | `js/pages/club.js` |
 
 `js/core.js` tiene lo común (formato, escudos, carga de ESPN con respaldo, fila de partido). Cada página carga solo
 sus datos. El encabezado, el menú y el pie están escritos en cada HTML (sin paso de build): si se cambian, hay que
@@ -48,6 +48,11 @@ oscuro.
 | Fixture, resultados, copas, tabla por zonas y plantel | API de **ESPN**, desde el navegador | En cada visita (Inicio y Partidos se refrescan cada 5 min; cada 1 min si hay partido en vivo) |
 | Tabla anual | Calculada sumando las fases regulares de ESPN (Apertura + Clausura) | En cada visita |
 | Respaldo de todo lo anterior | `data/generated/snapshot.json` | Cada 1 h, en GitHub Actions |
+| Minuto a minuto (en vivo) | Detalle del partido de ESPN (`/summary`, `keyEvents`), desde el navegador | Cada 1 min mientras se juega |
+| Promedios | `data/generated/promedios.json` (fases regulares de las últimas 3 temporadas) + la fase en curso en vivo | Cada 1 h / en cada visita |
+| La previa (rachas, historial con el rival, un día como hoy) | `data/generated/facts.json`; las rachas se recalculan con los resultados en vivo | Cada 1 h, en GitHub Actions |
+| Calendario para suscribirse | `data/generated/velez.ics` (partidos del año y los que vienen) | Cada 1 h, en GitHub Actions |
+| Pronóstico a la hora del partido | **Open-Meteo** (gratis, sin key, CC BY 4.0), desde el navegador, con la ciudad de la sede que informa ESPN | Si el partido es dentro de 7 días |
 | Estadísticas de jugadores por torneo, suspendidos y «al límite de amarillas» | `data/generated/players.json`, sumando el detalle (`/summary`) de ESPN de cada partido del año | Cada 1 h, en GitHub Actions |
 | Titulares de la semana («Últimas del club») | `data/generated/news.json`, leyendo las páginas de sección de velez.com.ar (no tiene RSS) | Cada 1 h, en GitHub Actions |
 | Resumen de la semana con IA | `resumen.json`, generado por `.github/workflows/news-weekly.yml` con **Qwen3-8B** y guardado como artifact; el deploy baja el último | Lunes 9:00 (hora argentina) |
@@ -68,7 +73,18 @@ DT de Vélez está desactualizado. Se evaluaron otras fuentes:
   2024») ni al parámetro `next`, y no cubre lesiones de la liga argentina ni en planes pagos (`injuries: false`).
 
 **Tabla anual.** Suma las fases regulares de Apertura y Clausura (sin playoffs) y desempata por diferencia de gol
-y goles a favor. El reglamento tiene más criterios que ESPN no expone. No hay tabla de promedios.
+y goles a favor. El reglamento tiene más criterios que ESPN no expone.
+
+**Promedios.** Puntos ÷ partidos jugados en las temporadas 2024, 2025 y 2026, sin playoffs (2024 incluye la fase de
+grupos de la Copa de la Liga, `arg.copa_lpf` en ESPN). Los ascendidos dividen solo por los partidos que jugaron en
+Primera; los descendidos no figuran. Se validó una vez contra Promiedos (oct-2026, fecha 12 del Clausura): coinciden
+los 30 equipos en puntos, partidos y promedio. Promiedos **no** se usa en el sitio. Se marca «Hoy descendería» al
+último de los promedios y al último de la anual (si es el mismo, al anteúltimo de la anual). Empates en zona de
+descenso se definen con un partido que la página no puede anticipar. Cuando cambie el año, las temporadas que cuentan
+se corren solas (`fetchAverageParts` en `js/espn.js`); si la LPF cambia el reglamento, revisar ahí.
+
+**Calendario.** `velez.ics` usa el id de ESPN como UID: si cambia un horario, el evento se actualiza en vez de
+duplicarse. Google Calendar refresca los calendarios suscriptos cada varias horas (no se puede forzar).
 
 **Resumen semanal con IA.** Los lunes, `news-weekly.yml` corre **Qwen3-8B** (licencia Apache 2.0) con
 llama.cpp en la CPU del runner de GitHub (gratis, sin API keys; ~5–8 min) sobre las notas oficiales de la semana:

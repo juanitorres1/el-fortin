@@ -1,7 +1,9 @@
 // Inicio: «Juega Vélez» (próximo partido, último resultado, posición) y noticias del club estilo Google Noticias.
-import { VELEZ_ID, velezView } from '../espn.js';
+import { VELEZ_ID, fetchSummary, keyEvents, velezView } from '../espn.js';
 import { isNewsImage, isOfficialNoteUrl, relativeDay } from '../news.js';
-import { $, REFRESH_LIVE_MS, REFRESH_MS, RESULT_LABEL, capitalize, esc, fmt, getJson, loadLive, logo, mergeResults } from '../core.js';
+import { monthDay, streakLines } from '../facts.js';
+import { fetchForecast, wantsForecast } from '../weather.js';
+import { $, LIVE_TIMEOUT_MS, REFRESH_LIVE_MS, REFRESH_MS, RESULT_LABEL, capitalize, esc, fmt, getJson, loadLive, logo, mergeResults, withTimeout } from '../core.js';
 
 // Antes todo estaba en una sola página: los links viejos con #ancla llevan a la página nueva.
 const LEGACY = {
@@ -50,11 +52,19 @@ function renderJuega(data, results) {
       <p class="juega-when">${esc(capitalize(fmt.long.format(d)))}${next.timeValid ? ` · ${fmt.time.format(d)} h` : ' · hora a confirmar'}${next.venue ? ` · ${esc(next.venue)}` : ''}</p>
     </div>
     <div class="juega-side">
-      ${isLive ? '' : '<div class="countdown" data-countdown role="timer" aria-label="Falta para el partido"></div>'}
-      <dl class="juega-facts">${lastHtml}${posHtml}</dl>
+      ${isLive ? '<div class="live-events" data-live-events hidden></div>' : '<div class="countdown" data-countdown role="timer" aria-label="Falta para el partido"></div>'}
+      <dl class="juega-facts">${lastHtml}${posHtml}<div data-weather hidden></div></dl>
       <a class="btn btn-on-accent" href="partidos.html">Fixture y tablas</a>
+      <div class="juega-links">
+        <a class="juega-link" href="partidos.html#agendar">Agendar los partidos</a>
+        ${next.home.id === VELEZ_ID ? '<a class="juega-link" href="club.html#como-llegar">Cómo llegar a la cancha</a>' : ''}
+      </div>
     </div>`;
-  if (isLive) return;
+  if (isLive) {
+    renderLiveEvents(next, box.querySelector('[data-live-events]'));
+    return;
+  }
+  renderWeather(next, box.querySelector('[data-weather]'));
   const cd = box.querySelector('[data-countdown]');
   const tick = () => {
     const diff = Math.max(0, d - Date.now());
@@ -68,6 +78,90 @@ function renderJuega(data, results) {
   tick();
   // Cada 30 s alcanza: la cuenta muestra minutos (sin segundos que obliguen a redibujar cada segundo).
   countdownTimer = setInterval(tick, 30_000);
+}
+
+// Minuto a minuto: se pide el detalle del partido en cada refresco (cada 1 min mientras se juega).
+const KIND_LABEL = { gol: 'Gol', amarilla: 'Amarilla', roja: 'Roja', cambio: 'Cambio', penal: 'Penal' };
+let liveCache = null; // { id, html }: lo último que se mostró, para no dejar el hueco vacío mientras se pide de nuevo
+async function renderLiveEvents(m, slot) {
+  if (liveCache?.id === m.id) {
+    slot.innerHTML = liveCache.html;
+    slot.hidden = false;
+  }
+  let events;
+  try {
+    events = keyEvents(await withTimeout(fetchSummary(m), LIVE_TIMEOUT_MS));
+  } catch (err) {
+    console.warn('No se pudo leer el minuto a minuto:', err);
+    return;
+  }
+  if (!slot.isConnected || !events.length) return;
+  slot.innerHTML = `<h3 class="live-events-title">Minuto a minuto</h3><ol class="live-list">${events
+    .map((e) => e.kind === 'pausa'
+      ? `<li class="ev-pausa"><span class="ev-min num">${esc(e.minute)}</span><span>${esc(e.text)}</span></li>`
+      : `<li class="ev-${e.kind}"><span class="ev-min num">${esc(e.minute)}</span><span><b class="ev-tag">${KIND_LABEL[e.kind]}</b> ${esc(e.text)}${e.team ? ` <span class="ev-team">· ${esc(e.team)}</span>` : ''}</span></li>`)
+    .join('')}</ol><p class="ev-note">Fuente: ESPN. Puede llegar con un par de minutos de atraso.</p>`;
+  liveCache = { id: m.id, html: slot.innerHTML };
+  slot.hidden = false;
+}
+
+// Pronóstico para la hora del partido. Se pide una vez por hora (el Inicio se refresca cada 5 min); si falla, no se muestra.
+const WEATHER_TTL_MS = 60 * 60 * 1000;
+let weatherCache = null; // { id, at, promise }
+async function renderWeather(m, slot) {
+  if (!slot || !wantsForecast(m)) return;
+  if (weatherCache?.id !== m.id || Date.now() - weatherCache.at > WEATHER_TTL_MS) {
+    weatherCache = { id: m.id, at: Date.now(), promise: withTimeout(fetchForecast(m), LIVE_TIMEOUT_MS).catch(() => null) };
+  }
+  const w = await weatherCache.promise;
+  if (!w || !slot.isConnected) return;
+  const rain = w.rain != null ? ` · ${w.rain}% de lluvia` : '';
+  slot.innerHTML = `<dt>Pronóstico a la hora del partido</dt><dd><b class="num">${w.temp}°</b> ${esc(w.text ?? '')}${rain}</dd>`;
+  slot.hidden = false;
+}
+
+// ---------- La previa: rachas, historial con el rival y un día como hoy ----------
+
+function renderPrevia(facts, data) {
+  const section = $('[data-previa]');
+  if (!facts) return;
+  const cards = [];
+
+  // Rachas con los resultados en vivo encima de los guardados (si terminó un partido hace minutos, ya cuenta).
+  const byId = new Map(facts.recent.map((m) => [m.id, m]));
+  for (const m of data.results) byId.set(m.id, m);
+  const lines = streakLines([...byId.values()]);
+  if (lines.length) cards.push(`<article class="card previa-card"><h3 class="kicker">Racha</h3><ul class="previa-lines">${lines.map((l) => `<li>${esc(l)}</li>`).join('')}</ul></article>`);
+
+  const next = data.fixture.find((m) => !m.completed);
+  const rival = next && (next.home.id === VELEZ_ID ? next.away : next.home);
+  const rf = rival && facts.rivals[rival.id];
+  if (rf) {
+    const items = [
+      rf.last && `Último partido: ${rf.last.score} (${rf.last.year})`,
+      // Si el último partido fue triunfo, «último triunfo» repetiría lo mismo.
+      rf.last?.result === 'G' ? null : rf.lastWin ? `Último triunfo: ${rf.lastWin.score} en ${rf.lastWin.year}` : 'No le ganó en ningún partido oficial registrado',
+      rf.streak,
+    ].filter(Boolean);
+    cards.push(`<article class="card previa-card">
+      <h3 class="kicker">Historial con ${esc(rf.name)}</h3>
+      <dl class="previa-h2h">
+        <div><dt>Ganó</dt><dd class="num">${rf.g}</dd></div><div><dt>Empató</dt><dd class="num">${rf.e}</dd></div><div><dt>Perdió</dt><dd class="num">${rf.p}</dd></div>
+      </dl>
+      <ul class="previa-lines">${items.map((l) => `<li>${esc(l)}</li>`).join('')}</ul>
+      <a href="historial.html?rival=${encodeURIComponent(rf.id)}">Ver los ${rf.pj} partidos</a>
+    </article>`);
+  }
+
+  const today = facts.days[monthDay(new Date())] ?? [];
+  if (today.length) {
+    cards.push(`<article class="card previa-card"><h3 class="kicker">Un día como hoy</h3><ul class="previa-days">${today
+      .map((d) => `<li><b class="num">${d.year}</b><span>${d.kind === 'momento' ? `<a href="club.html#momentos">${esc(d.text)}</a>` : esc(d.text)}</span></li>`)
+      .join('')}</ul></article>`);
+  }
+
+  $('[data-previa-grid]').innerHTML = cards.join('');
+  section.hidden = !cards.length;
 }
 
 // ---------- Noticias ----------
@@ -127,6 +221,7 @@ async function refresh() {
     const { data } = await loadLive();
     const results = mergeResults([], data.results);
     renderJuega(data, results);
+    renderPrevia(await factsPromise, data);
     setTimeout(refresh, data.fixture.some((m) => m.status === 'in') ? REFRESH_LIVE_MS : REFRESH_MS);
   } catch (err) {
     console.error(err);
@@ -134,6 +229,8 @@ async function refresh() {
   }
 }
 
+// La previa se arma con datos que genera el deploy (facts.json) más los resultados en vivo.
+const factsPromise = getJson('data/generated/facts.json').catch(() => null);
 const [news, summary] = await Promise.all([
   getJson('data/generated/news.json').catch(() => null),
   getJson('data/generated/resumen.json').catch(() => null),

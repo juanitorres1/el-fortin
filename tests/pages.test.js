@@ -10,12 +10,15 @@ const exists = (f) => existsSync(new URL(`../${f}`, import.meta.url));
 const block = (html, re) => html.match(re)?.[0] ?? '';
 const navOf = (html) => block(html, /<nav class="tabbar"[\s\S]*?<\/nav>/);
 const footerOf = (html) => block(html, /<footer[\s\S]*?<\/footer>/);
-// El <head> sin título ni descripción, que cambian por página, ni el módulo propio de cada una.
+// El <head> sin título, descripción y URL, que cambian por página, ni el módulo propio de cada una.
 const headOf = (html) =>
   block(html, /<head>[\s\S]*?<\/head>/)
     .replace(/<title>.*<\/title>/, '')
     .replace(/<meta name="description"[^>]*>/, '')
+    .replace(/<meta property="og:(title|description|url)"[^>]*>/g, '')
+    .replace(/<link rel="canonical"[^>]*>/, '')
     .replace(/js\/pages\/[a-z]+\.js/, '');
+const BASE_URL = 'https://juanitorres1.github.io/el-fortin/';
 
 test('las 5 páginas existen y cargan su módulo', () => {
   for (const file of Object.keys(PAGES)) {
@@ -32,6 +35,19 @@ test('menú (sin la marca de página actual), head y pie son idénticos en todas
     assert.equal(navOf(html).replace(' aria-current="page"', ''), navOf(ref).replace(' aria-current="page"', ''), `el menú de ${file} difiere`);
     assert.equal(footerOf(html), footerOf(ref), `el pie de ${file} difiere`);
     assert.equal(headOf(html), headOf(ref), `el <head> de ${file} difiere`);
+  }
+});
+
+test('la vista previa al compartir (Open Graph) coincide con el título, la descripción y la URL de cada página', () => {
+  assert.ok(exists('assets/og.png'), 'falta assets/og.png');
+  for (const file of Object.keys(PAGES)) {
+    const html = read(file);
+    const attr = (re) => html.match(re)?.[1];
+    const url = BASE_URL + (file === 'index.html' ? '' : file);
+    assert.equal(attr(/<meta property="og:title" content="([^"]*)">/), attr(/<title>(.*)<\/title>/), `${file}: og:title distinto del <title>`);
+    assert.equal(attr(/<meta property="og:description" content="([^"]*)">/), attr(/<meta name="description" content="([^"]*)">/), `${file}: og:description distinta`);
+    assert.equal(attr(/<meta property="og:url" content="([^"]*)">/), url, `${file}: og:url incorrecta`);
+    assert.equal(attr(/<link rel="canonical" href="([^"]*)">/), url, `${file}: canonical incorrecta`);
   }
 });
 

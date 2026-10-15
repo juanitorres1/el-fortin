@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { aggregateStats, annualTable, discipline, headToHead, normalizeEvent, normalizeStandings, playersFromSummary, velezView } from '../js/espn.js';
+import { aggregateStats, annualTable, averagesTable, discipline, headToHead, keyEvents, normalizeEvent, normalizeStandings, playersFromSummary, relegation, velezView } from '../js/espn.js';
 
 const side = (id, name, homeAway, score, extra = {}) => ({
   homeAway,
@@ -134,4 +134,56 @@ test('discipline ignora torneos sin partidos por jugar y la quinta amarilla ya c
   const games = [1, 2, 3, 4, 5].map((i) => g(i, [['A', { yellowCards: 1 }]])).concat([g(6, [['A', {}]])]);
   assert.deepEqual(discipline(games, new Set(['Clausura-2026'])), []);
   assert.deepEqual(discipline(games.slice(0, 5), new Set()), []);
+});
+
+test('keyEvents: eventos en castellano, del más nuevo al más viejo, sin los que no importan', () => {
+  const ev = (id, type, minute, team, names = [], extra = {}) => ({
+    id, type: { type }, clock: { displayValue: minute }, team: team ? { id: team } : undefined,
+    participants: names.map((n) => ({ athlete: { displayName: n } })), ...extra,
+  });
+  const summary = {
+    header: { competitions: [{ competitors: [{ team: { id: '21', displayName: 'Vélez Sarsfield' } }, { team: { id: '16', displayName: 'River Plate' } }] }] },
+    keyEvents: [
+      ev('1', 'kickoff', '', null),
+      ev('2', 'goal---header', "10'", '21', ['Romero', 'Valdés']),
+      ev('3', 'own-goal', "20'", '16', ['Silvero']),
+      ev('4', 'yellow-card', "30'", '16', ['Pérez']),
+      ev('5', 'start-delay', "31'", '16', []),
+      ev('6', 'halftime', "45'+2'", null),
+      ev('7', 'substitution', "60'", '21', ['Aguirre', 'Godoy']),
+      ev('8', 'penalty---missed', "80'", '21', ['Godoy']),
+      ev('9', 'red-card', "85'", '16', ['Paz']),
+    ],
+  };
+  const out = keyEvents(summary);
+  assert.deepEqual(out.map((e) => e.id), ['9', '8', '7', '6', '4', '3', '2']);
+  assert.deepEqual(out.at(-1), { id: '2', minute: "10'", kind: 'gol', text: 'Gol de Romero (asistencia de Valdés)', team: 'Vélez', velez: true });
+  assert.equal(out.find((e) => e.id === '3').text, 'Gol en contra de Silvero');
+  assert.equal(out.find((e) => e.id === '3').team, 'River Plate');
+  assert.equal(out.find((e) => e.id === '7').text, 'Entra Aguirre por Godoy');
+  assert.equal(out.find((e) => e.id === '6').kind, 'pausa');
+  assert.equal(out.find((e) => e.id === '9').kind, 'roja');
+});
+
+test('averagesTable: suma por temporada, divide por partidos, deja afuera a los descendidos y desempata por nombre', () => {
+  const row = (id, name, pts, pj) => ({ id, name, pts, pj });
+  const parts = [
+    { key: 'a', season: 2024, groups: [{ rows: [row('1', 'Boca', 50, 27), row('2', 'Vélez', 40, 27), row('9', 'Descendido', 10, 27)] }] },
+    { key: 'b', season: 2025, groups: [{ rows: [row('1', 'Boca', 30, 16)] }, { rows: [row('2', 'Vélez', 36, 16), row('3', 'Ascendido', 20, 16)] }] },
+    { key: 'c', season: 2026, groups: [{ rows: [row('1', 'Boca', 10, 10), row('2', 'Vélez', 10, 10), row('3', 'Ascendido', 5, 10), row('4', 'Aldosivi', 13, 10)] }] },
+  ];
+  const t = averagesTable(parts, new Set(['1', '2', '3', '4']));
+  assert.deepEqual(t.seasons, [2024, 2025, 2026]);
+  assert.deepEqual(t.rows.map((r) => r.id), ['1', '2', '4', '3']);
+  const velez = t.rows.find((r) => r.id === '2');
+  assert.deepEqual([velez.pts, velez.pj, velez.bySeason], [86, 53, { 2024: 40, 2025: 36, 2026: 10 }]);
+  assert.equal(t.rows.find((r) => r.id === '3').pj, 26); // el ascendido divide solo por sus partidos en Primera
+  const tie = averagesTable([{ key: 'x', season: 2026, groups: [{ rows: [row('5', 'Tigre', 10, 10), row('6', 'Banfield', 10, 10)] }] }], new Set(['5', '6']));
+  assert.deepEqual(tie.rows.map((r) => r.name), ['Banfield', 'Tigre']);
+});
+
+test('relegation: último de promedios y último de la anual; si coinciden, el anteúltimo de la anual', () => {
+  const ids = (...xs) => xs.map((id) => ({ id }));
+  assert.deepEqual(relegation(ids('a', 'b', 'c'), ids('x', 'y', 'z')), { promedios: 'c', anual: 'z' });
+  assert.deepEqual(relegation(ids('a', 'b', 'c'), ids('x', 'y', 'c')), { promedios: 'c', anual: 'y' });
 });
