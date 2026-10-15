@@ -4,9 +4,9 @@
 // Uso: node scripts/check-data.mjs [archivo-del-reporte.md]
 import { readFile, writeFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
-import { AVERAGE_SEASONS, RULES_YEAR } from '../js/rules.js';
+import { AVERAGE_SEASONS, RULES_YEAR } from '../src/lib/rules.js';
 
-const OUT = new URL('../data/generated/', import.meta.url);
+const OUT = new URL('../public/data/generated/', import.meta.url);
 const MAX_AGE_H = 3;
 
 /**

@@ -1,4 +1,4 @@
-// Genera data/generated/{snapshot,matches,players}.json desde ESPN.
+// Genera public/data/generated/{snapshot,matches,players}.json desde ESPN.
 // - snapshot.json: respaldo de fixture/resultados/tabla por si la API no responde desde el navegador.
 // - matches.json: todos los partidos oficiales de Vélez que ESPN tiene (desde 2001) para el historial.
 // - news.json: titulares de la semana de velez.com.ar (sin IA). El resumen semanal con IA lo genera
@@ -11,10 +11,10 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { buildCalendar } from './ics.mjs';
 import { writeHeadlines } from './news.mjs';
-import { monthDay, onThisDay, rivalFacts } from '../js/facts.js';
-import { VELEZ_ID, aggregateStats, discipline, fetchAverageParts, fetchLive, fetchRoster, fetchSchedule, fetchSummary, playersFromSummary, tournamentOf } from '../js/espn.js';
+import { monthDay, onThisDay, rivalFacts } from '../src/lib/facts.js';
+import { VELEZ_ID, aggregateStats, discipline, fetchAverageParts, fetchLive, fetchRoster, fetchSchedule, fetchSummary, playersFromSummary, tournamentOf } from '../src/lib/espn.js';
 
-const OUT = new URL('../data/generated/', import.meta.url);
+const OUT = new URL('../public/data/generated/', import.meta.url);
 const FIRST_SEASON = 2000; // ESPN no tiene datos de Vélez anteriores a 2001
 
 async function withRetry(fn, tries = 3) {
@@ -79,10 +79,10 @@ async function main() {
 const RECENT_FOR_STREAKS = 60;
 const FACT_DAYS = 3; // hoy y los 2 siguientes: el deploy corre cada hora, así que pasada la medianoche ya está el día nuevo
 async function writeFacts(matches, live) {
-  const historic = JSON.parse(await readFile(new URL('../data/historico.json', import.meta.url), 'utf8')).matches.map((m) => ({
+  const historic = JSON.parse(await readFile(new URL('../public/data/historico.json', import.meta.url), 'utf8')).matches.map((m) => ({
     ...m, date: null, comp: 'Primera División', completed: true,
   }));
-  const club = JSON.parse(await readFile(new URL('../data/club.json', import.meta.url), 'utf8'));
+  const club = JSON.parse(await readFile(new URL('../public/data/club.json', import.meta.url), 'utf8'));
   const all = [...historic, ...matches];
   const slim = (t) => ({ id: t.id, name: t.name, score: t.score });
   const recent = matches.filter((m) => m.comp !== 'Amistoso').slice(-RECENT_FOR_STREAKS)

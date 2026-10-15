@@ -51,7 +51,7 @@ function parseCsv(text) {
   return lines.map((l) => Object.fromEntries(l.split(',').map((v, i) => [cols[i], v.trim()])));
 }
 
-// Formato compacto: el logo se deriva del id en el navegador (ver hydrateHistoric en js/app.js).
+// Formato compacto: el logo se deriva del id en el navegador (ver hydrateHistoric en src/pages/historial.jsx).
 function side(name, kaggleId, score, espnNames, unknown) {
   if (name === VELEZ) return { id: '21', name: 'Vélez', score };
   const id = TEAM_BY_KEY.get(key(name));
@@ -68,7 +68,7 @@ async function main() {
   // Usamos los nombres de ESPN cuando existen, para que el selector de rivales no muestre dos variantes.
   const espnNames = new Map();
   try {
-    const { matches } = JSON.parse(await readFile(new URL('../data/generated/matches.json', import.meta.url), 'utf8'));
+    const { matches } = JSON.parse(await readFile(new URL('../public/data/generated/matches.json', import.meta.url), 'utf8'));
     for (const m of matches) for (const s of [m.home, m.away]) espnNames.set(s.id, s.name);
   } catch {
     console.warn('Sin data/generated/matches.json: se usan los nombres del dataset. Corré antes `npm run data`.');
@@ -95,7 +95,7 @@ async function main() {
     note: 'Solo Primera División. Sin fechas por partido: se ordena por torneo.',
     matches,
   };
-  await writeFile(new URL('../data/historico.json', import.meta.url), JSON.stringify(out));
+  await writeFile(new URL('../public/data/historico.json', import.meta.url), JSON.stringify(out));
   console.log(`historico: ${matches.length} partidos de Vélez (${matches[0]?.season} → ${matches.at(-1)?.season})`);
 }
 

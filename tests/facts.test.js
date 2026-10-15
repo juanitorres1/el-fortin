@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { isNeutral, monthDay, onThisDay, parseDay, rivalDetail, rivalFacts, scoreResult, streakLines } from '../js/facts.js';
+import { isNeutral, monthDay, onThisDay, parseDay, rivalDetail, rivalFacts, scoreResult, streakLines } from '../src/lib/facts.js';
 
 let seq = 0;
 // Partido de Vélez (id 21) contra un rival; `vs` = goles de Vélez, `rs` = del rival.

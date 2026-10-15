@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { goalBy, scoreTitle } from '../js/core.js';
+import { goalBy, scoreTitle } from '../src/lib/core.js';
 
 const live = (home, away, { velezHome = true, id = '1' } = {}) => ({
   id, clock: "67'",

@@ -26,7 +26,8 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-          package-manager-cache: false # sin dependencias: no hay nada que cachear
+          cache: npm
+      - run: npm ci
       - run: npm test
       # Miniaturas de las noticias: ImageMagick suele venir en el runner; si no, se instala (unos segundos).
       - name: ImageMagick
@@ -34,7 +35,7 @@ jobs:
       # Las miniaturas ya generadas se reusan entre deploys: solo se procesan las notas nuevas.
       - uses: actions/cache@v6
         with:
-          path: data/generated/img/news
+          path: public/data/generated/img/news
           key: news-thumbs-${{ github.run_id }}
           restore-keys: news-thumbs-
       - run: npm run data
@@ -46,7 +47,7 @@ jobs:
         run: |
           RUN=$(gh run list --repo "${{ github.repository }}" --workflow news-weekly.yml --status success --limit 1 --json databaseId -q '.[0].databaseId')
           if [ -n "$RUN" ]; then
-            gh run download "$RUN" --repo "${{ github.repository }}" -n resumen-semanal -D data/generated || echo "No se pudo bajar el resumen de la corrida $RUN"
+            gh run download "$RUN" --repo "${{ github.repository }}" -n resumen-semanal -D public/data/generated || echo "No se pudo bajar el resumen de la corrida $RUN"
           else
             echo "Todavía no hay resumen semanal"
           fi
@@ -70,14 +71,12 @@ jobs:
           elif [ -n "$ISSUE" ]; then
             gh issue close "$ISSUE" --repo "${{ github.repository }}" --comment "Resuelto: el último deploy no encontró problemas."
           fi
-      - name: Armar sitio
-        run: |
-          mkdir _site
-          cp -r *.html css js assets data _site/
+      # React + Vite: arma dist/ con las 5 páginas, los estilos y lo que hay en public/ (incluidos los datos recién bajados).
+      - run: npm run build
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:
-          path: _site
+          path: dist
 
   deploy:
     needs: build

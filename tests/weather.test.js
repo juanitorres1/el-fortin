@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { fetchForecast, forecastHour, parseForecast, wantsForecast, weatherText } from '../js/weather.js';
+import { fetchForecast, forecastHour, parseForecast, wantsForecast, weatherText } from '../src/lib/weather.js';
 
 const NOW = Date.parse('2026-10-15T12:00:00Z');
 const m = (over = {}) => ({ id: '1', date: '2026-10-17T23:30Z', timeValid: true, status: 'pre', city: 'Buenos Aires', country: 'Argentina', ...over });

@@ -1,86 +1,10 @@
 <!doctype html>
 <html lang="es-AR">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>El Fortín · Vélez Sarsfield</title>
-  <meta name="description" content="Noticias, próximo partido y resultados de Vélez Sarsfield. Sitio de hinchas.">
-  <link rel="canonical" href="https://juanitorres1.github.io/el-fortin/">
-  <meta property="og:title" content="El Fortín · Vélez Sarsfield">
-  <meta property="og:description" content="Noticias, próximo partido y resultados de Vélez Sarsfield. Sitio de hinchas.">
-  <meta property="og:url" content="https://juanitorres1.github.io/el-fortin/">
-  <meta property="og:type" content="website">
-  <meta property="og:site_name" content="El Fortín">
-  <meta property="og:locale" content="es_AR">
-  <meta property="og:image" content="https://juanitorres1.github.io/el-fortin/assets/og.png">
-  <meta property="og:image:width" content="1200">
-  <meta property="og:image:height" content="630">
-  <meta property="og:image:alt" content="El Fortín, sitio de hinchas de Vélez Sarsfield">
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="color-scheme" content="light dark">
-  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#0f1115" media="(prefers-color-scheme: dark)">
-  <link rel="icon" href="assets/v.svg" type="image/svg+xml">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/styles.css">
-  <script type="module" src="js/pages/inicio.js"></script>
-</head>
-<body>
-  <a class="skip" href="#contenido">Saltar al contenido</a>
-  <header class="topbar">
-    <div class="wrap topbar-in">
-      <a class="brand" href="./"><img src="assets/v.svg" alt="" width="28" height="28"><span>El Fortín</span></a>
-      <nav class="tabbar" aria-label="Secciones">
-        <a href="./" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg><span>Inicio</span></a>
-        <a href="partidos.html"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span>Partidos</span></a>
-        <a href="plantel.html"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3 3 6l2 5 2-1v11h10V10l2 1 2-5-5-3a4 4 0 0 1-8 0z"/></svg><span>Plantel</span></a>
-        <a href="historial.html"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Historial</span></a>
-        <a href="club.html"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v6c0 4.5 3.4 8.2 8 9 4.6-.8 8-4.5 8-9V6z"/><path d="m9 9 3 6 3-6"/></svg><span>Club</span></a>
-      </nav>
-    </div>
-  </header>
-
-  <main id="contenido">
-    <h1 class="sr-only">El Fortín: noticias y partidos de Vélez Sarsfield</h1>
-    <section class="match-band" aria-label="Próximo partido de Vélez">
-      <div class="wrap juega" data-juega><div class="skeleton sk-juega" aria-hidden="true"></div></div>
-    </section>
-
-    <section class="band" data-previa hidden aria-labelledby="t-previa">
-      <div class="wrap">
-        <h2 class="display previa-title" id="t-previa">La previa</h2>
-        <div class="previa-grid" data-previa-grid></div>
-      </div>
-    </section>
-
-    <section class="band band-gray" aria-labelledby="t-noticias">
-      <div class="wrap">
-        <div class="section-head">
-          <h2 class="display" id="t-noticias">Noticias</h2>
-          <a class="btn btn-outline" href="https://velez.com.ar/noticias" target="_blank" rel="noopener">Todas en velez.com.ar</a>
-        </div>
-        <div class="news-grid" data-headlines>
-          <div class="skeleton sk-card" aria-hidden="true"></div><div class="skeleton sk-card" aria-hidden="true"></div><div class="skeleton sk-card" aria-hidden="true"></div><div class="skeleton sk-card" aria-hidden="true"></div>
-        </div>
-        <details class="news-summary" data-summary hidden></details>
-      </div>
-    </section>
-
-    <a class="band band-blue home-quote" href="club.html#don-pepe">
-      <span class="wrap">
-        <blockquote>«Yo no he venido al funeral de Vélez Sarsfield.»</blockquote>
-        <span class="home-quote-by">José Amalfitani, 1940 · Conocé la historia del club →</span>
-      </span>
-    </a>
-  </main>
-
-  <footer class="footer">
-    <div class="wrap">
-      <p><strong>El Fortín</strong> es un sitio de hinchas, no oficial. No está afiliado al Club Atlético Vélez Sarsfield.</p>
-      <p class="muted">Partidos, tablas, plantel y estadísticas: ESPN. Noticias: velez.com.ar. Pronóstico: Open-Meteo (CC BY 4.0). Historial 1931–2000: dataset «Liga Argentina 1931–2023» (dominio público). Récords: Wikipedia (CC BY-SA).</p>
-    </div>
-  </footer>
-</body>
+  <head>
+    <!--head-->
+  </head>
+  <body>
+    <div id="root"><noscript><p style="padding:1rem">El Fortín necesita JavaScript para mostrar los partidos y las tablas.</p></noscript></div>
+    <script type="module" src="/src/pages/inicio.jsx"></script>
+  </body>
 </html>

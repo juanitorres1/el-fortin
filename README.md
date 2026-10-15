@@ -1,190 +1,92 @@
 # El Fortín · Vélez Sarsfield
 
-Sitio de hinchas (no oficial) de Vélez: próximo partido con cuenta regresiva, fixture, resultados, noticias del
-club con un resumen semanal hecho por IA, tabla de la
-Liga Profesional por zonas y anual, copas en curso, plantel con sanciones estimadas, estadísticas de jugadores
-por torneo, historial contra cada rival desde 1931, historia, estadio, frases de José Amalfitani, momentos,
-palmarés, ídolos y récords históricos.
+Sitio de hinchas (no oficial) de Vélez: https://juanitorres1.github.io/el-fortin/
 
-Sitio estático sin build ni dependencias: HTML + CSS + JS (módulos ES). Se publica en GitHub Pages.
+**React 19 + Vite 6**, multipágina, publicado en GitHub Pages. Los datos salen de ESPN (en vivo desde el navegador) y
+de archivos que genera el deploy cada hora. No hay servidor propio ni API keys.
+
+## Uso
+
+Node 20 o más.
+
+```bash
+npm install
+npm run data    # baja los datos a public/data/generated/ (~70 pedidos a ESPN y ~20 a velez.com.ar)
+npm run dev     # http://localhost:5173
+npm test        # tests de la lógica (node:test)
+npm run build   # arma dist/ (lo mismo que publica el deploy)
+npm run check   # revisa los datos generados (lo corre el deploy)
+```
 
 ## Estructura
 
-| Página | Qué tiene | Módulo |
-| --- | --- | --- |
-| `index.html` (Inicio) | «Juega Vélez» (próximo partido, cuenta regresiva, pronóstico, minuto a minuto en vivo, último resultado, posición), noticias y «La previa» (rachas, historial con el rival, un día como hoy) | `js/pages/inicio.js` |
-| `partidos.html` | Lo que viene (con calendario para suscribirse), resultados, racha, tablas (zonas, anual y promedios), goleadores del torneo, camino a los playoffs y copas | `js/pages/partidos.js` |
-| `plantel.html` | Sanciones estimadas, jugadores y estadísticas por torneo | `js/pages/plantel.js` |
-| `historial.html` | Historial contra cada rival desde 1931, con local/visitante/neutral, mayor goleada, últimos triunfos y link para compartir (`?rival=id`) | `js/pages/historial.js` |
-| `club.html` | Historia, estadio (y cómo llegar), Don Pepe, momentos, palmarés, ídolos y récords | `js/pages/club.js` |
-
-`js/core.js` tiene lo común (formato, escudos, carga de ESPN con respaldo, fila de partido). Cada página carga solo
-sus datos. El encabezado, el menú y el pie están escritos en cada HTML (sin paso de build): si se cambian, hay que
-cambiarlos en las 5 páginas; `tests/pages.test.js` falla si quedan distintos o si hay links internos rotos. Los links
-viejos con `#ancla` (de cuando era una sola página) redirigen a la página nueva.
-
-## Diseño
-
-Revisado con las pautas de diseño de Apple (HIG) aplicadas a web: accesibilidad, color, tipografía, layout y modo
-oscuro.
-
-- **Paleta oficial de Vélez** y **modo noche automático** (sigue al sistema; sin selector propio, como recomiendan las
-  HIG). Contraste mínimo 4,5:1 en todo el texto, medido: azul `#0061A8` 6,4:1 sobre blanco; en modo noche el azul se
-  aclara a `#4EA3F0` (7,0:1) porque el oficial no se lee sobre fondo oscuro (2,95:1).
-- **Tipografía:** Barlow Condensed para marcadores, números y títulos; Montserrat para el texto. Base 17 px, mínimo
-  12 px, en `rem` (respeta el tamaño de letra del navegador).
-- **Controles de 44 px como mínimo**; en celular, barra inferior con las 5 secciones.
-- **Azul del club con identidad propia:** barra azul, bandas de color y pie azul oscuro, pero sin copiar los rasgos
-  característicos de la web oficial (portada partida foto + columna, cortes diagonales, tarjetas azules alternadas,
-  fechas en cajas azules con cursiva, esquinas rectas). En su lugar: **el partido primero** (banda «Juega Vélez» arriba
-  de todo, con la V de la camiseta tono sobre tono), la **muesca en V** en el borde de las bandas, títulos en Barlow
-  Condensed, esquinas suaves y botones tipo píldora.
-- Esqueletos mientras cargan los datos; se respetan «reducir movimiento» y «aumentar contraste».
-
-## Cómo funcionan los datos
-
-| Qué | De dónde | Cuándo se actualiza |
-| --- | --- | --- |
-| Fixture, resultados, copas, tabla por zonas y plantel | API de **ESPN**, desde el navegador | En cada visita (Inicio y Partidos se refrescan cada 5 min; cada 1 min si hay partido en vivo) |
-| Tabla anual | Calculada sumando las fases regulares de ESPN (Apertura + Clausura) | En cada visita |
-| Respaldo de todo lo anterior | `data/generated/snapshot.json` | Cada 1 h, en GitHub Actions |
-| Minuto a minuto (en vivo) | Detalle del partido de ESPN (`/summary`, `keyEvents`), desde el navegador | Cada 1 min mientras se juega |
-| Promedios | `data/generated/promedios.json` (fases regulares de las últimas 3 temporadas) + la fase en curso en vivo | Cada 1 h / en cada visita |
-| La previa (rachas, historial con el rival, un día como hoy) | `data/generated/facts.json`; las rachas se recalculan con los resultados en vivo | Cada 1 h, en GitHub Actions |
-| Calendario para suscribirse | `data/generated/velez.ics` (partidos del año y los que vienen) | Cada 1 h, en GitHub Actions |
-| Goleadores del torneo | ESPN `site/v3/.../arg.1/leaders?season=&seasontype=` (solo el top 10), desde el navegador | Cada 15 min |
-| Camino a los playoffs | Tabla de la zona en vivo + partidos que quedan de toda la liga (scoreboard de ESPN, mes por mes) | Cada 15 min |
-| Pronóstico a la hora del partido | **Open-Meteo** (gratis, sin key, CC BY 4.0), desde el navegador, con la ciudad de la sede que informa ESPN | Si el partido es dentro de 7 días |
-| Estadísticas de jugadores por torneo, suspendidos y «al límite de amarillas» | `data/generated/players.json`, sumando el detalle (`/summary`) de ESPN de cada partido del año | Cada 1 h, en GitHub Actions |
-| Titulares de la semana («Últimas del club») | `data/generated/news.json`, leyendo las páginas de sección de velez.com.ar (no tiene RSS) | Cada 1 h, en GitHub Actions |
-| Resumen de la semana con IA | `resumen.json`, generado por `.github/workflows/news-weekly.yml` con **Qwen3-8B** y guardado como artifact; el deploy baja el último | Lunes 9:00 (hora argentina) |
-| Historial vs. rivales desde 2001 (todas las competiciones) | `data/generated/matches.json`, armado desde ESPN | Cada 1 h, en GitHub Actions |
-| Historial vs. rivales 1931–2000 (solo Primera División) | `data/historico.json`, generado una vez con `scripts/import-historico.mjs` | Nunca (el pasado no cambia) |
-| Historia, estadio, frases, momentos, palmarés, ídolos, récords | `data/club.json` (a mano) | Cuando lo edites |
-
-La API de ESPN **no es oficial**: no pide key y permite CORS, pero puede cambiar sin aviso. Si falla en el
-navegador, la página usa el snapshot y lo indica con un punto amarillo («Datos guardados del…»). Toda la
-lectura de ESPN está en `js/espn.js`, así que si cambia el formato se arregla en un solo lugar.
-
-**Qué no muestra la página, a propósito:** lesionados y DT. ESPN no informa lesiones del fútbol argentino y su
-DT de Vélez está desactualizado. Se evaluaron otras fuentes:
-
-- **Promiedos** (datos Opta): tiene lesionados, DT y tablas oficiales (anual, promedios), pero su API no es
-  pública y sus datos están licenciados. La integración quedó en el commit `24cfe32` por si se quiere volver.
-- **API-Football (plan gratis)**: probado en oct-2026, no da acceso a la temporada actual («try from 2022 to
-  2024») ni al parámetro `next`, y no cubre lesiones de la liga argentina ni en planes pagos (`injuries: false`).
-
-**Tabla anual.** Suma las fases regulares de Apertura y Clausura (sin playoffs) y desempata por diferencia de gol
-y goles a favor. El reglamento tiene más criterios que ESPN no expone.
-
-**Promedios.** Puntos ÷ partidos jugados en las temporadas 2024, 2025 y 2026, sin playoffs (2024 incluye la fase de
-grupos de la Copa de la Liga, `arg.copa_lpf` en ESPN). Los ascendidos dividen solo por los partidos que jugaron en
-Primera; los descendidos no figuran. Se validó una vez contra Promiedos (oct-2026, fecha 12 del Clausura): coinciden
-los 30 equipos en puntos, partidos y promedio. Promiedos **no** se usa en el sitio. Se marca «Hoy descendería» al
-último de los promedios y al último de la anual (si es el mismo, al anteúltimo de la anual). Empates en zona de
-descenso se definen con un partido que la página no puede anticipar. Cuando cambie el año, las temporadas que cuentan
-se corren solas (`fetchAverageParts` en `js/espn.js`); si la LPF cambia el reglamento, revisar ahí.
-
-**Camino a los playoffs.** Cuántos pasan por zona sale de ESPN (equipos en playoffs ÷ zonas; Clausura 2026: 16 ÷ 2 = 8)
-y los partidos que quedan, del fixture de toda la liga; si ESPN no informa alguno de los dos, la sección se oculta. Para cada equipo se calcula el máximo de puntos posible con los partidos
-que le quedan. «Clasificado»: menos de 8 rivales pueden igualarlo; «Eliminado»: 8 rivales ya tienen más de lo que él
-puede sumar; «Asegura con N»: los puntos que le alcanzan sin depender de nadie. Es conservador a propósito (cuenta los
-empates en puntos como amenaza y no descuenta que dos rivales se enfrenten entre sí): lo que dice es seguro, pero puede
-confirmarlo una fecha más tarde que un cálculo exacto.
-
-**Cancha neutral.** ESPN marca local aunque se juegue en cancha neutral (su `neutralSite` viene en false). En el
-historial se deduce por competencia (`isNeutral` en `js/facts.js`): Copa Argentina, supercopas, finales y las
-semifinales de la Copa de la Liga.
-
-**Árbitros.** ESPN publica el árbitro recién cuando el partido empieza (no antes), así que no se puede anticipar.
-
-**Calendario.** `velez.ics` usa el id de ESPN como UID: si cambia un horario, el evento se actualiza en vez de
-duplicarse. Google Calendar refresca los calendarios suscriptos cada varias horas (no se puede forzar).
-
-**Resumen semanal con IA.** Los lunes, `news-weekly.yml` corre **Qwen3-8B** (licencia Apache 2.0) con
-llama.cpp en la CPU del runner de GitHub (gratis, sin API keys; ~5–8 min) sobre las notas oficiales de la semana:
-
-- Las notas le llegan ordenadas por importancia (fútbol, palabra del DT, socios, club, después el resto).
-- Cada punto cita su nota y la página la linkea. Solo se linkean URLs de `velez.com.ar/…/notas/…`.
-- **Control automático:** si un punto tiene números, montos o fechas (también en palabras: «cuatro», «quinto»)
-  que no aparecen en su nota, se descarta. Si quedan menos de 2 puntos, no se publica y la página muestra solo
-  los titulares. Las opiniones o adjetivos que agregue el modelo no se pueden detectar así: por eso el aviso.
-- La página lo muestra con el aviso «generado por IA, puede contener errores: verificá cada punto en su nota», y
-  lo oculta si tiene más de 10 días (por si el workflow semanal falló).
-- El último resultado y el próximo partido de la sección **no** son del modelo: salen de ESPN en vivo.
-- Para regenerarlo a mano: Actions → «Resumen semanal de noticias (Qwen)» → Run workflow.
-
-Se usan solo título, fecha, link y un resumen breve: nunca el texto completo de las notas.
-
-**Historial.** ESPN no tiene partidos de Vélez anteriores a 2001. Para 1931–2000 se usa el dataset
-[Liga Argentina 1931–2023](https://www.kaggle.com/datasets/ivanramosctes/liga-argentina-1931-2023) (licencia
-ODC-PDDL, dominio público), que trae solo Primera División y **sin fecha por partido**, solo el torneo. Se
-validó contra ESPN en 2003–2021: coinciden 638 de 641 partidos (rival, localía y resultado). Lo que falta:
-
-- Era amateur 1919–1930 (el dataset arranca en 1931).
-- Copas anteriores a 2001: Libertadores, Intercontinental, Supercopa, Copa Argentina, etc.
-- 1941–1943 no aparece porque Vélez jugó en la B.
-
-Los partidos definidos por penales cuentan como empate en el historial.
-
-**Sanciones.** Se estiman con las tarjetas de cada partido según el reglamento de la LPF (cada 5 amarillas en un
-mismo torneo = 1 fecha; se limpian antes de los playoffs; las amarillas de un partido con roja no suman) y con
-las rojas del último partido. La sanción oficial la define el Tribunal de Disciplina.
-
-**Récords** (goleadores, presencias, títulos, goleadores de torneo): Wikipedia, «Anexo:Futbolistas del Club
-Atlético Vélez Sarsfield» (CC BY-SA 4.0). Esas tablas no tienen fecha de actualización.
-
-Para regenerar el histórico (no hace falta salvo que cambie el mapeo de nombres): bajar `liga_2023.csv`
-de Kaggle **fuera del repo** y correr `node scripts/import-historico.mjs ruta/a/liga_2023.csv` después de
-`npm run data` (usa los nombres de ESPN para unificar rivales).
-
-## Desarrollo local
-
-```bash
-npm run data   # baja snapshot, historial, estadísticas y titulares a data/generated/ (~60 requests a ESPN, ~20 a velez.com.ar)
-npm run dev    # http://localhost:5173
-npm test
+```
+index.html, partidos.html, plantel.html, historial.html, club.html   entradas de Vite (el <head> lo arma vite.config.js)
+src/
+  site.js        las 5 páginas: título, descripción, ícono del menú; arma el <head> con la vista previa para compartir
+  main.jsx       monta una página
+  pages/         una por página (inicio, partidos, plantel, historial, club)
+  sections/      bloques grandes: Juega, Previa, Noticias, Tablas, Goleadores, Playoffs
+  components/    Layout (menú, banda, pie), MatchRow/MatchList, Crest, ResultBadge, Segmented, Skeletons…
+  hooks/         useLiveData, useJson, useCached, useNow, useLiveTitle, useScrollToHash, useCurrentSection
+  lib/           lógica pura, sin React (la usan también los scripts): espn, facts, playoffs, weather, news, rules, core
+  styles.css     sistema de diseño (tokens claro y noche)
+public/
+  assets/        escudo y imagen para compartir (og.png)
+  data/          club.json (a mano), historico.json (1931–2000), generated/ (lo genera el deploy, no va al repo)
+scripts/         update-data, news, ics, check-data, import-historico (Node, sin React)
+tests/           lógica de src/lib y scripts, y consistencia de las páginas
 ```
 
-Node 20 o superior. No hay `npm install`: no hay dependencias.
+**Sumar una página:** agregarla en `src/site.js`, copiar un HTML de la raíz cambiando el script y crear
+`src/pages/<clave>.jsx` con `<Layout page="<clave>">`. El test de páginas avisa si falta algo.
 
-## Deploy en GitHub Pages
+## Qué muestra y de dónde sale
 
-Los cron de GitHub Actions pueden atrasarse varios minutos en horas pico; para forzar una actualización:
-Actions → Deploy → Run workflow.
+| Sección | Fuente | Actualización |
+| --- | --- | --- |
+| Próximo partido, fixture, resultados, tablas, plantel | ESPN (API no oficial, sin key) | En cada visita; cada 1 min si Vélez juega |
+| Minuto a minuto y alerta de gol en la pestaña | ESPN, detalle del partido | Cada 1 min mientras se juega |
+| Goleadores del torneo (top 10) y camino a los playoffs | ESPN | Cada 15 min |
+| Promedios | `promedios.json` (temporadas cerradas) + la fase en curso en vivo | Cada 1 h / en cada visita |
+| Estadísticas del plantel y sanciones estimadas | `players.json`, sumando el detalle de cada partido | Cada 1 h |
+| La previa: rachas, historial con el rival, un día como hoy | `facts.json` + resultados en vivo | Cada 1 h |
+| Historial por rival | `historico.json` (1931–2000, dominio público) + `matches.json` (ESPN, desde 2001) | Cada 1 h |
+| Noticias | velez.com.ar (no tiene RSS: se leen las secciones) | Cada 1 h |
+| Resumen de la semana con IA | Qwen3-8B con llama.cpp en GitHub Actions | Lunes 9:00 |
+| Calendario para suscribirse | `velez.ics` | Cada 1 h |
+| Pronóstico a la hora del partido | Open-Meteo (sin key) | Si el partido es dentro de 7 días |
+| Historia, estadio, cómo llegar, palmarés, ídolos, récords | `public/data/club.json` (a mano; récords de Wikipedia) | Cuando se edita |
 
-1. Crear el repo en GitHub y pushear `main`.
-2. En el repo: **Settings → Pages → Build and deployment → Source: GitHub Actions**.
-3. El workflow `.github/workflows/deploy.yml` corre los tests, baja los datos y publica. Corre en cada push a
-   `main`, cada 1 hora y a mano (Actions → Deploy → Run workflow).
+Si ESPN no responde, la página usa el último `snapshot.json` y lo indica.
 
-GitHub desactiva los workflows programados de repos públicos sin actividad durante 60 días (sin avisar). Para que
-no pase, `keepalive.yml` revisa los lunes y, si hace 45 días que no hay commits, sube uno mínimo
-(`.github/keepalive`). Si igual se desactivan, se reactivan desde la pestaña Actions.
+## Reglas y cálculos
 
-## Mantenimiento entre temporadas
+- **Promedios:** puntos ÷ partidos de las últimas 3 temporadas, sin playoffs; los ascendidos dividen solo por lo que
+  jugaron en Primera. Validado contra Promiedos en oct-2026 (30 de 30 equipos iguales); Promiedos no se usa en el sitio.
+- **Descenso (2026):** el último de los promedios y el último de la anual (si coinciden, el anteúltimo de la anual).
+- **Playoffs:** cuántos pasan sale de ESPN (16 equipos ÷ 2 zonas = 8). El cálculo es conservador: «Clasificado» y
+  «Eliminado» son seguros, aunque a veces se confirman una fecha después que con un cálculo exacto.
+- **Sanciones:** 5 amarillas en un torneo o roja en el último partido. Es una estimación; la oficial es del Tribunal.
+- **Cancha neutral:** ESPN no la marca bien; se deduce por competencia (Copa Argentina, supercopas y finales).
+- Lo que no sale de ESPN está en `src/lib/rules.js`, revisado para `RULES_YEAR`.
 
-- **Chequeo de datos:** en cada deploy, `scripts/check-data.mjs` revisa lo generado (tabla, fixture, historial,
-  promedios, plantel, titulares, calendario, antigüedad del snapshot). Si encuentra algo, abre el issue «Revisar
-  datos del sitio» (llega por mail) y lo va actualizando; cuando todo vuelve a estar bien, lo cierra solo. Entre
-  mediados de diciembre y enero, un fixture o una tabla vacíos se consideran normales.
-- **Reglamento:** lo que no sale de ESPN está en `js/rules.js` (temporadas de los promedios, torneos extra que
-  cuentan, regla de descenso), revisado para `RULES_YEAR`. En una temporada nueva el chequeo pide revisarlo y,
-  hasta que se actualice `RULES_YEAR`, la página no marca quién desciende.
-- **Se adapta solo:** cuántos clasifican a playoffs y los partidos que quedan (ESPN), las temporadas de los promedios,
-  el historial del año nuevo. En enero, antes del primer partido, el plantel muestra los torneos del año anterior.
-- **A mano:** palmarés, ídolos y récords en `data/club.json`.
+## Deploy y mantenimiento
 
-¿Render o Railway? Funcionan (es un sitio estático: en Render, «Static Site» con publish dir `.` y build
-command `npm run data`), pero no aportan nada sobre Pages y no tienen el refresco programado.
+- `deploy.yml`: en cada push a `main`, cada 1 h y a mano. Corre `npm ci`, tests, `npm run data`, el chequeo de datos,
+  `npm run build` y publica `dist/`. Las miniaturas de noticias se cachean entre corridas (ImageMagick).
+- `news-weekly.yml`: los lunes genera el resumen con IA y lanza el deploy.
+- `keepalive.yml`: si pasan 45 días sin commits, sube uno mínimo para que GitHub no apague los workflows programados.
+- **Chequeo de datos** (`scripts/check-data.mjs`): si algo queda vacío o viejo, abre el issue «Revisar datos del
+  sitio» (llega por mail) y lo cierra solo cuando se arregla. También avisa cuando empieza una temporada nueva y hay
+  que revisar `src/lib/rules.js` (mientras tanto no se marca quién desciende).
+- **A mano:** títulos nuevos, ídolos y récords en `public/data/club.json`.
+- GitHub Pages cachea 10 minutos: después de un deploy puede verse la versión anterior un rato.
 
-## Fuentes del contenido editorial
+## Límites conocidos
 
-- Frases de Amalfitani y fechas del estadio: [velez.com.ar – Amalfitani eterno](https://velez.com.ar/club/notas/2019/05/13/142003_amalfitani-eterno),
-  [Infobae (14/05/2023)](https://www.infobae.com/deportes/2023/05/14/jose-amalfitani-el-dirigente-que-cambio-la-historia-del-inolvidable-gesto-para-salvar-a-velez-al-premio-que-recibio-meses-antes-de-su-muerte/).
-- Fundación, colores, apodo «Fortín» (Crítica, 1932), títulos, Cubero y Bianchi: [Wikipedia – Club Atlético Vélez Sarsfield](https://es.wikipedia.org/wiki/Club_Atl%C3%A9tico_V%C3%A9lez_Sarsfield).
-- Biografía de Amalfitani: [Wikipedia – José Amalfitani](https://es.wikipedia.org/wiki/Jos%C3%A9_Amalfitani), [La Nación](https://www.lanacion.com.ar/deportes/futbol/el-recuerdo-jose-amalfitani-homenaje-50-anos-nid2248851/).
-- Capacidad: [StadiumDB](https://stadiumdb.com/stadiums/arg/estadio_jose_amalfitani).
-- Títulos 2024–2025: verificados con los resultados de ESPN.
-
-Pendiente de verificar con fuente: gol de Chilavert a River (1996) y detalles de la final de la Libertadores 1994.
+- No muestra lesionados ni DT: ESPN no los informa bien y las alternativas (Promiedos, API-Football) no sirven o no
+  son públicas.
+- No muestra el árbitro: ESPN lo publica recién cuando empieza el partido.
+- El historial no tiene la era amateur (1919–1930) ni copas anteriores a 2001.
+- La API de ESPN no es oficial: si cambia el formato, se arregla en `src/lib/espn.js` (el chequeo de datos avisa).

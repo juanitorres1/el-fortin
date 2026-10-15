@@ -1,6 +1,6 @@
 // Calendario de partidos en formato iCalendar (RFC 5545). Lo genera scripts/update-data.mjs cada hora en
 // data/generated/velez.ics: quien se suscribe ve los cambios de horario sin hacer nada. Solo Node (usa Buffer).
-import { velezView } from '../js/espn.js';
+import { velezView } from '../src/lib/espn.js';
 
 export const SITE_URL = 'https://juanitorres1.github.io/el-fortin/';
 const TZ = 'America/Argentina/Buenos_Aires';

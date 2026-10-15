@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { checkData } from '../scripts/check-data.mjs';
-import { RULES_YEAR, rulesApply } from '../js/rules.js';
+import { RULES_YEAR, rulesApply } from '../src/lib/rules.js';
 
 const NOW = new Date(`${RULES_YEAR}-10-15T12:00:00Z`);
 const ok = () => ({

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { qualification, qualificationLines, reachablePoints, remainingByTeam, spotsPerZone } from '../js/playoffs.js';
+import { qualification, qualificationLines, reachablePoints, remainingByTeam, spotsPerZone } from '../src/lib/playoffs.js';
 
 // Zona chica para probar con 2 lugares: { id, pts, pj, rank }.
 const zone = (...pts) => pts.map((p, i) => ({ id: String(i + 1), name: `E${i + 1}`, pts: p, pj: 14, rank: i + 1 }));

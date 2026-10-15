@@ -1,8 +1,8 @@
 // Noticias de la web oficial de Vélez (velez.com.ar, que no tiene RSS: se leen las páginas de sección).
 //
-//   node scripts/news.mjs titulares → data/generated/news.json: últimos titulares con link. Sin IA, cada hora
+//   node scripts/news.mjs titulares → public/data/generated/news.json: últimos titulares con link. Sin IA, cada hora
 //                                     desde scripts/update-data.mjs.
-//   node scripts/news.mjs resumen   → data/generated/resumen.json: resumen de la semana con un LLM open source
+//   node scripts/news.mjs resumen   → public/data/generated/resumen.json: resumen de la semana con un LLM open source
 //                                     (Qwen3-8B con llama.cpp, en .github/workflows/news-weekly.yml, los lunes).
 //
 // Resumen: el modelo recibe el texto de cada nota (ordenadas por importancia) y devuelve 4-6 puntos, cada uno
@@ -12,7 +12,7 @@ import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
-import { NEWS_DAYS as DAYS, OFFICIAL_SITE as SITE, isOfficialImageUrl, isOfficialNoteUrl } from '../js/news.js';
+import { NEWS_DAYS as DAYS, OFFICIAL_SITE as SITE, isOfficialImageUrl, isOfficialNoteUrl } from '../src/lib/news.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -238,7 +238,7 @@ async function summarize(notes, llmUrl) {
   return { raw: content, parsed: JSON.parse(content.replace(/<think>[\s\S]*?<\/think>/g, '').trim()), usage, timings };
 }
 
-const OUT = new URL('../data/generated/', import.meta.url);
+const OUT = new URL('../public/data/generated/', import.meta.url);
 
 /** Titulares de la semana (sin IA): para la lista «Últimas del club». */
 export async function writeHeadlines() {

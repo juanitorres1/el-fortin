@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { aggregateStats, annualTable, averagesTable, discipline, headToHead, keyEvents, normalizeEvent, normalizeScorers, normalizeStandings, playersFromSummary, playoffTeams, relegation, velezView } from '../js/espn.js';
+import { aggregateStats, annualTable, averagesTable, discipline, headToHead, keyEvents, normalizeEvent, normalizeScorers, normalizeStandings, playersFromSummary, playoffTeams, relegation, velezView } from '../src/lib/espn.js';
 
 const side = (id, name, homeAway, score, extra = {}) => ({
   homeAway,

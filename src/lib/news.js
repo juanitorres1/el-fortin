@@ -1,4 +1,4 @@
-// Noticias: lo que usan tanto el navegador (js/app.js) como el deploy (scripts/news.mjs).
+// Noticias: lo que usan tanto el navegador (src/sections/Noticias.jsx) como el deploy (scripts/news.mjs).
 import { velezView } from './espn.js';
 
 export const NEWS_DAYS = 7;
