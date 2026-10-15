@@ -5,6 +5,7 @@ import { mount } from '../main.jsx';
 import { fetchRoster } from '../lib/espn.js';
 import { DATA, fmt, getJson, sized, withTimeout } from '../lib/core.js';
 import { useCached, useJson } from '../hooks/data.js';
+import { getInitial } from '../initial.js';
 import { useScrollToHash } from '../hooks/page.js';
 import { Layout, PageBand } from '../components/Layout.jsx';
 import { Empty, Segmented, Skeletons } from '../components/ui.jsx';
@@ -125,7 +126,8 @@ function Stats({ players }) {
 
 function Plantel() {
   const players = useJson(`${DATA}players.json`);
-  const roster = useCached('roster', loadRoster);
+  // Prerenderizada: arranca con el plantel del deploy y lo actualiza con el de ESPN en vivo.
+  const roster = useCached('roster', loadRoster, { initial: getInitial().extra?.roster });
   const sanctions = players?.discipline ?? [];
   useScrollToHash(players !== undefined && roster !== undefined);
   return (
@@ -157,4 +159,5 @@ function Plantel() {
   );
 }
 
+export default Plantel;
 mount(Plantel);

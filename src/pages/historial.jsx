@@ -103,7 +103,9 @@ function Historial() {
     () => (espn === undefined || old === undefined ? undefined : [...(old?.matches ?? []).map(hydrateHistoric), ...mergeResults(espn?.matches ?? [], [])]),
     [espn, old],
   );
-  const [rival, setRival] = useState(() => new URLSearchParams(location.search).get('rival'));
+  const [rival, setRival] = useState(null);
+  // El rival de la URL se lee al montar (el HTML prerenderizado es el mismo para todos los ?rival=).
+  useEffect(() => setRival(new URLSearchParams(location.search).get('rival')), []);
   const [comp, setComp] = useState('todas');
   const [era, setEra] = useState('todas');
   const rivalRef = useRef(null);
@@ -179,4 +181,5 @@ function Historial() {
   );
 }
 
+export default Historial;
 mount(Historial);

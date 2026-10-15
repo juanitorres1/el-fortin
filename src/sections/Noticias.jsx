@@ -1,6 +1,7 @@
 // Noticias del club estilo Google Noticias (titulares de velez.com.ar) y el resumen semanal hecho por IA.
 import { isNewsImage, isOfficialNoteUrl, relativeDay } from '../lib/news.js';
 import { capitalize, fmt } from '../lib/core.js';
+import { useNow } from '../hooks/data.js';
 import { ExtLink, Skeletons } from '../components/ui.jsx';
 
 const SUMMARY_MAX_AGE_DAYS = 10; // si el workflow semanal falló, no mostrar un resumen viejo como si fuera de esta semana
@@ -14,7 +15,7 @@ const SECTION_NAMES = {
 const sectionName = (s) => SECTION_NAMES[s] ?? capitalize(s.replace(/-/g, ' '));
 const shortDate = (iso) => iso.slice(5).split('-').reverse().join('/'); // «2026-10-13» → «13/10»
 
-function NewsCard({ h, featured }) {
+function NewsCard({ h, featured, now }) {
   return (
     <ExtLink className={`nw-card${featured ? ' nw-featured' : ''}`} href={h.url}>
       {isNewsImage(h.photo) && (
@@ -24,7 +25,7 @@ function NewsCard({ h, featured }) {
         />
       )}
       <div className="nw-body">
-        <p className="kicker">{sectionName(h.section)} <span className="nw-time">· {relativeDay(h.date)}</span></p>
+        <p className="kicker">{sectionName(h.section)} <span className="nw-time">· {relativeDay(h.date, new Date(now))}</span></p>
         <h3 className="nw-title">{h.title}</h3>
         {featured && h.lead && <p className="nw-lead">{h.lead}</p>}
         <span className="sr-only">Abre velez.com.ar en otra pestaña</span>
@@ -33,8 +34,8 @@ function NewsCard({ h, featured }) {
   );
 }
 
-function Summary({ summary }) {
-  const ageDays = summary ? (Date.now() - Date.parse(summary.generatedAt)) / 864e5 : Infinity;
+function Summary({ summary, now }) {
+  const ageDays = summary ? (now - Date.parse(summary.generatedAt)) / 864e5 : Infinity;
   const points = (summary?.points ?? []).filter((p) => isOfficialNoteUrl(p.url));
   if (!(ageDays <= SUMMARY_MAX_AGE_DAYS && points.length)) return null;
   return (
@@ -56,6 +57,7 @@ function Summary({ summary }) {
 
 /** `news` y `summary`: undefined mientras cargan, null si no hay. */
 export function Noticias({ news, summary }) {
+  const now = useNow();
   const headlines = (news?.headlines ?? []).filter((h) => isOfficialNoteUrl(h.url));
   const featured = headlines.find((h) => FEATURED_SECTIONS.includes(h.section) && isNewsImage(h.photo)) ?? headlines[0];
   const rest = headlines.filter((h) => h !== featured).slice(0, MAX_CARDS - 1);
@@ -68,10 +70,10 @@ export function Noticias({ news, summary }) {
         </div>
         <div className="news-grid">
           {news === undefined ? <Skeletons n={4} className="sk-card" />
-            : featured ? [featured, ...rest].map((h, i) => <NewsCard key={h.url} h={h} featured={i === 0} />)
+            : featured ? [featured, ...rest].map((h, i) => <NewsCard key={h.url} h={h} featured={i === 0} now={now} />)
             : <p className="empty">No pudimos leer las notas del club. Mirá las novedades en <ExtLink href="https://velez.com.ar">velez.com.ar</ExtLink>.</p>}
         </div>
-        <Summary summary={summary} />
+        <Summary summary={summary} now={now} />
       </div>
     </section>
   );

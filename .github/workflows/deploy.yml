@@ -71,7 +71,8 @@ jobs:
           elif [ -n "$ISSUE" ]; then
             gh issue close "$ISSUE" --repo "${{ github.repository }}" --comment "Resuelto: el último deploy no encontró problemas."
           fi
-      # React + Vite: arma dist/ con las 5 páginas, los estilos y lo que hay en public/ (incluidos los datos recién bajados).
+      # React + Vite: arma dist/ con las 5 páginas y lo que hay en public/, y prerenderiza cada página con los datos
+      # recién bajados (el contenido se ve sin esperar a React ni a ESPN; después se actualiza en vivo).
       - run: npm run build
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5

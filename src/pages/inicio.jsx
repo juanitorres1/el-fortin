@@ -14,8 +14,10 @@ const LEGACY = {
   historia: 'club.html#historia', estadio: 'club.html#estadio', amalfitani: 'club.html#don-pepe', momentos: 'club.html#momentos',
   palmares: 'club.html#palmares', records: 'club.html#records',
 };
-const legacy = LEGACY[location.hash.slice(1)];
-if (legacy) location.replace(legacy);
+if (!import.meta.env.SSR) {
+  const legacy = LEGACY[location.hash.slice(1)];
+  if (legacy) location.replace(legacy);
+}
 
 function Inicio() {
   const state = useLiveData();
@@ -42,4 +44,5 @@ function Inicio() {
   );
 }
 
+export default Inicio;
 mount(Inicio);

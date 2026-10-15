@@ -156,4 +156,5 @@ function Club() {
   );
 }
 
+export default Club;
 mount(Club);

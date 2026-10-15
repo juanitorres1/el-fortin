@@ -9,7 +9,7 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && vite build --ssr src/prerender.jsx --outDir dist-ssr && node scripts/prerender.mjs",
     "preview": "vite preview --port 5173",
     "data": "node scripts/update-data.mjs",
     "check": "node scripts/check-data.mjs",

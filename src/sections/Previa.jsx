@@ -2,6 +2,7 @@
 // más los resultados en vivo, para que un partido que terminó hace minutos ya cuente en la racha.
 import { VELEZ_ID } from '../lib/espn.js';
 import { monthDay, streakLines } from '../lib/facts.js';
+import { useNow } from '../hooks/data.js';
 import { Lines } from '../components/ui.jsx';
 
 function RivalCard({ rf }) {
@@ -27,6 +28,7 @@ function RivalCard({ rf }) {
 
 /** `facts` = facts.json; `data` = datos en vivo. No muestra nada si no hay tarjetas. */
 export function Previa({ facts, data }) {
+  const now = useNow();
   if (!facts || !data) return null;
   const byId = new Map(facts.recent.map((m) => [m.id, m]));
   for (const m of data.results) byId.set(m.id, m);
@@ -35,7 +37,7 @@ export function Previa({ facts, data }) {
   const next = data.fixture.find((m) => !m.completed);
   const rival = next && (next.home.id === VELEZ_ID ? next.away : next.home);
   const rf = rival && facts.rivals[rival.id];
-  const today = facts.days[monthDay(new Date())] ?? [];
+  const today = facts.days[monthDay(new Date(now))] ?? [];
   if (!streaks.length && !rf && !today.length) return null;
 
   return (

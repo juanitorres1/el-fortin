@@ -3,3 +3,4 @@ dist/
 public/data/generated/
 .claude/
 .env
+dist-ssr/

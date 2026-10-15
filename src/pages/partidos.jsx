@@ -1,9 +1,10 @@
 // Partidos: lo que viene (con el calendario para suscribirse), resultados, tablas, goleadores, camino a los playoffs
 // y copas. Todo de ESPN en vivo; los promedios suman las temporadas que guarda el deploy.
+import { useEffect, useRef } from 'react';
 import { mount } from '../main.jsx';
 import { velezView } from '../lib/espn.js';
 import { DATA, mergeResults, sourceNote } from '../lib/core.js';
-import { useJson, useLiveData } from '../hooks/data.js';
+import { useJson, useLiveData, useNow } from '../hooks/data.js';
 import { useLiveTitle, useScrollToHash } from '../hooks/page.js';
 import { Layout, PageBand } from '../components/Layout.jsx';
 import { MatchList } from '../components/Match.jsx';
@@ -15,9 +16,13 @@ import { Playoffs } from '../sections/Playoffs.jsx';
 const ICS = 'juanitorres1.github.io/el-fortin/data/generated/velez.ics';
 
 function Agendar() {
+  const ref = useRef(null);
+  // Desde el Inicio se llega con #agendar: se abre (en un efecto: el HTML prerenderizado no sabe del #).
+  useEffect(() => {
+    if (location.hash === '#agendar') ref.current.open = true;
+  }, []);
   return (
-    // Desde el Inicio se llega con #agendar: abierto.
-    <details className="cal" id="agendar" open={location.hash === '#agendar'}>
+    <details className="cal" id="agendar" ref={ref}>
       <summary>Agendar los partidos en tu calendario</summary>
       <p className="muted small">Te suscribís una vez y, si cambia un horario, se actualiza solo. Incluye los resultados del año.</p>
       <div className="cal-links">
@@ -31,7 +36,7 @@ function Agendar() {
 }
 
 function Copas({ fixture, results }) {
-  const season = new Date().getFullYear();
+  const season = new Date(useNow()).getFullYear();
   const byComp = new Map();
   for (const m of [...results, ...fixture.filter((x) => !x.completed)]) {
     if (m.comp === 'Liga Profesional' || m.comp === 'Amistoso' || new Date(m.date).getFullYear() !== season) continue;
@@ -91,4 +96,5 @@ function Partidos() {
   );
 }
 
+export default Partidos;
 mount(Partidos);

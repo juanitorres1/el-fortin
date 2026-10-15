@@ -3,7 +3,8 @@
 Sitio de hinchas (no oficial) de Vélez: https://juanitorres1.github.io/el-fortin/
 
 **React 19 + Vite 6**, multipágina, publicado en GitHub Pages. Los datos salen de ESPN (en vivo desde el navegador) y
-de archivos que genera el deploy cada hora. No hay servidor propio ni API keys.
+de archivos que genera el deploy cada hora. No hay servidor propio ni API keys. Cada página se **prerenderiza** en el
+deploy: el HTML ya trae el contenido y React lo actualiza en vivo.
 
 ## Uso
 
@@ -14,7 +15,8 @@ npm install
 npm run data    # baja los datos a public/data/generated/ (~70 pedidos a ESPN y ~20 a velez.com.ar)
 npm run dev     # http://localhost:5173
 npm test        # tests de la lógica (node:test)
-npm run build   # arma dist/ (lo mismo que publica el deploy)
+npm run build   # arma dist/ y prerenderiza las páginas con los datos de public/data/generated/ (como el deploy)
+npm run preview # sirve dist/ en http://localhost:5173
 npm run check   # revisa los datos generados (lo corre el deploy)
 ```
 
@@ -24,7 +26,9 @@ npm run check   # revisa los datos generados (lo corre el deploy)
 index.html, partidos.html, plantel.html, historial.html, club.html   entradas de Vite (el <head> lo arma vite.config.js)
 src/
   site.js        las 5 páginas: título, descripción, ícono del menú; arma el <head> con la vista previa para compartir
-  main.jsx       monta una página
+  main.jsx       monta una página (hidrata si viene prerenderizada)
+  initial.js     datos con los que se prerenderizó la página (los lee del <script id="initial-data">)
+  prerender.jsx  entrada del build para Node: dibuja cada página a HTML
   pages/         una por página (inicio, partidos, plantel, historial, club)
   sections/      bloques grandes: Juega, Previa, Noticias, Tablas, Goleadores, Playoffs
   components/    Layout (menú, banda, pie), MatchRow/MatchList, Crest, ResultBadge, Segmented, Skeletons…
@@ -34,12 +38,25 @@ src/
 public/
   assets/        escudo y imagen para compartir (og.png)
   data/          club.json (a mano), historico.json (1931–2000), generated/ (lo genera el deploy, no va al repo)
-scripts/         update-data, news, ics, check-data, import-historico (Node, sin React)
+scripts/         update-data, news, ics, check-data, prerender, import-historico (Node)
 tests/           lógica de src/lib y scripts, y consistencia de las páginas
 ```
 
 **Sumar una página:** agregarla en `src/site.js`, copiar un HTML de la raíz cambiando el script y crear
 `src/pages/<clave>.jsx` con `<Layout page="<clave>">`. El test de páginas avisa si falta algo.
+
+## Cómo se dibuja (prerender)
+
+`npm run build` hace tres cosas: `vite build` (el sitio), `vite build --ssr src/prerender.jsx` (las mismas páginas
+para Node) y `scripts/prerender.mjs`, que escribe en cada `dist/<página>.html` el contenido ya dibujado con los datos
+del deploy y esos datos en `<script id="initial-data">`. En el navegador, React **hidrata** ese HTML con los mismos
+datos (no lo redibuja) y enseguida pide lo nuevo a ESPN.
+
+- El HTML puede tener hasta 1 h (lo que tarda el próximo deploy): lo en vivo se corrige solo al abrir.
+- Historial no lleva datos embebidos (sus partidos pesan 570 KB): su HTML trae la estructura y carga lo demás.
+- Goleadores, camino a los playoffs, pronóstico y minuto a minuto se piden en el navegador, como antes.
+- **Regla para los componentes:** nada que dependa de la hora o de la URL al dibujar. La hora sale de `useNow()`
+  (en la hidratación usa la del deploy) y `location` se lee en un `useEffect`. Si no, el HTML y React no coinciden.
 
 ## Qué muestra y de dónde sale
 
@@ -74,7 +91,7 @@ Si ESPN no responde, la página usa el último `snapshot.json` y lo indica.
 ## Deploy y mantenimiento
 
 - `deploy.yml`: en cada push a `main`, cada 1 h y a mano. Corre `npm ci`, tests, `npm run data`, el chequeo de datos,
-  `npm run build` y publica `dist/`. Las miniaturas de noticias se cachean entre corridas (ImageMagick).
+  `npm run build` (con prerender) y publica `dist/`. Las miniaturas de noticias se cachean entre corridas (ImageMagick).
 - `news-weekly.yml`: los lunes genera el resumen con IA y lanza el deploy.
 - `keepalive.yml`: si pasan 45 días sin commits, sube uno mínimo para que GitHub no apague los workflows programados.
 - **Chequeo de datos** (`scripts/check-data.mjs`): si algo queda vacío o viejo, abre el issue «Revisar datos del

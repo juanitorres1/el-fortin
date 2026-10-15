@@ -6,7 +6,8 @@ diseño y decisiones está en `README.md`: leerlo antes de cambiar algo grande.
 
 ## Stack y estructura
 
-**React 19 + Vite 6, multipágina** (lo pidió el usuario en oct-2026). Node ≥ 20. Detalle en `README.md`.
+**React 19 + Vite 6, multipágina, con prerender en el deploy** (lo pidió el usuario en oct-2026; se descartó pasar a
+un servidor en Render/Railway/Vercel). Node ≥ 20. Detalle en `README.md`.
 
 - **5 páginas** con su propio HTML en la raíz (`index.html`, `partidos.html`, `plantel.html`, `historial.html`,
   `club.html`): las URLs y los links compartidos no cambian. Cada HTML solo tiene `<!--head-->` y el script de
@@ -23,6 +24,9 @@ diseño y decisiones está en `README.md`: leerlo antes de cambiar algo grande.
 - `src/components/`: `Layout`/`PageBand`, `MatchRow`/`MatchList`, `Crest`, `ResultBadge`, `Segmented`,
   `Skeletons`, `Lines`, `Empty`, `ExtLink`. `src/sections/`: bloques grandes (Juega, Previa, Noticias, Tablas,
   Goleadores, Playoffs).
+- Prerender: `npm run build` = `vite build` + `vite build --ssr src/prerender.jsx` + `scripts/prerender.mjs`, que mete
+  en cada `dist/*.html` el contenido dibujado y los datos (`<script id="initial-data">`, leído por `src/initial.js`).
+  `src/main.jsx` hidrata si la página viene prerenderizada. Qué datos lleva cada página: `PAGE_DATA` en el script.
 - `src/styles.css`: sistema de diseño (tokens claro y noche). Se siguen usando las mismas clases CSS de antes.
 - `public/`: `assets/` (escudo, `og.png`), `data/club.json` (a mano), `data/historico.json`, `data/generated/`
   (lo genera el deploy; no va al repo).
@@ -38,7 +42,8 @@ npm install
 npm run data   # baja datos a public/data/generated/ (~70 pedidos a ESPN y ~20 a velez.com.ar)
 npm run dev    # Vite en http://localhost:5173 (también está en .claude/launch.json como "fortin")
 npm test       # tests de src/lib, scripts y consistencia de páginas
-npm run build  # dist/, como el deploy
+npm run build  # dist/ con prerender, como el deploy (necesita los datos de `npm run data`)
+npm run preview # sirve dist/
 ```
 
 ## Fuentes de datos (resumen)
@@ -97,6 +102,9 @@ npm run build  # dist/, como el deploy
   de respaldo y empuja el contenido.
 - `useCurrentSection` (submenú del club) usa `requestAnimationFrame`: en el panel integrado oculto no corre; para
   verificarlo, sacar una captura (fuerza un cuadro) o probar en un navegador normal.
+- **Hidratación:** al dibujar, nada de `new Date()`/`Date.now()` ni `location`: la hora sale de `useNow()` (en la
+  hidratación es la del deploy) y la URL se lee en `useEffect`. Si no, el HTML del deploy y React no coinciden
+  (en producción React tira el error #418 y redibuja todo). Revisar la consola después de tocar componentes.
 - `vite.config.js` usa `base: './'`: rutas relativas para que funcione bajo `/el-fortin/` y en localhost. Los fetch
   van a `data/...` relativo a la página.
 - GitHub Pages cachea los archivos 10 minutos: después de un deploy puede verse la versión anterior un rato.
