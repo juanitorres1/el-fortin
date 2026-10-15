@@ -13,17 +13,20 @@ Sitio estático **sin build ni dependencias** (HTML + CSS + JS en módulos ES; n
 - `js/core.js`: lo común (formato, `esc`, escudos achicados, `loadLive` de ESPN con respaldo, fila de partido,
   esqueletos, `scrollToHash`). `js/espn.js`: cliente y normalizador de ESPN. `js/news.js`: utilidades de noticias
   compartidas entre navegador y scripts.
+- `js/rules.js`: reglas que no salen de ESPN (promedios, descenso), revisadas para `RULES_YEAR`. Cada temporada nueva
+  el chequeo de datos abre un issue para revisarlas.
 - `js/playoffs.js`: camino a los playoffs (cálculo conservador de clasificación).
 - `js/facts.js`: rachas, historial con el próximo rival y «un día como hoy» (navegador y scripts). `js/weather.js`: pronóstico
   de Open-Meteo para la hora del partido.
 - `css/styles.css`: sistema de diseño completo (tokens claro y noche, componentes).
 - `scripts/update-data.mjs`: genera `data/generated/` (snapshot, historial, estadísticas, titulares y miniaturas).
   `scripts/news.mjs`: titulares y resumen con IA. `scripts/ics.mjs`: calendario `velez.ics`. `scripts/import-historico.mjs`: uso único, ya corrido.
-  `scripts/serve.mjs`: servidor local.
+  `scripts/serve.mjs`: servidor local. `scripts/check-data.mjs`: chequeo de datos del deploy (issue «Revisar datos del sitio»).
 - `data/club.json`: contenido editorial a mano (historia, estadio, frases de Don Pepe, momentos, palmarés, ídolos,
   récords). `data/historico.json`: partidos 1931–2000 (dataset público, validado).
 - Workflows: `deploy.yml` (cada push a `main`, cada 1 h y manual) y `news-weekly.yml` (lunes 9:00 AR: resumen con
-  Qwen3-8B, guardado como artifact que el deploy baja).
+  Qwen3-8B, guardado como artifact que el deploy baja) y `keepalive.yml` (lunes: si hace 45 días que no hay commits,
+  sube uno mínimo para que GitHub no apague los workflows programados).
 - **Encabezado, menú y pie están copiados en las 5 páginas** (sin build). Si se cambian, cambiarlos en todas:
   `tests/pages.test.js` falla si quedan distintos o si hay links internos rotos.
 
@@ -31,7 +34,7 @@ Comandos (en Git Bash):
 ```bash
 npm run data   # baja datos a data/generated/ (~60 pedidos a ESPN y ~20 a velez.com.ar)
 npm run dev    # http://localhost:5173 (también está en .claude/launch.json como "fortin")
-npm test       # 62 tests: espn, news, pages, ics, weather, facts, playoffs, core
+npm test       # 68 tests: espn, news, pages, ics, weather, facts, playoffs, core, check-data
 ```
 
 ## Fuentes de datos (resumen)

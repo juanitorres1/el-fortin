@@ -10,6 +10,7 @@ on:
 permissions:
   contents: read
   actions: read # para bajar el artifact del resumen semanal
+  issues: write # para avisar si el chequeo de datos encuentra problemas
   pages: write
   id-token: write
 
@@ -48,6 +49,26 @@ jobs:
             gh run download "$RUN" --repo "${{ github.repository }}" -n resumen-semanal -D data/generated || echo "No se pudo bajar el resumen de la corrida $RUN"
           else
             echo "Todavía no hay resumen semanal"
+          fi
+      # Si algo quedó vacío o el reglamento es de otra temporada, abre (o actualiza) un issue; si está todo bien, lo
+      # cierra. No frena el deploy.
+      - name: Chequear datos
+        id: health
+        continue-on-error: true
+        run: node scripts/check-data.mjs "$RUNNER_TEMP/health.md"
+      - name: Avisar por issue
+        if: steps.health.outcome == 'success'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITLE: 'Revisar datos del sitio'
+        run: |
+          ISSUE=$(gh issue list --repo "${{ github.repository }}" --state open --search "\"$TITLE\" in:title" --json number -q '.[0].number')
+          if [ "${{ steps.health.outputs.problems }}" != "0" ]; then
+            if [ -n "$ISSUE" ]; then gh issue edit "$ISSUE" --repo "${{ github.repository }}" --body-file "$RUNNER_TEMP/health.md"
+            else gh issue create --repo "${{ github.repository }}" --title "$TITLE" --body-file "$RUNNER_TEMP/health.md"; fi
+          elif [ -n "$ISSUE" ]; then
+            gh issue close "$ISSUE" --repo "${{ github.repository }}" --comment "Resuelto: el último deploy no encontró problemas."
           fi
       - name: Armar sitio
         run: |

@@ -1,6 +1,7 @@
 // Partidos: lo que viene, resultados, racha, tablas (zonas + anual) y copas. Todo de ESPN en vivo.
 import { VELEZ_ID, averagesTable, fetchPhaseRemaining, fetchScorers, relegation, velezView } from '../espn.js';
-import { SPOTS, qualification, qualificationLines, remainingByTeam } from '../playoffs.js';
+import { qualification, qualificationLines, remainingByTeam, spotsPerZone } from '../playoffs.js';
+import { RELEGATION_NOTE, rulesApply } from '../rules.js';
 import { $, LIVE_TIMEOUT_MS, REFRESH_LIVE_MS, REFRESH_MS, RESULT_LABEL, esc, getJson, loadLive, logo, matchItem, mergeResults, scrollToHash, sourceNote, updateLiveTitle, withTimeout } from '../core.js';
 
 function renderLists(fixture, results) {
@@ -41,7 +42,8 @@ function espnToTables(standings, promedios) {
     .filter((g) => g.rows.length)
     .map((g) => ({ phase, name: `${g.name}${phase ? ` · ${phase}` : ''}`, columns: cols, rows: g.rows.map(toRow) }));
   const avg = averagesFrom(promedios, standings);
-  const rel = avg && standings.annual?.rows.length ? relegation(avg.rows, standings.annual.rows) : {};
+  // La regla de descenso está revisada para RULES_YEAR: en una temporada nueva, sin revisar, no se marca a nadie.
+  const rel = avg && standings.annual?.rows.length && rulesApply(standings.year) ? relegation(avg.rows, standings.annual.rows) : {};
   if (standings.annual?.rows.length) {
     tables.push({
       phase: null, name: 'Tabla anual', columns: cols,
@@ -58,7 +60,7 @@ function espnToTables(standings, promedios) {
         pos: r.rank, id: r.id, name: r.name, logo: r.logo, mark: r.id === rel.promedios ? DESC : null,
         values: { prom: r.prom.toFixed(3), pts: r.pts, pj: r.pj, ...Object.fromEntries(avg.seasons.map((y) => [`t${y}`, r.bySeason[y] ?? '–'])) },
       })),
-      note: `Puntos ÷ partidos de las temporadas ${avg.seasons.join(', ')}, sin playoffs; los ascendidos cuentan desde que llegaron a Primera. Descienden el último de los promedios y el último de la tabla anual (si es el mismo equipo, el anteúltimo de la anual). Empates en zona de descenso: partido de desempate.`,
+      note: `Puntos ÷ partidos de las temporadas ${avg.seasons.join(', ')}, sin playoffs; los ascendidos cuentan desde que llegaron a Primera. ${rulesApply(standings.year) ? RELEGATION_NOTE : `Reglamento de descensos de ${standings.year} todavía sin revisar: no se marca quién desciende.`}`,
     });
   }
   return tables;
@@ -154,7 +156,10 @@ const PO_TTL_MS = 15 * 60 * 1000;
 async function renderPlayoffs(standings) {
   const section = $('[data-playoffs]');
   // Solo durante una fase regular con zonas (en playoffs no hay nada que calcular).
-  if (!/^Torneo /.test(standings.phase ?? '') || !standings.groups.some((g) => g.rows.length)) {
+  // Hace falta saber cuántos pasan (ESPN lo declara con las fases de playoffs) y que la fase tenga zonas.
+  const groups = standings.groups.filter((g) => g.rows.length);
+  const spots = spotsPerZone(standings.playoffTeams, groups.length);
+  if (!spots || !standings.phaseKey) {
     section.hidden = true;
     return;
   }
@@ -162,14 +167,18 @@ async function renderPlayoffs(standings) {
     poCache = { key: standings.phaseKey, at: Date.now(), promise: withTimeout(fetchPhaseRemaining(standings), LIVE_TIMEOUT_MS).catch(() => null) };
   }
   const events = await poCache.promise;
-  const remaining = events ? remainingByTeam(events) : new Map();
-  const zones = standings.groups.filter((g) => g.rows.length).map((g) => ({ name: g.name, rows: qualification(g.rows, remaining) }));
+  if (!events) {
+    section.hidden = true; // sin el fixture no se puede calcular: mejor no mostrar estados inventados
+    return;
+  }
+  const remaining = remainingByTeam(events);
+  const zones = groups.map((g) => ({ name: g.name, rows: qualification(g.rows, remaining, spots) }));
   const velezZone = zones.find((z) => z.rows.some((r) => r.id === VELEZ_ID));
   const velez = velezZone?.rows.find((r) => r.id === VELEZ_ID);
   poZone = zones.some((z) => z.name === poZone) ? poZone : velezZone?.name ?? zones[0].name;
 
   $('[data-po-summary]').innerHTML = velez
-    ? `<p class="kicker">Vélez · ${esc(velezZone.name)}</p><ul class="previa-lines">${qualificationLines(velez, velezZone.rows).map((l) => `<li>${esc(l)}</li>`).join('')}</ul>`
+    ? `<p class="kicker">Vélez · ${esc(velezZone.name)}</p><ul class="previa-lines">${qualificationLines(velez, velezZone.rows, spots).map((l) => `<li>${esc(l)}</li>`).join('')}</ul>`
     : '';
   const tabs = $('[data-po-tabs]');
   tabs.innerHTML = zones.map((z) => `<button class="seg" type="button" aria-pressed="${z.name === poZone}" data-zone="${esc(z.name)}">${esc(z.name)}</button>`).join('');
@@ -190,13 +199,14 @@ async function renderPlayoffs(standings) {
     ? `Le quedan: ${t.opponents.map((o) => `<span${o.rivalId === VELEZ_ID ? ' class="po-vs-velez"' : ''}>${esc(o.rival)} (${o.home ? 'L' : 'V'})</span>`).join(' · ')}`
     : t.left ? `Le quedan ${t.left} partidos` : 'Terminó la fase');
   $('[data-po-list]').innerHTML = [...zone.rows].sort((a, b) => a.rank - b.rank).map((t, i) => `
-    ${i === SPOTS ? '<li class="po-cut" aria-hidden="true"><span>Zona de clasificación arriba</span></li>' : ''}
+    ${i === spots ? '<li class="po-cut" aria-hidden="true"><span>Zona de clasificación arriba</span></li>' : ''}
     <li class="po-row${t.id === VELEZ_ID ? ' is-velez' : ''}">
       <span class="po-pos num">${t.rank}</span>
       <div class="po-main"><strong>${logo(t.logo, 22)}${esc(t.name)}</strong><small>${rivals(t)}</small></div>
       <div class="po-pts"><b class="num">${t.pts}</b><small>máx. ${t.max}</small></div>
       <div class="po-status">${status(t)}</div>
     </li>`).join('');
+  $('[data-po-spots]').textContent = spots;
   section.hidden = false;
 }
 

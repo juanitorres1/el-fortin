@@ -103,8 +103,15 @@ async function writeFacts(matches, live) {
 
 async function writePlayers(live) {
   const year = new Date().getFullYear();
+  const official = (m) => m.completed && m.comp !== 'Amistoso';
+  let played = live.results.filter((m) => new Date(m.date).getFullYear() === year && official(m));
+  // En enero, antes del primer partido, el plantel quedaría vacío: se muestran los torneos del año anterior.
+  if (!played.length) {
+    played = (await withRetry(() => fetchSchedule({ season: year - 1 }))).filter(official);
+    console.log(`jugadores: todavía no hay partidos en ${year}, uso los de ${year - 1}`);
+  }
   const games = [];
-  for (const match of live.results.filter((m) => new Date(m.date).getFullYear() === year && m.comp !== 'Amistoso')) {
+  for (const match of played) {
     const summary = await withRetry(() => fetchSummary(match));
     games.push({ match, players: playersFromSummary(summary) });
   }

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { aggregateStats, annualTable, averagesTable, discipline, headToHead, keyEvents, normalizeEvent, normalizeScorers, normalizeStandings, playersFromSummary, relegation, velezView } from '../js/espn.js';
+import { aggregateStats, annualTable, averagesTable, discipline, headToHead, keyEvents, normalizeEvent, normalizeScorers, normalizeStandings, playersFromSummary, playoffTeams, relegation, velezView } from '../js/espn.js';
 
 const side = (id, name, homeAway, score, extra = {}) => ({
   homeAway,
@@ -198,4 +198,16 @@ test('normalizeScorers: nombre, goles, partidos y equipo actual', () => {
   assert.equal(out[1].pj, null);
   assert.equal(out[1].team.name, 'Vélez');
   assert.deepEqual(normalizeScorers({}), []);
+});
+
+test('playoffTeams: cuántos juegan los playoffs según las fases que siguen a la regular', () => {
+  const types = [
+    { id: '1', name: 'Torneo Apertura', hasStandings: true }, { id: '2', name: 'Apertura - Round of 16', hasStandings: false },
+    { id: '3', name: 'Apertura - Quarterfinals', hasStandings: false }, { id: '6', name: 'Torneo Clausura', hasStandings: true },
+    { id: '7', name: 'Clausura - Quarterfinals', hasStandings: false }, { id: '8', name: 'Clausura - Final', hasStandings: false },
+  ];
+  assert.equal(playoffTeams(types, { id: '1' }), 16);
+  assert.equal(playoffTeams(types, { id: '6' }), 8);
+  assert.equal(playoffTeams([{ id: '1', name: 'Liga', hasStandings: true }], { id: '1' }), null);
+  assert.equal(playoffTeams(types, null), null);
 });

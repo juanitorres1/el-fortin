@@ -85,7 +85,8 @@ los 30 equipos en puntos, partidos y promedio. Promiedos **no** se usa en el sit
 descenso se definen con un partido que la página no puede anticipar. Cuando cambie el año, las temporadas que cuentan
 se corren solas (`fetchAverageParts` en `js/espn.js`); si la LPF cambia el reglamento, revisar ahí.
 
-**Camino a los playoffs.** Pasan 8 por zona. Para cada equipo se calcula el máximo de puntos posible con los partidos
+**Camino a los playoffs.** Cuántos pasan por zona sale de ESPN (equipos en playoffs ÷ zonas; Clausura 2026: 16 ÷ 2 = 8)
+y los partidos que quedan, del fixture de toda la liga; si ESPN no informa alguno de los dos, la sección se oculta. Para cada equipo se calcula el máximo de puntos posible con los partidos
 que le quedan. «Clasificado»: menos de 8 rivales pueden igualarlo; «Eliminado»: 8 rivales ya tienen más de lo que él
 puede sumar; «Asegura con N»: los puntos que le alcanzan sin depender de nadie. Es conservador a propósito (cuenta los
 empates en puntos como amenaza y no descuenta que dos rivales se enfrenten entre sí): lo que dice es seguro, pero puede
@@ -157,8 +158,22 @@ Actions → Deploy → Run workflow.
 3. El workflow `.github/workflows/deploy.yml` corre los tests, baja los datos y publica. Corre en cada push a
    `main`, cada 1 hora y a mano (Actions → Deploy → Run workflow).
 
-Ojo: GitHub desactiva los workflows programados de repos públicos sin actividad durante 60 días. Si pasa,
-se reactivan desde la pestaña Actions.
+GitHub desactiva los workflows programados de repos públicos sin actividad durante 60 días (sin avisar). Para que
+no pase, `keepalive.yml` revisa los lunes y, si hace 45 días que no hay commits, sube uno mínimo
+(`.github/keepalive`). Si igual se desactivan, se reactivan desde la pestaña Actions.
+
+## Mantenimiento entre temporadas
+
+- **Chequeo de datos:** en cada deploy, `scripts/check-data.mjs` revisa lo generado (tabla, fixture, historial,
+  promedios, plantel, titulares, calendario, antigüedad del snapshot). Si encuentra algo, abre el issue «Revisar
+  datos del sitio» (llega por mail) y lo va actualizando; cuando todo vuelve a estar bien, lo cierra solo. Entre
+  mediados de diciembre y enero, un fixture o una tabla vacíos se consideran normales.
+- **Reglamento:** lo que no sale de ESPN está en `js/rules.js` (temporadas de los promedios, torneos extra que
+  cuentan, regla de descenso), revisado para `RULES_YEAR`. En una temporada nueva el chequeo pide revisarlo y,
+  hasta que se actualice `RULES_YEAR`, la página no marca quién desciende.
+- **Se adapta solo:** cuántos clasifican a playoffs y los partidos que quedan (ESPN), las temporadas de los promedios,
+  el historial del año nuevo. En enero, antes del primer partido, el plantel muestra los torneos del año anterior.
+- **A mano:** palmarés, ídolos y récords en `data/club.json`.
 
 ¿Render o Railway? Funcionan (es un sitio estático: en Render, «Static Site» con publish dir `.` y build
 command `npm run data`), pero no aportan nada sobre Pages y no tienen el refresco programado.

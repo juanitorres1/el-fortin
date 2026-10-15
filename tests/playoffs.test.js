@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { qualification, qualificationLines, reachablePoints, remainingByTeam } from '../js/playoffs.js';
+import { qualification, qualificationLines, reachablePoints, remainingByTeam, spotsPerZone } from '../js/playoffs.js';
 
 // Zona chica para probar con 2 lugares: { id, pts, pj, rank }.
 const zone = (...pts) => pts.map((p, i) => ({ id: String(i + 1), name: `E${i + 1}`, pts: p, pj: 14, rank: i + 1 }));
@@ -40,10 +40,18 @@ test('qualification: ya clasificado cuando menos de N rivales pueden igualarlo',
   assert.equal(q[0].needed, 0);
 });
 
-test('qualification: sin datos de partidos, estima con 16 fechas', () => {
-  const q = qualification([{ id: '1', name: 'A', pts: 10, pj: 12, rank: 1 }]);
-  assert.equal(q[0].left, 4);
-  assert.equal(q[0].max, 22);
+test('qualification: un equipo sin partidos pendientes ya terminó', () => {
+  const q = qualification([{ id: '1', name: 'A', pts: 10, pj: 16, rank: 1 }], new Map(), 1);
+  assert.equal(q[0].left, 0);
+  assert.equal(q[0].max, 10);
+});
+
+test('spotsPerZone: equipos en playoffs / zonas, o null si no cierra', () => {
+  assert.equal(spotsPerZone(16, 2), 8);
+  assert.equal(spotsPerZone(8, 1), 8);
+  assert.equal(spotsPerZone(16, 3), null);
+  assert.equal(spotsPerZone(null, 2), null);
+  assert.equal(spotsPerZone(16, 0), null);
 });
 
 test('qualificationLines: frases para Vélez', () => {

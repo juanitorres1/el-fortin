@@ -1,13 +1,11 @@
 // Camino a los playoffs: con la tabla de la zona y los partidos que le quedan a cada equipo, qué falta para
-// clasificar matemáticamente. Clausura 2026: zonas de 15, 16 fechas (14 de zona + 2 interzonales), pasan 8 por zona.
+// clasificar matemáticamente. Cuántos pasan por zona sale de ESPN (playoffTeams / zonas; Clausura 2026: 16 / 2 = 8)
+// y los partidos que quedan, del fixture: si la AFA cambia el formato, el cálculo lo sigue sin tocar el código.
 //
 // El cálculo es conservador, para que «clasificado» y «eliminado» sean seguros:
 // - un rival que puede igualar en puntos cuenta como amenaza (los desempates no se pueden anticipar);
 // - no se descuenta que dos rivales se enfrenten entre sí (no pueden ganar los dos). Por eso un equipo puede estar
 //   clasificado una fecha antes de que este cálculo lo confirme, pero nunca al revés.
-
-export const SPOTS = 8;
-export const REGULAR_ROUNDS = 16;
 
 /** Puntos que se pueden sumar en `n` partidos: 3G + 1E con G + E ≤ n, ordenados (con 1 partido: 0, 1, 3). */
 export function reachablePoints(n) {
@@ -28,16 +26,22 @@ export function remainingByTeam(events) {
   return out;
 }
 
+/** Cuántos clasifican por zona: equipos en playoffs / zonas. null si no se puede saber (y la sección se oculta). */
+export function spotsPerZone(playoffTeams, zones) {
+  return playoffTeams && zones && Number.isInteger(playoffTeams / zones) ? playoffTeams / zones : null;
+}
+
 /**
  * Estado de cada equipo de una zona. `rows` = filas de la tabla ({ id, name, logo, pts, pj, rank }).
- * `remaining` = remainingByTeam(...); si un equipo no figura, se estima con REGULAR_ROUNDS - pj (sin rivales).
+ * `remaining` = remainingByTeam(...) con todos los partidos que quedan (un equipo que no figura ya terminó).
+ * `spots` = cuántos clasifican en la zona.
  * Devuelve las filas con { left, max, status: 'clasificado' | 'eliminado' | null, needed, opponents }:
  * `needed` = puntos que le alcanzan para clasificar sin depender de nadie (null si no alcanza ni ganando todo).
  */
-export function qualification(rows, remaining = new Map(), spots = SPOTS) {
+export function qualification(rows, remaining, spots) {
   const teams = rows.map((r) => {
-    const opponents = remaining.get(r.id) ?? null;
-    const left = opponents ? opponents.length : Math.max(0, REGULAR_ROUNDS - r.pj);
+    const opponents = remaining.get(r.id) ?? [];
+    const left = opponents.length;
     return { ...r, left, max: r.pts + 3 * left, opponents };
   });
   return teams.map((t) => {
@@ -53,8 +57,8 @@ export function qualification(rows, remaining = new Map(), spots = SPOTS) {
 }
 
 /** Frases para un equipo (pensadas para Vélez). `t` sale de qualification(); `rows` es la zona entera. */
-export function qualificationLines(t, rows, spots = SPOTS) {
-  if (t.status === 'clasificado') return ['Ya está clasificado a los octavos de final.'];
+export function qualificationLines(t, rows, spots) {
+  if (t.status === 'clasificado') return ['Ya está clasificado a los playoffs.'];
   if (t.status === 'eliminado') return ['Ya no puede clasificar a los playoffs.'];
   const out = [];
   const cut = [...rows].sort((a, b) => a.rank - b.rank)[spots]; // el primero afuera (9.º)

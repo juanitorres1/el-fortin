@@ -1,0 +1,30 @@
+name: Mantener activos los workflows
+
+# GitHub apaga los workflows programados (deploy de cada hora, resumen de los lunes) de un repo público que pasa
+# 60 días sin actividad, y no avisa. Si pasan 45 días sin commits, este workflow sube uno mínimo (la fecha en
+# .github/keepalive) para que eso no pase. Si hay commits normales, no hace nada.
+on:
+  schedule:
+    - cron: '0 15 * * 1' # lunes 12:00 en Argentina
+  workflow_dispatch:
+
+permissions:
+  contents: write # para subir el commit
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Commit si hace 45 días que no hay actividad
+        run: |
+          LAST=$(git log -1 --format=%ct)
+          DAYS=$(( ($(date +%s) - LAST) / 86400 ))
+          echo "Último commit hace $DAYS días"
+          if [ "$DAYS" -lt 45 ]; then exit 0; fi
+          date -u +%Y-%m-%dT%H:%MZ > .github/keepalive
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/keepalive
+          git commit -m "chore(ci): mantener activos los workflows programados"
+          git push

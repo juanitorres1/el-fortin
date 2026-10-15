@@ -1,5 +1,6 @@
 // Cliente y normalizador de la API pública (no oficial) de ESPN.
 // Lo usan el navegador (datos en vivo) y scripts/update-data.mjs (snapshot + historial).
+import { AVERAGE_SEASONS, EXTRA_AVERAGE_PHASES } from './rules.js';
 
 export const VELEZ_ID = '21';
 const SITE = 'https://site.api.espn.com/apis/site/v2/sports/soccer';
@@ -135,6 +136,24 @@ export function annualTable(phases) {
     .map((r, i) => ({ ...r, rank: i + 1 }));
 }
 
+const ROUND_TEAMS = [[/Round of (\d+)/, (m) => Number(m[1])], [/Quarterfinal/, () => 8], [/Semifinal/, () => 4], [/Final/, () => 2]];
+
+/**
+ * Cuántos equipos juegan los playoffs de una fase regular, según las fases que ESPN declara después de ella
+ * (2026: «Clausura - Round of 16» → 16). Así, si la AFA cambia el formato, el cálculo de clasificación lo sigue solo.
+ */
+export function playoffTeams(types, phase) {
+  const i = types.findIndex((t) => t.id === phase?.id);
+  if (i < 0) return null;
+  const after = [];
+  for (const t of types.slice(i + 1)) {
+    if (t.hasStandings) break; // empieza la fase regular siguiente
+    after.push(t);
+  }
+  const sizes = after.map((t) => ROUND_TEAMS.map(([re, n]) => (re.test(t.name) ? n(t.name.match(re)) : null)).find((x) => x != null)).filter(Boolean);
+  return sizes.length ? Math.max(...sizes) : null;
+}
+
 export async function fetchStandings(fetchImpl) {
   const json = await getJson(`${STANDINGS}/arg.1/standings`, fetchImpl);
   const season = json.seasons?.[0];
@@ -150,6 +169,7 @@ export async function fetchStandings(fetchImpl) {
     phaseKey: phases.length ? phaseKey('arg.1', season.year, phases.at(-1).id) : null, // para reemplazar esta fase en los promedios
     phaseEnd: phases.at(-1)?.endDate ?? null, // fin de la fase regular: hasta ahí se piden los partidos que quedan
     year: season?.year ?? null,
+    playoffTeams: playoffTeams(season?.types ?? [], phases.at(-1)), // para «Camino a los playoffs»; null si no hay
     groups: normalizeStandings(json),
     annual: phaseTables.length ? { phases: phases.map((t) => t.name), rows: annualTable(phaseTables) } : null,
   };
@@ -158,8 +178,6 @@ export async function fetchStandings(fetchImpl) {
 // ---------- Promedios ----------
 
 const phaseKey = (league, season, type) => `${league}-${season}${type ? `-${type}` : ''}`;
-// Torneos fuera de arg.1 en ESPN que cuentan para los promedios (fase de grupos, sin playoffs).
-const EXTRA_AVERAGE_PHASES = { 2024: ['arg.copa_lpf'] }; // Copa de la Liga 2024
 
 /**
  * Tablas de cada fase regular de las últimas 3 temporadas (la actual y las 2 anteriores), que es lo que cuenta para
@@ -168,7 +186,7 @@ const EXTRA_AVERAGE_PHASES = { 2024: ['arg.copa_lpf'] }; // Copa de la Liga 2024
  */
 export async function fetchAverageParts(year, fetchImpl) {
   const parts = [];
-  for (const season of [year - 2, year - 1, year]) {
+  for (let season = year - AVERAGE_SEASONS + 1; season <= year; season++) {
     for (const league of EXTRA_AVERAGE_PHASES[season] ?? []) {
       parts.push({ key: phaseKey(league, season), season, groups: normalizeStandings(await getJson(`${STANDINGS}/${league}/standings?season=${season}`, fetchImpl)) });
     }
