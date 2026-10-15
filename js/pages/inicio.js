@@ -41,7 +41,9 @@ function renderJuega(data, results) {
   }
   const d = new Date(next.date);
   const isLive = next.status === 'in';
-  const team = (t) => `<div class="juega-team">${logo(t.logo, 56)}<span>${esc(t.name)}</span></div>`;
+  // El escudo de Vélez en ESPN tiene la estrella arriba y es angosto: dibuja un 39 % de la imagen contra ~50 % de la
+  // mayoría de los rivales, y al mismo tamaño se ve más chico. Se agranda ~20 % (ver .crest-velez).
+  const team = (t) => `<div class="juega-team${t.id === VELEZ_ID ? ' is-velez' : ''}">${logo(t.logo, t.id === VELEZ_ID ? 78 : 64)}<span>${esc(t.name)}</span></div>`;
   const center = isLive ? `<span class="juega-score num">${next.home.score ?? 0}-${next.away.score ?? 0}</span>` : '<span class="juega-vs">vs</span>';
   // Dos columnas en escritorio (el partido | cuenta regresiva y datos); una en celular.
   box.innerHTML = `
