@@ -2,12 +2,15 @@
 //
 //   node scripts/news.mjs titulares → public/data/generated/news.json: últimos titulares con link. Sin IA, cada hora
 //                                     desde scripts/update-data.mjs.
-//   node scripts/news.mjs resumen   → public/data/generated/resumen.json: resumen de la semana con un LLM open source
-//                                     (Qwen3-8B con llama.cpp, en .github/workflows/news-weekly.yml, los lunes).
+//   node scripts/news.mjs resumen   → public/data/generated/resumen.json: resumen de los últimos 7 días con un LLM open
+//                                     source (Qwen3-8B con llama.cpp, en .github/workflows/news-summary.yml, todos los días
+//                                     si hay notas nuevas).
+//   node scripts/news.mjs pendientes [resumen anterior] → cuántas notas de la semana no estaban en el resumen anterior
+//                                     (para no correr el modelo si no hay nada nuevo).
 //
 // Resumen: el modelo recibe el texto de cada nota (ordenadas por importancia) y devuelve 4-6 puntos, cada uno
 // citando su nota. Un punto con números o fechas que no aparecen en su nota se descarta antes de publicar.
-import { access, appendFile, mkdir, readdir, rm, writeFile } from 'node:fs/promises';
+import { access, appendFile, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
@@ -127,6 +130,12 @@ const priorityOf = (section) => {
   const i = SECTION_PRIORITY.indexOf(section);
   return i < 0 ? SECTION_PRIORITY.length : i;
 };
+
+/** URLs de `urls` que no estaban entre las notas del resumen anterior (todas si no hay resumen anterior). */
+export function newNoteUrls(urls, previous) {
+  const seen = new Set((previous?.audit?.notes ?? []).map((n) => n.url));
+  return urls.filter((u) => !seen.has(u));
+}
 
 /** Ordena por sección (importancia) y, dentro de cada una, de la más nueva a la más vieja. */
 export function rankNotes(notes) {
@@ -377,13 +386,29 @@ async function writeSummary() {
   if (process.env.GITHUB_STEP_SUMMARY) await appendFile(process.env.GITHUB_STEP_SUMMARY, `${lines.join('\n')}\n`);
 }
 
-const MODES = { titulares: writeHeadlines, resumen: writeSummary };
+// ¿Hay notas que el último resumen no tuvo en cuenta? Escribe nuevas=N en GITHUB_OUTPUT para que el workflow
+// no levante el modelo (5-8 min) si no hay nada nuevo.
+async function checkPending() {
+  let previous = null;
+  try {
+    previous = JSON.parse(await readFile(process.argv[3], 'utf8'));
+  } catch {
+    console.log('No hay resumen anterior: se genera uno nuevo.');
+  }
+  const notes = await collectNotes();
+  const fresh = newNoteUrls(notes.map((n) => n.url), previous);
+  console.log(`Notas de la semana: ${notes.length}; nuevas desde el último resumen: ${fresh.length}`);
+  fresh.forEach((u) => console.log(`  ${u}`));
+  if (process.env.GITHUB_OUTPUT) await appendFile(process.env.GITHUB_OUTPUT, `nuevas=${fresh.length}\n`);
+}
+
+const MODES = { titulares: writeHeadlines, resumen: writeSummary, pendientes: checkPending };
 
 // Solo corre si se ejecuta el archivo (no al importarlo desde los tests o desde update-data.mjs).
 if (process.argv[1]?.replaceAll('\\', '/').endsWith('scripts/news.mjs')) {
   const mode = MODES[process.argv[2]];
   if (!mode) {
-    console.error('Uso: node scripts/news.mjs titulares|resumen');
+    console.error('Uso: node scripts/news.mjs titulares|resumen|pendientes [resumen anterior]');
     process.exit(1);
   }
   mode().catch((err) => {

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { decodeBody, factsIn, mediumVariant, noteLinks, numberWordsIn, parseNote, rankNotes, unsupportedFacts } from '../scripts/news.mjs';
+import { decodeBody, factsIn, mediumVariant, newNoteUrls, noteLinks, numberWordsIn, parseNote, rankNotes, unsupportedFacts } from '../scripts/news.mjs';
 import { isNewsImage, isOfficialImageUrl, isOfficialNoteUrl, matchFacts, relativeDay } from '../src/lib/news.js';
 
 test('noteLinks toma links a notas con su fecha y sin duplicados', () => {
@@ -101,4 +101,12 @@ test('isNewsImage acepta miniaturas propias o imágenes oficiales, nada más', (
   assert.equal(isNewsImage('https://velez.com.ar/img/noticias/26/md/x.jpg'), true);
   assert.equal(isNewsImage('data/generated/img/news/../../club.json'), false);
   assert.equal(isNewsImage('https://evil.com/x.jpg'), false);
+});
+
+test('newNoteUrls: solo las notas que el resumen anterior no tuvo en cuenta', () => {
+  const previous = { audit: { notes: [{ url: 'https://velez.com.ar/futbol/notas/2026/10/13/1_a' }] } };
+  const urls = ['https://velez.com.ar/futbol/notas/2026/10/13/1_a', 'https://velez.com.ar/club/notas/2026/10/14/2_b'];
+  assert.deepEqual(newNoteUrls(urls, previous), ['https://velez.com.ar/club/notas/2026/10/14/2_b']);
+  assert.deepEqual(newNoteUrls(urls.slice(0, 1), previous), []);
+  assert.deepEqual(newNoteUrls(urls, null), urls); // sin resumen anterior, todas son nuevas
 });

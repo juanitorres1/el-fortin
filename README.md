@@ -70,7 +70,7 @@ datos (no lo redibuja) y enseguida pide lo nuevo a ESPN.
 | La previa: rachas, historial con el rival, un día como hoy | `facts.json` + resultados en vivo | Cada 1 h |
 | Historial por rival | `historico.json` (1931–2000, dominio público) + `matches.json` (ESPN, desde 2001) | Cada 1 h |
 | Noticias | velez.com.ar (no tiene RSS: se leen las secciones) | Cada 1 h |
-| Resumen de la semana con IA | Qwen3-8B con llama.cpp en GitHub Actions | Lunes 9:00 |
+| Resumen de los últimos 7 días con IA | Qwen3-8B con llama.cpp en GitHub Actions | Todos los días 20:30, si hay notas nuevas |
 | Calendario para suscribirse | `velez.ics` | Cada 1 h |
 | Pronóstico a la hora del partido | Open-Meteo (sin key) | Si el partido es dentro de 7 días |
 | Historia, estadio, cómo llegar, palmarés, ídolos, récords | `public/data/club.json` (a mano; récords de Wikipedia) | Cuando se edita |
@@ -92,7 +92,8 @@ Si ESPN no responde, la página usa el último `snapshot.json` y lo indica.
 
 - `deploy.yml`: en cada push a `main`, cada 1 h y a mano. Corre `npm ci`, tests, `npm run data`, el chequeo de datos,
   `npm run build` (con prerender) y publica `dist/`. Las miniaturas de noticias se cachean entre corridas (ImageMagick).
-- `news-weekly.yml`: los lunes genera el resumen con IA y lanza el deploy.
+- `news-summary.yml`: todos los días a las 20:30, si velez.com.ar publicó notas que el último resumen no tuvo en
+  cuenta, genera uno nuevo con IA (5-8 min) y lanza el deploy; si no hay nada nuevo, termina en segundos.
 - `keepalive.yml`: si pasan 45 días sin commits, sube uno mínimo para que GitHub no apague los workflows programados.
 - **Chequeo de datos** (`scripts/check-data.mjs`): si algo queda vacío o viejo, abre el issue «Revisar datos del
   sitio» (llega por mail) y lo cierra solo cuando se arregla. También avisa cuando empieza una temporada nueva y hay

@@ -39,17 +39,18 @@ jobs:
           key: news-thumbs-${{ github.run_id }}
           restore-keys: news-thumbs-
       - run: npm run data
-      # El resumen con IA se genera los lunes (news-weekly.yml); acá se baja el último que salió bien.
-      # Si todavía no hay o venció (30 días), la página muestra solo los titulares.
-      - name: Bajar el último resumen semanal
+      # El resumen con IA lo genera news-summary.yml (todos los días, si hay notas nuevas). Se baja el artifact más nuevo
+      # (no el de la última corrida: las que no tienen notas nuevas terminan sin resumen). Si no hay o venció (30 días),
+      # la página muestra solo los titulares.
+      - name: Bajar el último resumen
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          RUN=$(gh run list --repo "${{ github.repository }}" --workflow news-weekly.yml --status success --limit 1 --json databaseId -q '.[0].databaseId')
+          RUN=$(gh api "repos/${{ github.repository }}/actions/artifacts?name=resumen-semanal&per_page=20" -q '[.artifacts[] | select(.expired == false)][0].workflow_run.id')
           if [ -n "$RUN" ]; then
             gh run download "$RUN" --repo "${{ github.repository }}" -n resumen-semanal -D public/data/generated || echo "No se pudo bajar el resumen de la corrida $RUN"
           else
-            echo "Todavía no hay resumen semanal"
+            echo "Todavía no hay resumen"
           fi
       # Si algo quedó vacío o el reglamento es de otra temporada, abre (o actualiza) un issue; si está todo bien, lo
       # cierra. No frena el deploy.

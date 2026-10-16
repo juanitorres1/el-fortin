@@ -1,10 +1,10 @@
-// Noticias del club estilo Google Noticias (titulares de velez.com.ar) y el resumen semanal hecho por IA.
+// Noticias del club estilo Google Noticias (titulares de velez.com.ar) y el resumen de los últimos 7 días hecho por IA.
 import { isNewsImage, isOfficialNoteUrl, relativeDay } from '../lib/news.js';
 import { capitalize, fmt } from '../lib/core.js';
 import { useNow } from '../hooks/data.js';
 import { ExtLink, Skeletons } from '../components/ui.jsx';
 
-const SUMMARY_MAX_AGE_DAYS = 10; // si el workflow semanal falló, no mostrar un resumen viejo como si fuera de esta semana
+const SUMMARY_MAX_AGE_DAYS = 10; // si el resumen dejó de generarse (falló o no hubo notas), no mostrar uno viejo como si fuera de esta semana
 const MAX_CARDS = 7; // destacada (2×2) + 6: llena la grilla de 4 columnas en escritorio
 const FEATURED_SECTIONS = ['futbol', 'columnadt', 'socios', 'club']; // la destacada sale de acá si hay
 const SECTION_NAMES = {

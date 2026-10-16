@@ -33,7 +33,8 @@ un servidor en Render/Railway/Vercel). Node ≥ 20. Detalle en `README.md`.
 - `scripts/` (Node): `update-data.mjs` (genera `public/data/generated/`), `news.mjs` (titulares y resumen IA),
   `ics.mjs`, `check-data.mjs` (issue «Revisar datos del sitio»), `import-historico.mjs` (uso único, ya corrido).
 - Workflows: `deploy.yml` (push a `main`, cada 1 h y manual: `npm ci`, tests, datos, chequeo, `vite build`, publica
-  `dist/`), `news-weekly.yml` (lunes 9:00 AR: resumen con Qwen3-8B como artifact) y `keepalive.yml` (commit mínimo si
+  `dist/`), `news-summary.yml` (todos los días 20:30 AR, solo si hay notas nuevas: resumen de 7 días con Qwen3-8B
+  como artifact; el deploy baja el artifact más nuevo) y `keepalive.yml` (commit mínimo si
   hace 45 días que no hay commits).
 
 Comandos (en Git Bash):
@@ -53,7 +54,7 @@ npm run preview # sirve dist/
 - **velez.com.ar**: titulares de la semana. No tiene RSS: se leen las páginas de sección. Manda **ISO-8859-1** en la
   cabecera aunque el HTML diga UTF-8. Las fotos originales pesan más de 2 MB: el deploy genera miniaturas con
   ImageMagick (`public/data/generated/img/news/`, cacheadas entre corridas).
-- **Resumen semanal con IA:** Qwen3-8B con llama.cpp en la CPU del runner (gratis, sin keys). Se descartan los puntos
+- **Resumen con IA (diario, si hay notas nuevas):** Qwen3-8B con llama.cpp en la CPU del runner (gratis, sin keys). Se descartan los puntos
   con números o fechas que no estén en su nota; aviso visible de que lo escribe una IA; se oculta a los 10 días.
 - **Historial:** 1931–2000 del dataset de Kaggle (dominio público) y desde 2001 de ESPN.
 - **Récords:** Wikipedia (CC BY-SA).

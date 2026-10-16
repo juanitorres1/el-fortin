@@ -1,15 +1,26 @@
-name: Resumen semanal de noticias (Qwen)
+name: Resumen de noticias (Qwen)
 
-# Los lunes a las 9:00 (hora argentina) resume las notas de la semana de velez.com.ar con Qwen3-8B corriendo en
-# CPU (llama.cpp). El resultado se guarda como artifact «resumen-semanal»; el deploy de cada hora baja el último.
+# Todos los días a las 20:30 (hora argentina), si velez.com.ar publicó notas que el último resumen no tuvo en
+# cuenta, resume los últimos 7 días con Qwen3-8B corriendo en CPU (llama.cpp, 5-8 min). Si no hay nada nuevo, termina
+# en segundos sin levantar el modelo. El resultado se guarda como artifact «resumen-semanal»; el deploy de cada hora
+# baja el último que haya.
 on:
   schedule:
-    - cron: '0 12 * * 1' # 12:00 UTC = 9:00 en Argentina
+    - cron: '30 23 * * *' # 23:30 UTC = 20:30 en Argentina
   workflow_dispatch:
+    inputs:
+      forzar:
+        description: 'Generar aunque no haya notas nuevas'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
-  actions: write # para lanzar el deploy al terminar
+  actions: write # para bajar el resumen anterior y lanzar el deploy al terminar
+
+concurrency:
+  group: resumen-noticias
+  cancel-in-progress: false
 
 env:
   LLAMA_CPP: b11620 # build fijo de llama.cpp: que el resumen no cambie de comportamiento con cada versión
@@ -28,15 +39,36 @@ jobs:
           node-version: 22
           package-manager-cache: false
 
+      # El último resumen publicado (el artifact más nuevo, de la corrida que sea): con él se sabe qué notas ya entraron.
+      - name: Bajar el resumen anterior
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          RUN=$(gh api "repos/${{ github.repository }}/actions/artifacts?name=resumen-semanal&per_page=20" -q '[.artifacts[] | select(.expired == false)][0].workflow_run.id')
+          if [ -n "$RUN" ]; then
+            gh run download "$RUN" --repo "${{ github.repository }}" -n resumen-semanal -D prev || echo "No se pudo bajar el resumen de la corrida $RUN"
+          else
+            echo "Todavía no hay resumen"
+          fi
+
+      - name: ¿Hay notas nuevas?
+        id: check
+        run: |
+          node scripts/news.mjs pendientes prev/resumen.json
+          if [ "${{ inputs.forzar }}" = "true" ]; then echo "nuevas=forzado" >> "$GITHUB_OUTPUT"; fi
+
       - name: Hardware del runner
+        if: steps.check.outputs.nuevas != '0'
         run: nproc && free -h
 
       # El modelo pesa 5 GB: se cachea para no bajarlo de Hugging Face en cada corrida.
       - uses: actions/cache@v6
+        if: steps.check.outputs.nuevas != '0'
         with:
           path: models
           key: model-${{ env.MODEL_FILE }}
       - name: Bajar modelo (si no está en caché)
+        if: steps.check.outputs.nuevas != '0'
         run: |
           mkdir -p models
           if [ ! -f "models/${{ env.MODEL_FILE }}" ]; then
@@ -45,6 +77,7 @@ jobs:
           ls -lh models
 
       - name: Bajar llama.cpp
+        if: steps.check.outputs.nuevas != '0'
         run: |
           curl -fL --retry 3 -o llama.tar.gz "https://github.com/ggml-org/llama.cpp/releases/download/${LLAMA_CPP}/llama-${LLAMA_CPP}-bin-ubuntu-x64.tar.gz"
           mkdir llama && tar -xzf llama.tar.gz -C llama
@@ -53,6 +86,7 @@ jobs:
           echo "LD_LIBRARY_PATH=$(dirname "$SERVER")" >> "$GITHUB_ENV"
 
       - name: Levantar el modelo
+        if: steps.check.outputs.nuevas != '0'
         run: |
           "$SERVER" -m "models/${{ env.MODEL_FILE }}" -c 12288 -t "$(nproc)" --jinja --port 8080 > llama.log 2>&1 &
           for i in $(seq 1 120); do
@@ -61,16 +95,18 @@ jobs:
           done
           echo "El servidor no arrancó"; tail -50 llama.log; exit 1
 
-      - name: Resumir las notas de la semana
+      - name: Resumir las notas de los últimos 7 días
+        if: steps.check.outputs.nuevas != '0'
         env:
           LLM_URL: http://127.0.0.1:8080
         run: node scripts/news.mjs resumen
 
       - name: Log de llama.cpp (si falló)
         if: failure()
-        run: tail -80 llama.log
+        run: tail -80 llama.log || true
 
       - uses: actions/upload-artifact@v7
+        if: steps.check.outputs.nuevas != '0'
         with:
           name: resumen-semanal
           path: public/data/generated/resumen.json
@@ -78,6 +114,7 @@ jobs:
 
       # Publicar enseguida en vez de esperar al deploy de la hora siguiente.
       - name: Lanzar el deploy
+        if: steps.check.outputs.nuevas != '0'
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh workflow run deploy.yml --ref main --repo "${{ github.repository }}"

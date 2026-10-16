@@ -2,7 +2,7 @@
 // - snapshot.json: respaldo de fixture/resultados/tabla por si la API no responde desde el navegador.
 // - matches.json: todos los partidos oficiales de Vélez que ESPN tiene (desde 2001) para el historial.
 // - news.json: titulares de la semana de velez.com.ar (sin IA). El resumen semanal con IA lo genera
-//   .github/workflows/news-weekly.yml y el deploy lo baja como artifact.
+//   .github/workflows/news-summary.yml y el deploy lo baja como artifact.
 // - promedios.json: tablas de las fases que cuentan para los promedios (últimas 3 temporadas).
 // - facts.json: datos para la previa del Inicio (rachas, historial con el próximo rival, un día como hoy).
 // - velez.ics: calendario de partidos para suscribirse (Google, Apple, Outlook).
