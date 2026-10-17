@@ -23,27 +23,32 @@ npm run check   # revisa los datos generados (lo corre el deploy)
 ## Estructura
 
 ```
-index.html, partidos.html, plantel.html, historial.html, club.html   entradas de Vite (el <head> lo arma vite.config.js)
+index.html, partidos.html, plantel.html, historial.html, juegos.html, club.html   entradas de Vite (el <head> lo arma vite.config.js)
+jugador.html, vivo.html   páginas fuera del menú (ficha de cada jugador y modo cancha)
 src/
-  site.js        las 5 páginas: título, descripción, ícono del menú; arma el <head> con la vista previa para compartir
-  main.jsx       monta una página (hidrata si viene prerenderizada)
+  site.js        las 8 páginas (6 en el menú): título, descripción, ícono; arma el <head> (vista previa, app instalable)
+  main.jsx       monta una página (hidrata si viene prerenderizada) y registra el service worker
   initial.js     datos con los que se prerenderizó la página (los lee del <script id="initial-data">)
   prerender.jsx  entrada del build para Node: dibuja cada página a HTML
-  pages/         una por página (inicio, partidos, plantel, historial, club)
-  sections/      bloques grandes: Juega, Previa, Noticias, Tablas, Goleadores, Playoffs
-  components/    Layout (menú, banda, pie), MatchRow/MatchList, Crest, ResultBadge, Segmented, Skeletons…
-  hooks/         useLiveData, useJson, useCached, useNow, useLiveTitle, useScrollToHash, useCurrentSection
-  lib/           lógica pura, sin React (la usan también los scripts): espn, facts, playoffs, weather, news, rules, core
+  pages/         una por página (inicio, partidos, plantel, historial, juegos, club, jugador, vivo)
+  sections/      bloques grandes: Juega, Previa, Noticias, Tablas, Goleadores, Playoffs, Simulador, Records
+  components/    Layout (menú, banda, pie), MatchRow/MatchList, Crest, ResultBadge, Segmented, Skeletons, ShareCard, InstallApp…
+  hooks/         useLiveData, useJson, useCached, useRoster, useNow, useLiveTitle, useScrollToHash, useCurrentSection
+  lib/           lógica pura, sin React (la usan también los scripts): espn, facts, playoffs, weather, news, rules, core,
+                 card (textos de las imágenes), trivia, games (prode y once), storage (lo que guarda el navegador)
   styles.css     sistema de diseño (tokens claro y noche)
 public/
-  assets/        escudo y imagen para compartir (og.png)
+  assets/        escudo, imagen para compartir (og.png) e íconos de la app (icons/: SVG fuente y PNG)
+  manifest.webmanifest, sw.js   app instalable (nombre «El Fortín», ícono) y modo sin conexión
   data/          club.json (a mano), historico.json (1931–2000), generated/ (lo genera el deploy, no va al repo)
 scripts/         update-data, news, ics, check-data, prerender, import-historico (Node)
 tests/           lógica de src/lib y scripts, y consistencia de las páginas
 ```
 
-**Sumar una página:** agregarla en `src/site.js`, copiar un HTML de la raíz cambiando el script y crear
-`src/pages/<clave>.jsx` con `<Layout page="<clave>">`. El test de páginas avisa si falta algo.
+**Sumar una página:** agregarla en `src/site.js`, copiar un HTML de la raíz cambiando el script, crear
+`src/pages/<clave>.jsx` con `<Layout page="<clave>">` y sumarla en `src/prerender.jsx` (y en `PAGES` de `public/sw.js`
+si va en el menú). Con `nav: false` no aparece en el menú; `parent` marca qué sección queda resaltada. El test de
+páginas avisa si falta algo.
 
 ## Cómo se dibuja (prerender)
 
@@ -74,6 +79,13 @@ datos (no lo redibuja) y enseguida pide lo nuevo a ESPN.
 | Calendario para suscribirse | `velez.ics` | Cada 1 h |
 | Pronóstico a la hora del partido | Open-Meteo (sin key) | Si el partido es dentro de 7 días |
 | Historia, estadio, cómo llegar, palmarés, ídolos, récords | `public/data/club.json` (a mano; récords de Wikipedia) | Cuando se edita |
+| Imagen para compartir el resultado y la previa (Inicio) | Se dibuja en el navegador con `<canvas>` (1080×1350) | Al tocar el botón |
+| Simulador «¿Qué necesita Vélez?» (Partidos) | Tabla en vivo + partidos que quedan (los mismos de los playoffs) | Cada 15 min |
+| Récords del historial y efemérides (Historial) | `historico.json` + `matches.json` + `club.json`, calculados en el navegador | Cada 1 h |
+| Juegos: trivia diaria | Preguntas armadas solas con `club.json` (sin preguntas a mano) | Una nueva por día |
+| Juegos: prode y «Adiviná el once» | Fixture en vivo + `games.json`; lo elegido queda en el navegador | Cada 1 h |
+| Ficha de cada jugador | `players.json` + `games.json` (partido por partido del año) | Cada 1 h |
+| Modo cancha | ESPN: el partido, el scoreboard de la fecha y la tabla «si terminara así» | Cada 1 min en vivo |
 
 Si ESPN no responde, la página usa el último `snapshot.json` y lo indica.
 
@@ -85,6 +97,10 @@ Si ESPN no responde, la página usa el último `snapshot.json` y lo indica.
 - **Playoffs:** cuántos pasan sale de ESPN (16 equipos ÷ 2 zonas = 8). El cálculo es conservador: «Clasificado» y
   «Eliminado» son seguros, aunque a veces se confirman una fecha después que con un cálculo exacto.
 - **Sanciones:** 5 amarillas en un torneo o roja en el último partido. Es una estimación; la oficial es del Tribunal.
+- **Simulador:** suma los resultados elegidos a la tabla de la zona; desempata por la diferencia de gol actual.
+- **Prode:** 3 puntos el resultado exacto, 1 el ganador o el empate (90 minutos, sin penales). Se cierra al empezar.
+- **Trivia:** 5 preguntas por día, iguales para todos (la semilla es la fecha en la Argentina). Las opciones
+  incorrectas salen de otros datos de `club.json`; los títulos que se ganaron más de una vez no se preguntan por año.
 - **Cancha neutral:** ESPN no la marca bien; se deduce por competencia (Copa Argentina, supercopas y finales).
 - Lo que no sale de ESPN está en `src/lib/rules.js`, revisado para `RULES_YEAR`.
 
@@ -98,7 +114,13 @@ Si ESPN no responde, la página usa el último `snapshot.json` y lo indica.
 - **Chequeo de datos** (`scripts/check-data.mjs`): si algo queda vacío o viejo, abre el issue «Revisar datos del
   sitio» (llega por mail) y lo cierra solo cuando se arregla. También avisa cuando empieza una temporada nueva y hay
   que revisar `src/lib/rules.js` (mientras tanto no se marca quién desciende).
-- **A mano:** títulos nuevos, ídolos y récords en `public/data/club.json`.
+- **A mano:** títulos nuevos, ídolos y récords en `public/data/club.json` (la trivia los toma sola).
+- **App instalable:** `public/manifest.webmanifest` + `public/sw.js`. El service worker trae primero de la red las
+  páginas y los datos (si no hay señal, lo último guardado) y guarda JS, CSS, íconos y tipografías. ESPN no pasa por
+  él. Para que todos borren lo guardado, cambiar `VERSION` en `sw.js`. El ícono sale de
+  `public/assets/icons/icon.svg` e `icon-maskable.svg` (PNG renderizados con Chromium).
+- **Lo que guarda cada hincha** (prode, once, trivia, aviso de instalar) va en `localStorage` con el prefijo
+  `fortin:`: solo en su navegador, sin cuentas ni servidor.
 - GitHub Pages cachea 10 minutos: después de un deploy puede verse la versión anterior un rato.
 
 ## Límites conocidos

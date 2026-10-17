@@ -78,3 +78,48 @@ export function qualificationLines(t, rows, spots) {
   }
   return out;
 }
+
+// ---------- Simulador: «¿Qué necesita Vélez?» ----------
+
+/** Resultado elegido para un partido: 'L' (gana el local), 'E' (empate) o 'V' (gana el visitante). */
+export const PICKS = ['L', 'E', 'V'];
+
+/**
+ * La tabla de una zona si los partidos que quedan terminan como dice `picks` ({ [matchId]: 'L' | 'E' | 'V' }).
+ * `rows` = filas de la zona ({ id, pts, pj, g, e, p, dg, gf, ... }); `events` = partidos que quedan (de todos: los
+ * interzonales suman solo al equipo de esta zona). Los partidos sin elegir no suman.
+ * Orden: puntos y después la diferencia de gol actual (un resultado simulado no tiene goles); si siguen iguales,
+ * quedan como estaban. Devuelve las filas con `rank` nuevo, `added` (puntos sumados) y `before` (puesto anterior).
+ */
+export function simulateZone(rows, events, picks) {
+  const byId = new Map(rows.map((r) => [r.id, { ...r, added: 0, before: r.rank }]));
+  const add = (id, pts, key) => {
+    const r = byId.get(id);
+    if (!r) return;
+    r.pts += pts;
+    r.added += pts;
+    r.pj += 1;
+    r[key] = (r[key] ?? 0) + 1;
+  };
+  for (const m of events) {
+    const pick = picks[m.id];
+    if (!PICKS.includes(pick)) continue;
+    if (pick === 'E') {
+      add(m.home.id, 1, 'e');
+      add(m.away.id, 1, 'e');
+    } else {
+      const [w, l] = pick === 'L' ? [m.home.id, m.away.id] : [m.away.id, m.home.id];
+      add(w, 3, 'g');
+      add(l, 0, 'p');
+    }
+  }
+  return [...byId.values()]
+    .sort((a, b) => b.pts - a.pts || (b.dg ?? 0) - (a.dg ?? 0) || a.before - b.before)
+    .map((r, i) => ({ ...r, rank: i + 1 }));
+}
+
+/** Partidos que quedan y tocan a la zona (alguno de los dos equipos es de `rows`), en orden de fecha. */
+export function zoneEvents(rows, events) {
+  const ids = new Set(rows.map((r) => r.id));
+  return events.filter((m) => !m.completed && (ids.has(m.home.id) || ids.has(m.away.id))).sort((a, b) => Date.parse(a.date) - Date.parse(b.date));
+}

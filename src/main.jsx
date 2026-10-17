@@ -1,5 +1,6 @@
 // Arranque común de cada página: estilos y React montado en #root. Si la página viene renderizada del deploy
 // (scripts/prerender.mjs), React hidrata ese HTML en vez de dibujar de cero. En el build para Node no hace nada.
+// En producción registra el service worker (public/sw.js): app instalable y última versión guardada sin conexión.
 import { StrictMode } from 'react';
 import { createRoot, hydrateRoot } from 'react-dom/client';
 import { isPrerendered } from './initial.js';
@@ -11,4 +12,7 @@ export function mount(Page) {
   const app = <StrictMode><Page /></StrictMode>;
   if (isPrerendered()) hydrateRoot(root, app);
   else createRoot(root).render(app);
+  if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+    addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch((err) => console.warn('Sin service worker:', err)));
+  }
 }

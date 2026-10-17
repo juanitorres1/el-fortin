@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { qualification, qualificationLines, reachablePoints, remainingByTeam, spotsPerZone } from '../src/lib/playoffs.js';
+import { qualification, qualificationLines, reachablePoints, remainingByTeam, simulateZone, spotsPerZone, zoneEvents } from '../src/lib/playoffs.js';
 
 // Zona chica para probar con 2 lugares: { id, pts, pj, rank }.
 const zone = (...pts) => pts.map((p, i) => ({ id: String(i + 1), name: `E${i + 1}`, pts: p, pj: 14, rank: i + 1 }));
@@ -60,4 +60,29 @@ test('qualificationLines: frases para Vélez', () => {
   assert.deepEqual(qualificationLines(q[0], q, 2), ['Hoy está 1.º, 6 puntos arriba del 3.º.', 'Si suma 1 de los 6 puntos que le quedan, clasifica sin depender de nadie.']);
   assert.deepEqual(qualificationLines(q[3], q, 2), ['Hoy está 4.º, a 5 puntos del 2.º.', 'Aunque gane todo, no lo tiene asegurado: más de 1 rivales todavía pueden alcanzarlo.']);
   assert.deepEqual(qualificationLines(q[4], q, 2), ['Ya no puede clasificar a los playoffs.']);
+});
+
+test('simulateZone: suma puntos según lo elegido y reordena (desempate por diferencia de gol actual)', () => {
+  const rows = [
+    { id: 'A', pts: 20, pj: 13, dg: 5, rank: 1 },
+    { id: 'B', pts: 19, pj: 13, dg: 8, rank: 2 },
+    { id: 'C', pts: 18, pj: 13, dg: 0, rank: 3 },
+  ];
+  const m = (id, h, a) => ({ id, date: '2026-11-01T20:00Z', completed: false, home: { id: h }, away: { id: a } });
+  const events = [m('1', 'A', 'B'), m('2', 'C', 'Z'), m('3', 'B', 'C')];
+  const out = simulateZone(rows, events, { 1: 'V', 2: 'E', 3: 'X' }); // '3' sin elegir (valor inválido): no suma
+  assert.deepEqual(out.map((r) => [r.id, r.pts, r.rank]), [['B', 22, 1], ['A', 20, 2], ['C', 19, 3]]);
+  assert.equal(out.find((r) => r.id === 'B').before, 2);
+  assert.equal(out.find((r) => r.id === 'C').pj, 14); // el interzonal suma solo al de la zona
+  // Empate en puntos: gana el de mejor diferencia
+  const tie = simulateZone(rows, events, { 1: 'E', 2: 'L' });
+  assert.deepEqual(tie.map((r) => r.id), ['A', 'C', 'B']);
+  assert.deepEqual(tie.map((r) => r.pts), [21, 21, 20]);
+  assert.equal(tie[0].dg, 5);
+});
+
+test('zoneEvents: solo los partidos que tocan a la zona y sin jugar', () => {
+  const m = (id, h, a, completed = false) => ({ id, date: `2026-11-0${id}T20:00Z`, completed, home: { id: h }, away: { id: a } });
+  const ev = zoneEvents([{ id: 'A' }, { id: 'B' }], [m('3', 'X', 'Y'), m('2', 'B', 'X'), m('1', 'A', 'B', true)]);
+  assert.deepEqual(ev.map((e) => e.id), ['2']);
 });

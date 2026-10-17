@@ -28,6 +28,7 @@ export function PageBand({ title, children }) {
  * `mainClass` = clases del <main> (el Inicio usa bandas a todo el ancho y no lleva «wrap page»).
  */
 export function Layout({ page, band = null, mainClass = 'wrap page', children }) {
+  const current = PAGES.find((p) => p.key === page)?.parent ?? page;
   return (
     <>
       <a className="skip" href="#contenido">Saltar al contenido</a>
@@ -35,8 +36,8 @@ export function Layout({ page, band = null, mainClass = 'wrap page', children })
         <div className="wrap topbar-in">
           <a className="brand" href="./"><img src="assets/v.svg" alt="" width="28" height="28" /><span>{SITE.name}</span></a>
           <nav className="tabbar" aria-label="Secciones">
-            {PAGES.map((p) => (
-              <a key={p.key} href={p.href} aria-current={p.key === page ? 'page' : undefined}>
+            {PAGES.filter((p) => p.nav).map((p) => (
+              <a key={p.key} href={p.href} aria-current={p.key === current ? 'page' : undefined}>
                 <Icon parts={p.icon} /><span>{p.label}</span>
               </a>
             ))}

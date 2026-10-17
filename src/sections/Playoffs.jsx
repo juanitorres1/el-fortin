@@ -5,6 +5,7 @@ import { VELEZ_ID, fetchPhaseRemaining } from '../lib/espn.js';
 import { qualification, qualificationLines, remainingByTeam, spotsPerZone } from '../lib/playoffs.js';
 import { useCached } from '../hooks/data.js';
 import { Crest, Lines, Segmented } from '../components/ui.jsx';
+import { Simulador } from './Simulador.jsx';
 
 const TTL_MS = 15 * 60 * 1000;
 
@@ -19,13 +20,13 @@ function Remaining({ t }) {
   if (!t.opponents.length) return 'Terminó la fase';
   return (
     <>
-      Le quedan:{' '}
-      {t.opponents.map((o, i) => (
-        <span key={`${o.rivalId}-${o.date}`}>
-          {i > 0 && ' · '}
-          <span className={o.rivalId === VELEZ_ID ? 'po-vs-velez' : undefined}>{o.rival} ({o.home ? 'L' : 'V'})</span>
-        </span>
-      ))}
+        Le quedan:{' '}
+        {t.opponents.map((o, i) => (
+          <span key={`${o.rivalId}-${o.date}`}>
+            {i > 0 && ' · '}
+            <span className={o.rivalId === VELEZ_ID ? 'po-vs-velez' : undefined}>{o.rival} ({o.home ? 'L' : 'V'})</span>
+          </span>
+        ))}
     </>
   );
 }
@@ -46,6 +47,7 @@ export function Playoffs({ standings, refresh }) {
   const zone = zones.find((z) => z.name === zoneName) ?? velezZone ?? zones[0];
 
   return (
+    <>
     <section className="block" id="playoffs" aria-labelledby="t-playoffs">
       <h2 className="h2" id="t-playoffs">Camino a los playoffs</h2>
       {velez && (
@@ -72,5 +74,7 @@ export function Playoffs({ standings, refresh }) {
         rivales se enfrenten entre sí. Por eso «Clasificado» y «Eliminado» son seguros, aunque a veces se confirman una fecha más tarde.
       </p>
     </section>
+    {velezZone && <Simulador zone={groups.find((g) => g.name === velezZone.name)} events={events} spots={spots} />}
+    </>
   );
 }

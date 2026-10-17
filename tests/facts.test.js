@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { isNeutral, monthDay, onThisDay, parseDay, rivalDetail, rivalFacts, scoreResult, streakLines } from '../src/lib/facts.js';
+import { historyRecords, isNeutral, monthDay, onThisDay, parseDay, rivalDetail, rivalFacts, scoreResult, streakLines, upcomingAnniversaries } from '../src/lib/facts.js';
 
 let seq = 0;
 // Partido de Vélez (id 21) contra un rival; `vs` = goles de Vélez, `rs` = del rival.
@@ -87,4 +87,32 @@ test('rivalDetail: local, visitante y neutral por separado; mayor goleada y últ
   assert.deepEqual(d.worstLoss, { year: '2015', score: '0-4', comp: 'Liga Profesional', where: 'visitante' });
   assert.equal(d.lastAwayWin.year, '2018'); // el 1-0 de 2024 fue en cancha neutral
   assert.equal(d.lastHomeWin.year, '2010');
+});
+
+test('historyRecords: totales, goleadas, rachas con fecha y mejor año', () => {
+  const old = [game(7, 0, { year: 1950 }), game(5, 0, { year: 1950 }), game(1, 2, { year: 1951 })];
+  const recent = [game(2, 0), game(3, 0), game(1, 1), game(0, 2), game(4, 1), game(1, 0), game(0, 0, { comp: 'Amistoso' })];
+  const r = historyRecords([...recent, ...old]);
+  assert.deepEqual([r.totals.pj, r.totals.g, r.totals.e, r.totals.p, r.totals.since], [9, 6, 1, 2, 1950]);
+  assert.deepEqual(r.wins.slice(0, 2).map((w) => [w.score, w.year]), [['7-0', 1950], ['5-0', 1950]]);
+  assert.equal(r.goals.score, '7-0');
+  // Las rachas solo cuentan desde 2001 (con fecha): 2-0, 3-0 | 1-1 | 0-2 | 4-1, 1-0
+  assert.equal(r.streaks.ganando.n, 2);
+  assert.equal(r.streaks.ganando.current, true); // la última (4-1, 1-0) empata en largo y es la actual
+  assert.equal(r.streaks.invicto.n, 3);
+  assert.equal(r.streaks.vallaInvicta.n, 2);
+  assert.equal(r.favorite.g, 6);
+  assert.equal(r.bestYear, null); // ningún año con 15 partidos
+});
+
+test('upcomingAnniversaries: los que vienen, con años que se cumplen y días que faltan', () => {
+  const club = {
+    momentos: [{ fecha: '31 de agosto de 1994', titulo: 'Libertadores' }, { fecha: '1 de diciembre de 1994', titulo: 'Intercontinental' }],
+    estadio: { hitos: [{ fecha: '22/10/1951', texto: 'Cemento' }, { fecha: '1978', texto: 'Mundial' }] },
+  };
+  const now = new Date('2026-10-17T15:00:00Z');
+  const out = upcomingAnniversaries(club, now, 60);
+  assert.deepEqual(out.map((a) => [a.text, a.inDays, a.years]), [['Cemento', 5, 75], ['Intercontinental', 45, 32]]);
+  // Pasado el día, va al año siguiente
+  assert.equal(upcomingAnniversaries(club, new Date('2026-12-02T15:00:00Z'), 365).find((a) => a.text === 'Intercontinental').years, 33);
 });

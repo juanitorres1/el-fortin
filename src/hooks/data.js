@@ -2,7 +2,8 @@
 // Si la página viene renderizada del deploy, arrancan con los mismos datos que el HTML (src/initial.js): así React
 // hidrata sin redibujar y después actualiza en vivo.
 import { useEffect, useRef, useState } from 'react';
-import { REFRESH_LIVE_MS, REFRESH_MS, getJson, loadLive, withTimeout } from '../lib/core.js';
+import { DATA, REFRESH_LIVE_MS, REFRESH_MS, getJson, loadLive, withTimeout } from '../lib/core.js';
+import { fetchRoster } from '../lib/espn.js';
 import { getInitial } from '../initial.js';
 
 // Un mismo JSON se pide una sola vez por página aunque lo usen varios componentes (players.json, por ejemplo).
@@ -100,4 +101,12 @@ export function useNow(ms) {
     return () => clearInterval(t);
   }, [ms]);
   return now;
+}
+
+// El plantel en vivo de ESPN; si no responde en 6 s, el que guardó el deploy.
+const loadRoster = () => withTimeout(fetchRoster(), 6000).catch(async () => (await getJson(`${DATA}snapshot.json`).catch(() => ({}))).roster ?? null);
+
+/** El plantel (Plantel, Juegos, Jugador). Prerenderizada, arranca con el del deploy y lo actualiza con el de ESPN. */
+export function useRoster() {
+  return useCached('roster', loadRoster, { initial: getInitial().extra?.roster });
 }

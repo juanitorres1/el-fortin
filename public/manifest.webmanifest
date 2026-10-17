@@ -1,0 +1,25 @@
+{
+  "name": "El Fortín · Vélez Sarsfield",
+  "short_name": "El Fortín",
+  "description": "Partidos, tablas, plantel, historial y juegos de Vélez Sarsfield. Sitio de hinchas, no oficial.",
+  "lang": "es-AR",
+  "id": "./",
+  "start_url": "./?app=1",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0061A8",
+  "theme_color": "#0061A8",
+  "categories": ["sports", "news"],
+  "icons": [
+    { "src": "assets/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "assets/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ],
+  "shortcuts": [
+    { "name": "Partidos y tablas", "short_name": "Partidos", "url": "partidos.html", "icons": [{ "src": "assets/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Plantel", "url": "plantel.html", "icons": [{ "src": "assets/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Juegos", "url": "juegos.html", "icons": [{ "src": "assets/icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

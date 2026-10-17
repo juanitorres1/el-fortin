@@ -74,3 +74,33 @@ export function goalBy(prev, m) {
   if (r > pr) return 'rival';
   return null;
 }
+
+/**
+ * Tabla «en vivo»: las filas de una zona con los partidos que se están jugando sumados como si terminaran así.
+ * `rows` = filas ({ id, pts, pj, gf, gc, dg, rank }); `events` = partidos del día (solo cuentan los que están en juego).
+ * Devuelve las filas reordenadas (puntos, diferencia, goles) con `rank`, `before` (puesto antes) y `live` (juega ahora).
+ */
+export function liveStandings(rows, events) {
+  const byId = new Map(rows.map((r) => [r.id, { ...r, before: r.rank, live: false }]));
+  for (const m of events) {
+    if (m.status !== 'in') continue;
+    const h = m.home.score ?? 0;
+    const a = m.away.score ?? 0;
+    for (const [id, gf, gc] of [[m.home.id, h, a], [m.away.id, a, h]]) {
+      const r = byId.get(id);
+      if (!r) continue;
+      r.live = true;
+      r.pj += 1;
+      r.gf = (r.gf ?? 0) + gf;
+      r.gc = (r.gc ?? 0) + gc;
+      r.dg = (r.dg ?? 0) + gf - gc;
+      r.pts += gf > gc ? 3 : gf === gc ? 1 : 0;
+    }
+  }
+  return [...byId.values()]
+    .sort((x, y) => y.pts - x.pts || (y.dg ?? 0) - (x.dg ?? 0) || (y.gf ?? 0) - (x.gf ?? 0) || x.before - y.before)
+    .map((r, i) => ({ ...r, rank: i + 1 }));
+}
+
+/** «20261019»: el día en la Argentina, como lo pide el scoreboard de ESPN. */
+export const espnDay = (date) => new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(date).replaceAll('-', '');

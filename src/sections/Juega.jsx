@@ -2,14 +2,17 @@
 // último resultado y posición. Va en la banda azul del Inicio.
 import { VELEZ_ID, fetchSummary, keyEvents, velezView } from '../lib/espn.js';
 import { fetchForecast, wantsForecast } from '../lib/weather.js';
-import { capitalize, fmt } from '../lib/core.js';
+import { capitalize, fmt, withTimeout } from '../lib/core.js';
+import { streakLines } from '../lib/facts.js';
+import { previaCard, resultCard, scorersLine } from '../lib/card.js';
 import { useCached, useNow } from '../hooks/data.js';
 import { Crest, ResultBadge, Skeletons } from '../components/ui.jsx';
+import { ShareCardButton } from '../components/ShareCard.jsx';
 
 const WEATHER_TTL_MS = 60 * 60 * 1000; // el Inicio se refresca cada 5 min; el pronóstico alcanza con pedirlo cada hora
 const KIND_LABEL = { gol: 'Gol', amarilla: 'Amarilla', roja: 'Roja', cambio: 'Cambio', penal: 'Penal' };
 
-function Countdown({ date }) {
+export function Countdown({ date }) {
   // Cada 30 s alcanza: la cuenta muestra minutos (sin segundos que obliguen a redibujar cada segundo).
   const now = useNow(30_000);
   const diff = Math.max(0, date - now);
@@ -22,7 +25,7 @@ function Countdown({ date }) {
 }
 
 /** Minuto a minuto: el detalle del partido se pide en cada refresco (cada 1 min mientras se juega). */
-function LiveEvents({ match, refresh }) {
+export function LiveEvents({ match, refresh }) {
   const events = useCached(`${match.id}-${refresh}`, async () => keyEvents(await fetchSummary(match)));
   if (!events?.length) return null;
   return (
@@ -77,8 +80,29 @@ function Team({ t }) {
   return <div className={`juega-team${isVelez ? ' is-velez' : ''}`}><Crest url={t.logo} size={isVelez ? 78 : 64} /><span>{t.name}</span></div>;
 }
 
-/** `state` = useLiveData(); `results` = resultados oficiales en orden. */
-export function Juega({ state, results }) {
+/** Compartir el último resultado y la previa del próximo partido como imagen. */
+function Share({ last, next, results, facts, zone, row }) {
+  const streak = streakLines(results)[0];
+  const rival = next && (next.home.id === VELEZ_ID ? next.away : next.home);
+  const lastCard = async () => {
+    // Los goleadores salen del detalle del partido (ESPN); si no responde, la tarjeta va sin ellos.
+    const events = await withTimeout(fetchSummary(last), 5000).then(keyEvents).catch(() => null);
+    const position = row && zone ? `${row.rank}.º en la ${zone.name} con ${row.pts} puntos` : null;
+    return resultCard(last, { scorers: scorersLine(events), streak, position });
+  };
+  return (
+    <div className="juega-share">
+      {last && <ShareCardButton className="btn btn-ghost" label="Compartir el resultado" file="velez-resultado.png" getCard={lastCard} />}
+      {next && next.status !== 'in' && (
+        <ShareCardButton className="btn btn-ghost" label="Compartir la previa" file="velez-previa.png" getCard={() => previaCard(next, { rf: facts?.rivals?.[rival.id], streak })} />
+      )}
+    </div>
+  );
+}
+
+/** `state` = useLiveData(); `results` = resultados oficiales en orden; `facts` = facts.json (para la previa). */
+export function Juega({ state, results, facts }) {
+  const now = useNow(60_000);
   if (state.status === 'loading') return <Skeletons className="sk-juega" />;
   if (state.status === 'error') {
     return <><h2 className="juega-title">Juega Vélez</h2><p className="juega-empty">No pudimos cargar los partidos. Probá en un rato.</p></>;
@@ -87,10 +111,10 @@ export function Juega({ state, results }) {
   const next = data.fixture.find((m) => m.status === 'in') ?? data.fixture.find((m) => !m.completed);
   const zone = data.standings.groups.find((g) => g.rows.some((r) => r.id === VELEZ_ID));
   const row = zone?.rows.find((r) => r.id === VELEZ_ID);
-  const facts = { last: results.at(-1), zone, row };
+  const info = { last: results.at(-1), zone, row };
 
   if (!next) {
-    return <><h2 className="juega-title">Juega Vélez</h2><p className="juega-empty">Todavía no hay partidos programados.</p><Facts {...facts} /></>;
+    return <><h2 className="juega-title">Juega Vélez</h2><p className="juega-empty">Todavía no hay partidos programados.</p><Facts {...info} /><Share {...info} results={results} facts={facts} /></>;
   }
   const d = new Date(next.date);
   const isLive = next.status === 'in';
@@ -111,12 +135,14 @@ export function Juega({ state, results }) {
       </div>
       <div className="juega-side">
         {isLive ? <LiveEvents match={next} refresh={data.updatedAt} /> : <Countdown date={d} />}
-        <Facts {...facts}>{!isLive && <Weather match={next} refresh={data.updatedAt} />}</Facts>
+        <Facts {...info}>{!isLive && <Weather match={next} refresh={data.updatedAt} />}</Facts>
         <a className="btn btn-on-accent" href="partidos.html">Fixture y tablas</a>
         <div className="juega-links">
           <a className="juega-link" href="partidos.html#agendar">Agendar los partidos</a>
           {next.home.id === VELEZ_ID && <a className="juega-link" href="club.html#como-llegar">Cómo llegar a la cancha</a>}
+          {(isLive || d - now < 6 * 36e5) && <a className="juega-link" href="vivo.html">Modo cancha</a>}
         </div>
+        <Share {...info} next={next} results={results} facts={facts} />
       </div>
     </>
   );

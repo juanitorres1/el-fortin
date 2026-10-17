@@ -179,3 +179,114 @@ export function onThisDay(md, { matches = [], club = null, max = 3 } = {}) {
     });
   return [...out, ...wins].sort((a, b) => a.year - b.year);
 }
+
+// ---------- Récords del historial (se calculan solos con cada partido nuevo) ----------
+
+const DAY_FMT = new Intl.DateTimeFormat('es-AR', { timeZone: TZ, day: 'numeric', month: 'short', year: 'numeric' });
+const dayLabel = (m) => (m.date ? DAY_FMT.format(new Date(m.date)).replace('.', '') : String(m.year));
+
+/**
+ * Récords con todos los partidos oficiales (históricos sin fecha + ESPN). Las rachas se cuentan solo con los partidos
+ * con fecha (desde 2001): en el dataset histórico el orden dentro de un año no es seguro.
+ * Devuelve { totals, wins: [top 5 goleadas], goals: partido con más goles de Vélez, streaks, favorite, bestYear }.
+ */
+export function historyRecords(matches) {
+  const played = matches.filter(official);
+  const ordered = [...played].sort((a, b) => (a.date ? Date.parse(a.date) : Date.UTC(a.year, 0, 1)) - (b.date ? Date.parse(b.date) : Date.UTC(b.year, 0, 1)));
+  const view = (m) => {
+    const velezHome = m.home.id === VELEZ_ID;
+    const [v, r] = velezHome ? [m.home.score, m.away.score] : [m.away.score, m.home.score];
+    return { m, v, r, rival: velezHome ? m.away.name : m.home.name, where: isNeutral(m) ? 'neutral' : velezHome ? 'local' : 'visitante' };
+  };
+  const all = ordered.map(view);
+  const info = (x) => ({ score: `${x.v}-${x.r}`, rival: x.rival, when: dayLabel(x.m), year: Number(when(x.m)), comp: x.m.comp, where: x.where });
+
+  const totals = { pj: all.length, g: 0, e: 0, p: 0, gf: 0, gc: 0, since: all[0] ? Number(when(all[0].m)) : null };
+  for (const x of all) {
+    totals.gf += x.v;
+    totals.gc += x.r;
+    totals[x.v > x.r ? 'g' : x.v < x.r ? 'p' : 'e'] += 1;
+  }
+
+  // Goleadas: más diferencia, después más goles de Vélez, después la más reciente.
+  const wins = all
+    .filter((x) => x.v > x.r)
+    .map((x, i) => ({ x, i }))
+    .sort((a, b) => b.x.v - b.x.r - (a.x.v - a.x.r) || b.x.v - a.x.v || b.i - a.i)
+    .slice(0, 5)
+    .map(({ x }) => info(x));
+  const goals = [...all].map((x, i) => ({ x, i })).sort((a, b) => b.x.v - a.x.v || b.i - a.i)[0];
+
+  // Rachas (desde 2001): la más larga de cada tipo, con desde y hasta.
+  const dated = all.filter((x) => x.m.date);
+  const longest = (list, ok) => {
+    let best = null;
+    let start = -1;
+    list.forEach((x, i) => {
+      if (ok(x)) {
+        if (start < 0) start = i;
+        const n = i - start + 1;
+        if (!best || n >= best.n) best = { n, from: dayLabel(list[start].m), to: dayLabel(x.m), current: i === list.length - 1 };
+      } else start = -1;
+    });
+    return best;
+  };
+  const home = dated.filter((x) => x.where === 'local');
+  const streaks = {
+    ganando: longest(dated, (x) => x.v > x.r),
+    invicto: longest(dated, (x) => x.v >= x.r),
+    invictoLocal: longest(home, (x) => x.v >= x.r),
+    vallaInvicta: longest(dated, (x) => x.r === 0),
+    convirtiendo: longest(dated, (x) => x.v > 0),
+  };
+
+  // El rival al que más veces le ganó y el mejor año (porcentaje de puntos, con al menos 15 partidos).
+  const rivals = headToHead(played);
+  const fav = [...rivals].sort((a, b) => b.g - a.g || a.p - b.p)[0];
+  const byYear = new Map();
+  for (const x of all) {
+    const y = Number(when(x.m));
+    const acc = byYear.get(y) ?? { year: y, pj: 0, pts: 0, g: 0, e: 0, p: 0 };
+    acc.pj += 1;
+    acc.pts += x.v > x.r ? 3 : x.v === x.r ? 1 : 0;
+    acc[x.v > x.r ? 'g' : x.v < x.r ? 'p' : 'e'] += 1;
+    byYear.set(y, acc);
+  }
+  const bestYear = [...byYear.values()].filter((y) => y.pj >= 15).map((y) => ({ ...y, pct: y.pts / (3 * y.pj) })).sort((a, b) => b.pct - a.pct || b.year - a.year)[0] ?? null;
+
+  return {
+    totals,
+    wins,
+    goals: goals ? info(goals.x) : null,
+    streaks,
+    favorite: fav ? { id: fav.id, name: fav.name, g: fav.g, pj: fav.pj } : null,
+    bestYear,
+  };
+}
+
+// ---------- Efemérides ----------
+
+/**
+ * Aniversarios que vienen (momentos e hitos del estadio con fecha completa) en los próximos `days` días.
+ * Devuelve [{ md, year, text, years, inDays }] ordenados por cercanía. `now` = Date.
+ */
+export function upcomingAnniversaries(club, now, days = 60) {
+  const out = [];
+  const items = [
+    ...(club?.momentos ?? []).map((m) => ({ fecha: m.fecha, text: m.titulo })),
+    ...(club?.estadio?.hitos ?? []).map((h) => ({ fecha: h.fecha, text: h.texto })),
+  ];
+  const [ty, tm, td] = new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(now).split('-').map(Number);
+  const today = Date.UTC(ty, tm - 1, td);
+  for (const it of items) {
+    const d = parseDay(it.fecha);
+    if (!d) continue;
+    const [mm, dd] = d.md.split('-').map(Number);
+    let y = ty;
+    let next = Date.UTC(y, mm - 1, dd);
+    if (next < today) next = Date.UTC(++y, mm - 1, dd);
+    const inDays = Math.round((next - today) / 864e5);
+    if (inDays <= days) out.push({ md: d.md, year: d.year, text: it.text, years: y - d.year, inDays });
+  }
+  return out.sort((a, b) => a.inDays - b.inDays || a.year - b.year);
+}

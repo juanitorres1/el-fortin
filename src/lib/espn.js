@@ -278,6 +278,12 @@ export async function fetchScorers(standings, fetchImpl) {
   return normalizeScorers(await getJson(`https://site.api.espn.com/apis/site/v3/sports/soccer/arg.1/leaders?season=${standings.year}&seasontype=${type}`, fetchImpl));
 }
 
+/** Partidos de la liga en un día («20261019», hora de la Argentina en ESPN): para los otros resultados de la fecha. */
+export async function fetchScoreboard(day, league = 'arg.1', fetchImpl) {
+  const json = await getJson(`${SITE}/${league}/scoreboard?dates=${day}`, fetchImpl);
+  return (json.events ?? []).map(normalizeEvent).sort(byDate);
+}
+
 /** Lo que cambia día a día: próximos partidos, resultados de la temporada y la tabla. */
 export async function fetchLive(fetchImpl) {
   const [fixture, results, standings] = await Promise.all([
@@ -450,6 +456,28 @@ export function aggregateStats(games) {
   return [...byTournament.values()]
     .sort((a, b) => Date.parse(b.lastDate) - Date.parse(a.lastDate)) // el torneo más reciente primero
     .map((t) => ({ ...t, players: [...t.players.values()].sort((a, b) => b.g - a.g || b.a - a.a || b.pj - a.pj) }));
+}
+
+/**
+ * Partido por partido de Vélez con quién jugó (para la página de cada jugador y «Adiviná el once»).
+ * `games` = [{ match, players }] en orden cronológico. Va compacto: `s` = titular (1/0) y solo las estadísticas
+ * que se muestran (goles, asistencias, amarillas, rojas).
+ */
+export function gamesLog(games) {
+  return games.map(({ match, players }) => {
+    const { velezHome, velez, rival, result } = velezView(match);
+    return {
+      id: match.id,
+      date: match.date,
+      comp: match.comp,
+      label: tournamentOf(match).label,
+      rival: { id: rival.id, name: rival.name },
+      home: velezHome,
+      score: `${velez.score ?? 0}-${rival.score ?? 0}`,
+      result,
+      players: players.map((p) => ({ id: p.id, name: p.name, s: p.starter ? 1 : 0, g: p.stats.g ?? 0, a: p.stats.a ?? 0, am: p.stats.am ?? 0, r: p.stats.r ?? 0 })),
+    };
+  });
 }
 
 /**

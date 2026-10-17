@@ -13,6 +13,7 @@ const ok = () => ({
   matches: { matches: Array.from({ length: 1100 }, () => ({})) },
   promedios: { parts: [{ season: RULES_YEAR - 2 }, { season: RULES_YEAR - 1 }, { season: RULES_YEAR }] },
   players: { tournaments: [{}] },
+  games: { games: [{}] },
   news: { headlines: [{}] },
   facts: {},
   ics: 'BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nEND:VEVENT\r\nEND:VCALENDAR',

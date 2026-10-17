@@ -10,7 +10,7 @@ const OUT = new URL('../public/data/generated/', import.meta.url);
 const MAX_AGE_H = 3;
 
 /**
- * Problemas encontrados, como frases. `d` = { snapshot, matches, promedios, players, news, facts, ics } (null si falta).
+ * Problemas encontrados, como frases. `d` = { snapshot, matches, promedios, players, games, news, facts, ics } (null si falta).
  * Entre mediados de diciembre y fin de enero no hay partidos: ahí un fixture vacío es normal.
  */
 export function checkData(d, now = new Date()) {
@@ -32,6 +32,7 @@ export function checkData(d, now = new Date()) {
   const seasons = new Set((d.promedios?.parts ?? []).map((p) => p.season));
   if (seasons.size < AVERAGE_SEASONS && !offseason) out.push(`Los promedios tienen ${seasons.size} de ${AVERAGE_SEASONS} temporadas: la tabla está incompleta.`);
   if (!d.players?.tournaments?.length) out.push('No hay estadísticas de jugadores: el plantel se ve vacío.');
+  else if (!d.games?.games?.length) out.push('Falta `games.json`: la página de cada jugador y «Adiviná el once» quedan sin partidos.');
   if (!d.news?.headlines?.length) out.push('No se pudieron leer los titulares de velez.com.ar (¿cambió la web?).');
   if (!d.facts) out.push('Falta `facts.json`: «La previa» no se muestra.');
   if (!d.ics?.includes('BEGIN:VEVENT') && !offseason) out.push('El calendario `velez.ics` no tiene partidos.');
@@ -53,7 +54,7 @@ async function load(name, json = true) {
 async function main() {
   const d = {
     snapshot: await load('snapshot.json'), matches: await load('matches.json'), promedios: await load('promedios.json'),
-    players: await load('players.json'), news: await load('news.json'), facts: await load('facts.json'), ics: await load('velez.ics', false),
+    players: await load('players.json'), games: await load('games.json'), news: await load('news.json'), facts: await load('facts.json'), ics: await load('velez.ics', false),
   };
   const problems = checkData(d);
   const report = problems.length

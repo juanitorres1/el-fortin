@@ -2,10 +2,8 @@
 // No se muestran lesionados ni DT: ESPN no informa lesiones del fútbol argentino y su DT está desactualizado.
 import { useState } from 'react';
 import { mount } from '../main.jsx';
-import { fetchRoster } from '../lib/espn.js';
-import { DATA, fmt, getJson, sized, withTimeout } from '../lib/core.js';
-import { useCached, useJson } from '../hooks/data.js';
-import { getInitial } from '../initial.js';
+import { DATA, fmt, sized } from '../lib/core.js';
+import { useJson, useRoster } from '../hooks/data.js';
 import { useScrollToHash } from '../hooks/page.js';
 import { Layout, PageBand } from '../components/Layout.jsx';
 import { Empty, Segmented, Skeletons } from '../components/ui.jsx';
@@ -17,9 +15,6 @@ const STAT_COLS = [
   ['rem', 'Rem', 'Remates'], ['arco', 'Arco', 'Remates al arco'], ['am', 'Amar', 'Amarillas'], ['r', 'Rojas', 'Rojas'],
   ['fc', 'Faltas', 'Faltas cometidas'], ['ataj', 'Ataj', 'Atajadas (arqueros)'], ['gc', 'GR', 'Goles recibidos (arqueros)'],
 ];
-
-// El plantel en vivo de ESPN; si no responde en 6 s, el que guardó el deploy.
-const loadRoster = () => withTimeout(fetchRoster(), 6000).catch(async () => (await getJson(`${DATA}snapshot.json`).catch(() => ({}))).roster ?? null);
 
 function Alert({ title, cls, items }) {
   return (
@@ -35,7 +30,7 @@ function PlayerCard({ p, stats, sanction, label }) {
     <article className="player">
       <div className="player-num num" aria-label={`Número ${p.jersey ?? ''}`}>{p.jersey ?? '–'}</div>
       <div className="player-main">
-        <h4 className="player-name">{p.name}</h4>
+        <h4 className="player-name"><a href={`jugador.html?id=${encodeURIComponent(p.id)}`}>{p.name}</a></h4>
         <p className="muted">
           {p.flag && <img src={sized(p.flag, 16)} alt="" width="16" height="16" loading="lazy" decoding="async" onError={(e) => e.currentTarget.remove()} />}
           {p.nat ?? ''}{p.age ? ` · ${p.age} años` : ''}
@@ -114,7 +109,7 @@ function Stats({ players }) {
           </thead>
           <tbody>
             {sorted.map((p) => (
-              <tr key={p.id}><td className="team">{p.name}</td>{cols.map(([k]) => <td key={k} className={k === sort ? 'is-sorted' : undefined}>{p[k] ?? 0}</td>)}</tr>
+              <tr key={p.id}><td className="team"><a href={`jugador.html?id=${encodeURIComponent(p.id)}`}>{p.name}</a></td>{cols.map(([k]) => <td key={k} className={k === sort ? 'is-sorted' : undefined}>{p[k] ?? 0}</td>)}</tr>
             ))}
           </tbody>
         </table>
@@ -126,8 +121,7 @@ function Stats({ players }) {
 
 function Plantel() {
   const players = useJson(`${DATA}players.json`);
-  // Prerenderizada: arranca con el plantel del deploy y lo actualiza con el de ESPN en vivo.
-  const roster = useCached('roster', loadRoster, { initial: getInitial().extra?.roster });
+  const roster = useRoster();
   const sanctions = players?.discipline ?? [];
   useScrollToHash(players !== undefined && roster !== undefined);
   return (

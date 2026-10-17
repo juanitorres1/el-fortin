@@ -9,26 +9,32 @@ diseño y decisiones está en `README.md`: leerlo antes de cambiar algo grande.
 **React 19 + Vite 6, multipágina, con prerender en el deploy** (lo pidió el usuario en oct-2026; se descartó pasar a
 un servidor en Render/Railway/Vercel). Node ≥ 20. Detalle en `README.md`.
 
-- **5 páginas** con su propio HTML en la raíz (`index.html`, `partidos.html`, `plantel.html`, `historial.html`,
-  `club.html`): las URLs y los links compartidos no cambian. Cada HTML solo tiene `<!--head-->` y el script de
+- **8 páginas** con su propio HTML en la raíz: 6 en el menú (`index.html`, `partidos.html`, `plantel.html`,
+  `historial.html`, `juegos.html`, `club.html`) y 2 fuera (`jugador.html?id=`, `vivo.html` = modo cancha; en
+  `site.js` llevan `nav: false` y `parent`). Las URLs y los links compartidos no cambian. Cada HTML solo tiene `<!--head-->` y el script de
   `src/pages/<clave>.jsx` (el Inicio es `inicio`).
 - `src/site.js`: **fuente única** de las páginas (título, descripción, ícono, URL) y del `<head>` (vista previa para
   compartir); lo usan `vite.config.js`, el menú y los tests. Menú y pie ya no se copian: están en
   `src/components/Layout.jsx`.
 - `src/lib/`: **lógica pura sin React**, compartida con los scripts de Node: `espn.js` (cliente ESPN), `facts.js`
   (rachas, rival, un día como hoy, cancha neutral), `playoffs.js`, `weather.js`, `news.js`, `rules.js` (reglamento,
-  `RULES_YEAR`), `core.js` (formato, carga con respaldo, marcador en vivo). Testear acá, no en los componentes.
+  `RULES_YEAR`), `core.js` (formato, carga con respaldo, marcador y tabla en vivo), `card.js` (textos de las imágenes
+  para compartir), `trivia.js` (trivia diaria desde `club.json`), `games.js` (prode y once), `storage.js`
+  (`localStorage` con prefijo `fortin:`). Testear acá, no en los componentes.
 - `src/hooks/`: `useLiveData` (ESPN con refresco 5 min / 1 min en vivo), `useJson` (JSON compartido entre
-  componentes), `useCached` (promesa con vencimiento), `useNow`, `useLiveTitle`, `useScrollToHash`,
+  componentes), `useCached` (promesa con vencimiento), `useRoster`, `useNow`, `useLiveTitle`, `useScrollToHash`,
   `useCurrentSection`. Convención: `undefined` = cargando, `null` = falló o no hay.
 - `src/components/`: `Layout`/`PageBand`, `MatchRow`/`MatchList`, `Crest`, `ResultBadge`, `Segmented`,
-  `Skeletons`, `Lines`, `Empty`, `ExtLink`. `src/sections/`: bloques grandes (Juega, Previa, Noticias, Tablas,
-  Goleadores, Playoffs).
+  `Skeletons`, `Lines`, `Empty`, `ExtLink`, `ShareCard` (imagen 1080×1350 con `<canvas>`), `InstallApp`.
+  `src/sections/`: bloques grandes (Juega, Previa, Noticias, Tablas, Goleadores, Playoffs, Simulador, Records).
 - Prerender: `npm run build` = `vite build` + `vite build --ssr src/prerender.jsx` + `scripts/prerender.mjs`, que mete
   en cada `dist/*.html` el contenido dibujado y los datos (`<script id="initial-data">`, leído por `src/initial.js`).
   `src/main.jsx` hidrata si la página viene prerenderizada. Qué datos lleva cada página: `PAGE_DATA` en el script.
 - `src/styles.css`: sistema de diseño (tokens claro y noche). Se siguen usando las mismas clases CSS de antes.
-- `public/`: `assets/` (escudo, `og.png`), `data/club.json` (a mano), `data/historico.json`, `data/generated/`
+- **App instalable (PWA):** `public/manifest.webmanifest` («El Fortín», ícono fortín blanco con la V sobre la V de la
+  camiseta: `public/assets/icons/`) y `public/sw.js` (red primero para páginas y datos, guardado para JS/CSS/íconos;
+  ESPN no pasa por él). Se registra en `src/main.jsx` solo en producción. Cambiar `VERSION` para borrar lo guardado.
+- `public/`: `assets/` (escudo, `og.png`, `icons/`), `data/club.json` (a mano), `data/historico.json`, `data/generated/`
   (lo genera el deploy; no va al repo).
 - `scripts/` (Node): `update-data.mjs` (genera `public/data/generated/`), `news.mjs` (titulares y resumen IA),
   `ics.mjs`, `check-data.mjs` (issue «Revisar datos del sitio»), `import-historico.mjs` (uso único, ya corrido).
@@ -114,6 +120,11 @@ npm run preview # sirve dist/
 
 ## Ideas no hechas (solo si el usuario las pide)
 
-- Trivia de Vélez: pendiente, la vamos a iterar de a poco con el usuario.
+- Trivia: hecha la versión automática (oct-2026, desde `club.json`). Si el usuario quiere preguntas escritas a mano,
+  sumarlas iterando con él.
+- Push de gol con la app cerrada: necesita un servicio que mande las notificaciones (cambia la infraestructura).
+- Votaciones o ranking entre hinchas (figura del partido, prode compartido): necesitan backend.
+- Mapa de tribunas: falta información verificada de los sectores del Amalfitani.
 - Historial de la era amateur (1919–1930) y copas anteriores a 2001 (fuente posible: RSSSF, formato irregular).
-- Página por jugador o por rival: con `src/site.js` + un HTML + `src/pages/<clave>.jsx` (ver README).
+- Página por rival: el historial ya tiene `?rival=` para compartir; una página propia sería con `src/site.js` + un
+  HTML + `src/pages/<clave>.jsx` (ver README).

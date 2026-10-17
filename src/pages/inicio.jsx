@@ -7,6 +7,7 @@ import { Layout } from '../components/Layout.jsx';
 import { Juega } from '../sections/Juega.jsx';
 import { Previa } from '../sections/Previa.jsx';
 import { Noticias } from '../sections/Noticias.jsx';
+import { InstallApp } from '../components/InstallApp.jsx';
 
 // Antes todo estaba en una sola página: los links viejos con #ancla llevan a la página nueva.
 const LEGACY = {
@@ -30,10 +31,11 @@ function Inicio() {
     <Layout page="inicio" mainClass="">
       <h1 className="sr-only">El Fortín: noticias y partidos de Vélez Sarsfield</h1>
       <section className="match-band" aria-label="Próximo partido de Vélez">
-        <div className="wrap juega"><Juega state={state} results={results} /></div>
+        <div className="wrap juega"><Juega state={state} results={results} facts={facts} /></div>
       </section>
       <Previa facts={facts} data={state.data} />
       <Noticias news={news} summary={summary} />
+      <InstallApp />
       <a className="band band-blue home-quote" href="club.html#don-pepe">
         <span className="wrap">
           <blockquote>«Yo no he venido al funeral de Vélez Sarsfield.»</blockquote>

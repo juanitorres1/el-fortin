@@ -9,6 +9,7 @@ import { useJson } from '../hooks/data.js';
 import { Layout, PageBand } from '../components/Layout.jsx';
 import { MatchList } from '../components/Match.jsx';
 import { Crest, Empty, Skeletons } from '../components/ui.jsx';
+import { Efemerides, HistoryRecords } from '../sections/Records.jsx';
 
 const COPAS = new Set(['Copa Argentina', 'Supercopa Argentina', 'Supercopa Internacional', 'Trofeo de Campeones']);
 const INTERNACIONAL = new Set(['Copa Libertadores', 'Copa Sudamericana', 'Recopa Sudamericana']);
@@ -99,6 +100,7 @@ function H2HCard({ r }) {
 function Historial() {
   const espn = useJson(`${DATA}matches.json`);
   const old = useJson('data/historico.json');
+  const club = useJson('data/club.json');
   const matches = useMemo(
     () => (espn === undefined || old === undefined ? undefined : [...(old?.matches ?? []).map(hydrateHistoric), ...mergeResults(espn?.matches ?? [], [])]),
     [espn, old],
@@ -177,6 +179,8 @@ function Historial() {
           )}
         </div>
       </section>
+      {matches && <HistoryRecords matches={matches} />}
+      {matches && club !== undefined && <Efemerides matches={matches} club={club} />}
     </Layout>
   );
 }
