@@ -26,7 +26,9 @@ un servidor en Render/Railway/Vercel). Node ≥ 20. Detalle en `README.md`.
   `useCurrentSection`. Convención: `undefined` = cargando, `null` = falló o no hay.
 - `src/components/`: `Layout`/`PageBand`, `MatchRow`/`MatchList`, `Crest`, `ResultBadge`, `Segmented`,
   `Skeletons`, `Lines`, `Empty`, `ExtLink`, `ShareCard` (imagen 1080×1350 con `<canvas>`), `InstallApp`.
-  `src/sections/`: bloques grandes (Juega, Previa, Noticias, Tablas, Goleadores, Playoffs, Simulador, Records).
+  `src/sections/`: bloques grandes (Juega, Previa, Noticias, Tablas, Goleadores, Playoffs, Simulador, Records,
+  Estadio3D: el Amalfitani en 3D con CSS, sin librerías; datos en `club.json › estadio.tribunas`, ángulos en
+  `lib/stadium.js`).
 - Prerender: `npm run build` = `vite build` + `vite build --ssr src/prerender.jsx` + `scripts/prerender.mjs`, que mete
   en cada `dist/*.html` el contenido dibujado y los datos (`<script id="initial-data">`, leído por `src/initial.js`).
   `src/main.jsx` hidrata si la página viene prerenderizada. Qué datos lleva cada página: `PAGE_DATA` en el script.
@@ -118,13 +120,16 @@ npm run preview # sirve dist/
 - El panel del navegador integrado a veces queda oculto y no saca capturas: medir el DOM (por ejemplo, cargando cada
   página en un iframe) en vez de depender de capturas.
 
+- **Tribunas (oct-2026): BORRADOR.** Sectores, capacidades y puertas salieron de búsquedas sin poder abrir las
+  fuentes; cada sector lista lo que falta en `aConfirmar` y la página muestra el aviso mientras `borrador` sea true.
+  No dar por cierto nada de eso hasta que el usuario lo revise.
+
 ## Ideas no hechas (solo si el usuario las pide)
 
 - Trivia: hecha la versión automática (oct-2026, desde `club.json`). Si el usuario quiere preguntas escritas a mano,
   sumarlas iterando con él.
 - Push de gol con la app cerrada: necesita un servicio que mande las notificaciones (cambia la infraestructura).
 - Votaciones o ranking entre hinchas (figura del partido, prode compartido): necesitan backend.
-- Mapa de tribunas: falta información verificada de los sectores del Amalfitani.
 - Historial de la era amateur (1919–1930) y copas anteriores a 2001 (fuente posible: RSSSF, formato irregular).
 - Página por rival: el historial ya tiene `?rival=` para compartir; una página propia sería con `src/site.js` + un
   HTML + `src/pages/<clave>.jsx` (ver README).

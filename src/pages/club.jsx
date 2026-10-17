@@ -5,9 +5,10 @@ import { useJson } from '../hooks/data.js';
 import { useCurrentSection, useScrollToHash } from '../hooks/page.js';
 import { Layout, PageBand } from '../components/Layout.jsx';
 import { ExtLink, Skeletons } from '../components/ui.jsx';
+import { Estadio3D } from '../sections/Estadio3D.jsx';
 
 const SECTIONS = [
-  ['historia', 'Historia'], ['estadio', 'Estadio'], ['como-llegar', 'Cómo llegar'], ['don-pepe', 'Don Pepe'],
+  ['historia', 'Historia'], ['estadio', 'Estadio'], ['tribunas', 'Tribunas'], ['como-llegar', 'Cómo llegar'], ['don-pepe', 'Don Pepe'],
   ['momentos', 'Momentos'], ['palmares', 'Palmarés'], ['idolos', 'Ídolos'], ['records', 'Récords'],
 ];
 const SECTION_IDS = SECTIONS.map(([id]) => id);
@@ -49,6 +50,12 @@ function Stadium({ e }) {
       <p className="lead">{e.intro}</p>
       <dl className="stadium-stats">{e.datos.map((d) => <div key={d.etiqueta}><dt>{d.etiqueta}</dt><dd className="num">{d.valor}</dd></div>)}</dl>
       <ol className="stadium-hitos">{e.hitos.map((h) => <li key={h.fecha}><b>{h.fecha}</b><span>{h.texto}</span></li>)}</ol>
+      {e.tribunas && (
+        <div className="arrive" id="tribunas">
+          <h3 className="h3">Las tribunas</h3>
+          <Estadio3D tribunas={e.tribunas} />
+        </div>
+      )}
       <div className="arrive" id="como-llegar">
         <h3 className="h3">Cómo llegar</h3>
         <p className="arrive-address">{c.direccion}</p>

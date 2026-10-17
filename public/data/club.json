@@ -92,6 +92,102 @@
       "consejos": "Los días de partido hay cortes de tránsito alrededor del estadio y el estacionamiento es difícil: conviene ir en transporte público y con tiempo.",
       "comoLlegoUrl": "https://mapa.buenosaires.gob.ar/comollego/"
     },
+    "tribunas": {
+      "_nota": "BORRADOR (oct-2026): armado con resultados de búsqueda, sin poder abrir las fuentes. Lo que está en «aConfirmar» falta que lo revise alguien que va a la cancha; con todo revisado, poner «borrador»: false. Las puertas cambian según el partido: el club las publica en sus redes.",
+      "borrador": true,
+      "fuente": "Capacidades: Wikipedia, «Estadio José Amalfitani». Puertas: publicación del club en redes para un partido de 2026. Acceso a la Popular Este: guía de Tangol. Sin verificar en la cancha.",
+      "sectores": [
+        {
+          "id": "platea-norte",
+          "lado": "norte",
+          "nombre": "Platea Norte",
+          "tipo": "Platea",
+          "niveles": [
+            {
+              "nombre": "Baja",
+              "capacidad": 1728,
+              "puertas": "9"
+            },
+            {
+              "nombre": "Media",
+              "capacidad": 1932
+            },
+            {
+              "nombre": "Alta",
+              "capacidad": 5091
+            }
+          ],
+          "texto": "Platea sobre uno de los laterales de la cancha, en tres niveles.",
+          "aConfirmar": [
+            "Una fuente dice que lleva el nombre de José Luis Chilavert; no está confirmado.",
+            "Puertas de la Media y la Alta."
+          ]
+        },
+        {
+          "id": "platea-sur",
+          "lado": "sur",
+          "nombre": "Platea Sur «Carlos Bianchi»",
+          "tipo": "Platea",
+          "niveles": [
+            {
+              "nombre": "Baja",
+              "capacidad": 5817,
+              "puertas": "15"
+            },
+            {
+              "nombre": "Alta",
+              "capacidad": 6072,
+              "puertas": "16"
+            }
+          ],
+          "texto": "La platea más grande, en dos niveles. En 2024 el club le puso el nombre de Carlos Bianchi.",
+          "aConfirmar": [
+            "Que la platea con el nombre de Bianchi sea la Sur (Wikipedia lo dice; otras fuentes no lo precisan)."
+          ]
+        },
+        {
+          "id": "popular-este",
+          "lado": "este",
+          "nombre": "Popular Este",
+          "tipo": "Popular local",
+          "niveles": [
+            {
+              "nombre": "Popular",
+              "capacidad": 14700,
+              "puertas": "6"
+            }
+          ],
+          "texto": "Tribuna popular detrás de uno de los arcos. Se entra por los portones peatonales de la avenida Juan B. Justo, a la altura del 9200.",
+          "aConfirmar": [
+            "Que sea la popular de la hinchada local.",
+            "Que el acceso sea siempre por Juan B. Justo."
+          ]
+        },
+        {
+          "id": "popular-oeste",
+          "lado": "oeste",
+          "nombre": "Popular Oeste",
+          "tipo": "Popular",
+          "niveles": [
+            {
+              "nombre": "Popular",
+              "capacidad": 14200,
+              "puertas": "10 y 15"
+            }
+          ],
+          "texto": "Tribuna popular detrás del otro arco. En los partidos sin público visitante la usan los hinchas de Vélez; cuando hay visitantes, sería la de ellos.",
+          "aConfirmar": [
+            "Si es la tribuna visitante cuando hay público visitante.",
+            "Por qué calle se entra."
+          ]
+        }
+      ],
+      "general": [
+        "Las puertas abren unas 3 horas antes del partido y cierran al terminar el primer tiempo (Tribuna Segura).",
+        "Una vez que pasás los molinetes no se puede cruzar de una tribuna a otra.",
+        "Socios: carnet, QR de la app Mi Vélez o DNI. No socios: QR de la entrada."
+      ]
+    },
     "datos": [
       {
         "valor": "49.540",

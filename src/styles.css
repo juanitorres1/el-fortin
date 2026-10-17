@@ -795,3 +795,69 @@ button.btn-ghost { border: 2px solid currentColor; }
 @media (max-width: 30rem) { .vivo-o-team { font-size: 0.875rem; } }
 .vivo-o-team, .sim-pick span { overflow-wrap: anywhere; }
 .pl-vi { font: 800 0.75rem/1 var(--body); padding: 0.2rem 0.4rem; border-radius: 4px; background: var(--win); color: var(--on-signal); text-transform: uppercase; letter-spacing: 0.03em; }
+
+/* ---------- Estadio en 3D (Club › Estadio) ----------
+   Esquema con transformaciones 3D de CSS. Los colores son fijos (es un dibujo) salvo el piso, que sigue al modo. */
+.st3d { display: grid; gap: 1.5rem; margin-top: 1rem; }
+@media (min-width: 60rem) { .st3d { grid-template-columns: 1.5fr 1fr; align-items: start; } }
+.st3d {
+  --st-ground: #dfe6ec; --st-top: #c3ccd7; --st-face: #8e9aaa; --st-side: #a7b2c0;
+  --st-on-top: #0061a8; --st-on-face: #004476; --st-level: #4ea3f0; --st-pitch: #2f8a4f; --st-pitch-2: #2a7f48;
+}
+@media (prefers-color-scheme: dark) { .st3d { --st-ground: #1d232b; --st-top: #9aa6b5; --st-face: #5f6b7b; --st-side: #778395; } }
+.st3d-view {
+  position: relative; overflow: hidden; border-radius: var(--radius); background: var(--bg-2); border: 1px solid var(--line);
+  cursor: grab; touch-action: pan-y; user-select: none; -webkit-user-select: none;
+}
+.st3d-view:active { cursor: grabbing; }
+.st3d-view.is-dragging .st3d-scene, .st3d-view.is-dragging .st3d-label { transition: none; }
+.st3d-stage { position: absolute; left: 50%; top: 0; translate: -50% 0; transform-origin: top center; }
+.st3d-camera { position: relative; width: 100%; height: 100%; perspective: 1300px; perspective-origin: 50% 30%; }
+.st3d-scene { position: absolute; left: 0; top: -20px; transform-style: preserve-3d; transform-origin: 50% 50%; transition: transform 0.6s ease; }
+.st3d-scene > *, .st3d-center, .st3d-stand, .st3d-tier { transform-style: preserve-3d; }
+.st3d-ground { position: absolute; inset: 24px 40px; background: var(--st-ground); border-radius: 56px; }
+.st3d-pitch {
+  position: absolute; border: 3px solid rgba(255, 255, 255, 0.9);
+  background: repeating-linear-gradient(90deg, var(--st-pitch) 0 30px, var(--st-pitch-2) 30px 60px);
+}
+.st3d-line { position: absolute; border: 2px solid rgba(255, 255, 255, 0.85); }
+.st3d-half { left: 50%; top: 0; bottom: 0; width: 0; border-width: 0 0 0 2px; }
+.st3d-circle { left: calc(50% - 26px); top: calc(50% - 26px); width: 52px; height: 52px; border-radius: 50%; }
+.st3d-area { top: calc(50% - 44px); height: 88px; width: 46px; }
+.st3d-area-w { left: -3px; }
+.st3d-area-e { right: -3px; }
+.st3d-center { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
+.st3d-stand { position: absolute; left: 0; top: 0; width: 0; height: 0; }
+.st3d-tier { position: absolute; background: var(--st-top); cursor: pointer; box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.12); }
+.st3d-tier::before { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(0deg, transparent 0 6px, rgba(0, 0, 0, 0.07) 6px 7px); }
+.st3d-face { position: absolute; display: block; background: var(--st-face); }
+.st3d-front { left: 0; top: 100%; width: 100%; height: var(--z); transform-origin: top; transform: rotateX(-90deg); }
+.st3d-back { left: 0; top: 0; width: 100%; height: var(--z); transform-origin: top; transform: rotateX(-90deg); background: var(--st-side); }
+.st3d-left { left: 0; top: 0; width: var(--z); height: 100%; transform-origin: left; transform: rotateY(90deg); background: var(--st-side); }
+.st3d-right { right: 0; top: 0; width: var(--z); height: 100%; transform-origin: right; transform: rotateY(-90deg); background: var(--st-side); }
+.st3d-tier.is-on { background: var(--st-on-top); }
+.st3d-tier.is-on .st3d-face { background: var(--st-on-face); }
+.st3d-tier.is-level { background: var(--st-level); }
+.st3d-compass { position: absolute; left: -0.6rem; top: -0.75rem; width: 1.2rem; text-align: center; font: 800 1.25rem/1.5rem var(--display); color: var(--text-2); }
+.st3d-label {
+  position: absolute; left: 0; top: 0; white-space: nowrap; pointer-events: none;
+  translate: -50% -50%; padding: 0.3rem 0.65rem; border-radius: 999px; background: var(--card); color: var(--text);
+  font: 800 calc(0.85rem * var(--inv, 1))/1 var(--body); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18); transition: transform 0.6s ease;
+}
+.st3d-label.is-on { background: var(--velez); color: #fff; }
+.st3d-controls { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.75rem 0 0.25rem; }
+.st3d-controls .btn { border: 0; cursor: pointer; }
+.st3d-controls .btn[aria-pressed='true'] { background: var(--accent); color: var(--bg); }
+.st3d-info { display: grid; gap: 0.6rem; border-top: 4px solid var(--accent); }
+.st3d-info p { margin: 0; }
+.st3d-name { text-transform: uppercase; font-weight: 800; }
+.st3d-levels { margin: 0; display: grid; gap: 0.4rem; }
+.st3d-levels div { display: flex; justify-content: space-between; gap: 0.75rem; padding: 0.45rem 0.6rem; border-radius: var(--radius-sm); background: var(--bg-2); }
+.st3d-levels div.is-level { background: var(--accent-soft); outline: 2px solid var(--accent); }
+.st3d-levels dt { font-weight: 700; }
+.st3d-levels dd { margin: 0; text-align: right; }
+.st3d-pending { padding: 0.6rem 0.8rem; border-radius: var(--radius-sm); background: var(--warn-bg); color: var(--warn-text); font-size: 0.875rem; }
+.st3d-pending ul, .st3d-general { margin: 0.3rem 0 0; padding-left: 1.1rem; display: grid; gap: 0.25rem; }
+.st3d-general { font-size: 0.9375rem; }
+.st3d-draft { margin: 0.75rem 0 0.5rem; padding: 0.6rem 0.8rem; border-radius: var(--radius-sm); background: var(--warn-bg); color: var(--warn-text); font-size: 0.875rem; }
+@media (prefers-reduced-motion: reduce) { .st3d-scene, .st3d-label { transition: none; } }
