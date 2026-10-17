@@ -1,9 +1,9 @@
 // Service worker de El Fortín: permite instalar el sitio como app y verlo sin conexión (en la cancha no siempre hay señal).
-// - Páginas y datos (data/…): primero la red; si no hay, lo último guardado.
+// - Páginas y datos (data/…): primero la red (sin la copia del navegador); si no hay, lo último guardado.
 // - JS, CSS, íconos y tipografías: lo guardado (los archivos de Vite llevan hash: uno nuevo es otra URL).
 // - ESPN y el resto de los sitios externos no pasan por acá: los datos en vivo siempre son en vivo.
 // Para forzar que todos borren lo guardado, cambiar VERSION.
-const VERSION = 'v1';
+const VERSION = 'v2';
 const CACHE = `fortin-${VERSION}`;
 const PAGES = ['./', 'partidos.html', 'plantel.html', 'historial.html', 'club.html', 'juegos.html'];
 
@@ -19,7 +19,9 @@ self.addEventListener('activate', (event) => {
 async function networkFirst(request) {
   const cache = await caches.open(CACHE);
   try {
-    const res = await fetch(request);
+    // cache: 'no-cache' = preguntarle siempre al servidor (GitHub Pages deja guardar 10 min): así un deploy nuevo se
+    // ve enseguida, también en la app instalada.
+    const res = await fetch(request, { cache: 'no-cache' });
     if (res.ok) cache.put(request, res.clone());
     return res;
   } catch (err) {
