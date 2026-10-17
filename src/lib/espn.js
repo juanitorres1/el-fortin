@@ -461,7 +461,7 @@ export function aggregateStats(games) {
 /**
  * Partido por partido de Vélez con quién jugó (para la página de cada jugador y «Adiviná el once»).
  * `games` = [{ match, players }] en orden cronológico. Va compacto: `s` = titular (1/0) y solo las estadísticas
- * que se muestran (goles, asistencias, amarillas, rojas).
+ * que se muestran (goles, asistencias, amarillas, rojas; atajadas y goles recibidos para los arqueros).
  */
 export function gamesLog(games) {
   return games.map(({ match, players }) => {
@@ -475,9 +475,30 @@ export function gamesLog(games) {
       home: velezHome,
       score: `${velez.score ?? 0}-${rival.score ?? 0}`,
       result,
-      players: players.map((p) => ({ id: p.id, name: p.name, s: p.starter ? 1 : 0, g: p.stats.g ?? 0, a: p.stats.a ?? 0, am: p.stats.am ?? 0, r: p.stats.r ?? 0 })),
+      players: players.map((p) => ({
+        id: p.id, name: p.name, s: p.starter ? 1 : 0, g: p.stats.g ?? 0, a: p.stats.a ?? 0, am: p.stats.am ?? 0, r: p.stats.r ?? 0,
+        ataj: p.stats.ataj ?? 0, gc: p.stats.gc ?? 0, // de arquero (al resto ESPN les da 0)
+      })),
     };
   });
+}
+
+/**
+ * Números de arquero desde games.json: partidos, vallas invictas (fue titular y Vélez no recibió goles), atajadas y
+ * goles recibidos. `label` = torneo («Clausura 2026»); sin `label`, todo el año.
+ */
+export function keeperRecord(games, id, label) {
+  const out = { pj: 0, vi: 0, ataj: 0, gc: 0 };
+  for (const g of games ?? []) {
+    if (label && g.label !== label) continue;
+    const p = g.players.find((x) => x.id === id);
+    if (!p) continue;
+    out.pj += 1;
+    out.ataj += p.ataj ?? 0;
+    out.gc += p.gc ?? 0;
+    if (p.s && Number(g.score.split('-')[1]) === 0) out.vi += 1;
+  }
+  return out;
 }
 
 /**

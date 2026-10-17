@@ -71,7 +71,7 @@ datos (no lo redibuja) y enseguida pide lo nuevo a ESPN.
 | Minuto a minuto y alerta de gol en la pestaña | ESPN, detalle del partido | Cada 1 min mientras se juega |
 | Goleadores del torneo (top 10) y camino a los playoffs | ESPN | Cada 15 min |
 | Promedios | `promedios.json` (temporadas cerradas) + la fase en curso en vivo | Cada 1 h / en cada visita |
-| Estadísticas del plantel y sanciones estimadas | `players.json`, sumando el detalle de cada partido | Cada 1 h |
+| Estadísticas del plantel y sanciones estimadas | `players.json`, sumando el detalle de cada partido; arqueros: vallas invictas y atajadas desde `games.json` | Cada 1 h |
 | La previa: rachas, historial con el rival, un día como hoy | `facts.json` + resultados en vivo | Cada 1 h |
 | Historial por rival | `historico.json` (1931–2000, dominio público) + `matches.json` (ESPN, desde 2001) | Cada 1 h |
 | Noticias | velez.com.ar (no tiene RSS: se leen las secciones) | Cada 1 h |
@@ -96,6 +96,7 @@ Si ESPN no responde, la página usa el último `snapshot.json` y lo indica.
 - **Descenso (2026):** el último de los promedios y el último de la anual (si coinciden, el anteúltimo de la anual).
 - **Playoffs:** cuántos pasan sale de ESPN (16 equipos ÷ 2 zonas = 8). El cálculo es conservador: «Clasificado» y
   «Eliminado» son seguros, aunque a veces se confirman una fecha después que con un cálculo exacto.
+- **Valla invicta:** el arquero fue titular y Vélez no recibió goles. Penales atajados no: ESPN no dice quién atajó.
 - **Sanciones:** 5 amarillas en un torneo o roja en el último partido. Es una estimación; la oficial es del Tribunal.
 - **Simulador:** suma los resultados elegidos a la tabla de la zona; desempata por la diferencia de gol actual.
 - **Prode:** 3 puntos el resultado exacto, 1 el ganador o el empate (90 minutos, sin penales). Se cierra al empezar.

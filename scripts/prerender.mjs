@@ -16,7 +16,7 @@ const GENERATED = 'data/generated/';
 const PAGE_DATA = {
   inicio: { live: true, json: [`${GENERATED}facts.json`, `${GENERATED}news.json`, `${GENERATED}resumen.json`] },
   partidos: { live: true, json: [`${GENERATED}promedios.json`, `${GENERATED}players.json`] },
-  plantel: { json: [`${GENERATED}players.json`], roster: true },
+  plantel: { json: [`${GENERATED}players.json`, `${GENERATED}games.json`], roster: true }, // games: vallas invictas
   historial: {},
   club: { json: ['data/club.json'] },
   juegos: { live: true, json: ['data/club.json', `${GENERATED}games.json`], roster: true },

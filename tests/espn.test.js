@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { aggregateStats, annualTable, averagesTable, discipline, headToHead, keyEvents, normalizeEvent, normalizeScorers, normalizeStandings, playersFromSummary, playoffTeams, relegation, velezView } from '../src/lib/espn.js';
+import { aggregateStats, annualTable, averagesTable, discipline, gamesLog, headToHead, keeperRecord, keyEvents, normalizeEvent, normalizeScorers, normalizeStandings, playersFromSummary, playoffTeams, relegation, velezView } from '../src/lib/espn.js';
 
 const side = (id, name, homeAway, score, extra = {}) => ({
   homeAway,
@@ -210,4 +210,23 @@ test('playoffTeams: cuántos juegan los playoffs según las fases que siguen a l
   assert.equal(playoffTeams(types, { id: '6' }), 8);
   assert.equal(playoffTeams([{ id: '1', name: 'Liga', hasStandings: true }], { id: '1' }), null);
   assert.equal(playoffTeams(types, null), null);
+});
+
+test('gamesLog y keeperRecord: vallas invictas del arquero titular, por torneo', () => {
+  const m = (id, vs, rs, round = 'Torneo Clausura') => ({
+    id, date: '2026-09-01T20:00:00Z', comp: 'Liga Profesional', round, completed: true,
+    home: { id: '21', name: 'Vélez', score: vs }, away: { id: '5', name: 'Boca Juniors', score: rs },
+  });
+  const arquero = (starter, gc, ataj) => ({ id: 'k', name: 'Arquero', starter, stats: { g: 0, a: 0, am: 0, r: 0, gc, ataj } });
+  const log = gamesLog([
+    { match: m('1', 1, 0), players: [arquero(true, 0, 4)] },
+    { match: m('2', 2, 2), players: [arquero(true, 2, 3)] },
+    { match: m('3', 3, 0), players: [arquero(false, 0, 1)] }, // entró de suplente: no cuenta como valla
+    { match: m('4', 0, 0, 'Torneo Apertura'), players: [arquero(true, 0, 5)] },
+  ]);
+  assert.deepEqual(log[0].players[0], { id: 'k', name: 'Arquero', s: 1, g: 0, a: 0, am: 0, r: 0, ataj: 4, gc: 0 });
+  assert.equal(log[0].score, '1-0');
+  assert.deepEqual(keeperRecord(log, 'k', 'Clausura 2026'), { pj: 3, vi: 1, ataj: 8, gc: 2 });
+  assert.deepEqual(keeperRecord(log, 'k'), { pj: 4, vi: 2, ataj: 13, gc: 2 });
+  assert.deepEqual(keeperRecord(log, 'otro'), { pj: 0, vi: 0, ataj: 0, gc: 0 });
 });

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { mount } from '../main.jsx';
 import { DATA, fmt, sized } from '../lib/core.js';
+import { keeperRecord } from '../lib/espn.js';
 import { useJson, useRoster } from '../hooks/data.js';
 import { useScrollToHash } from '../hooks/page.js';
 import { Layout, PageBand } from '../components/Layout.jsx';
@@ -25,7 +26,15 @@ function Alert({ title, cls, items }) {
   );
 }
 
-function PlayerCard({ p, stats, sanction, label }) {
+/** Lo que se muestra en la tarjeta: goles y asistencias, o vallas invictas y atajadas si es arquero. */
+function cardStats(stats, keeper, saves) {
+  if (keeper) {
+    return [['PJ', keeper.pj, 'Partidos jugados'], ['Vallas', keeper.vi, 'Vallas invictas'], saves ? ['Ataj.', keeper.ataj, 'Atajadas'] : ['Recib.', keeper.gc, 'Goles recibidos']];
+  }
+  return [['PJ', stats?.pj ?? 0, 'Partidos jugados'], ['Goles', stats?.g ?? 0, 'Goles'], ['Asist.', stats?.a ?? 0, 'Asistencias']];
+}
+
+function PlayerCard({ p, stats, keeper, saves, sanction, label }) {
   return (
     <article className="player">
       <div className="player-num num" aria-label={`Número ${p.jersey ?? ''}`}>{p.jersey ?? '–'}</div>
@@ -40,20 +49,22 @@ function PlayerCard({ p, stats, sanction, label }) {
           : <span className="chip chip-red">Suspendido</span>)}
       </div>
       <dl className="player-stats" aria-label={label}>
-        <div><dt>PJ</dt><dd className="num">{stats?.pj ?? 0}</dd></div>
-        <div><dt>Goles</dt><dd className="num">{stats?.g ?? 0}</dd></div>
-        <div><dt>Asist.</dt><dd className="num">{stats?.a ?? 0}</dd></div>
+        {cardStats(stats, keeper, saves).map(([dt, n, title]) => <div key={dt} title={title}><dt>{dt}</dt><dd className="num">{n}</dd></div>)}
       </dl>
     </article>
   );
 }
 
-function Squad({ roster, players }) {
+function Squad({ roster, players, games }) {
   if (roster === undefined) return <div className="squad-grid"><Skeletons n={6} className="sk-player" /></div>;
   if (!roster?.players?.length) return <Empty>El plantel no está disponible ahora.</Empty>;
   const current = players?.tournaments?.[0];
   const statsById = new Map((current?.players ?? []).map((p) => [p.id, p]));
   const sanctions = players?.discipline ?? [];
+  // Arqueros: vallas invictas (fue titular y Vélez no recibió goles) y atajadas del torneo, desde games.json.
+  // Si ESPN no informa atajadas de ningún arquero, se muestran los goles recibidos.
+  const keepers = new Map(roster.players.filter((p) => p.pos === 'G').map((p) => [p.id, keeperRecord(games?.games, p.id, current?.label)]));
+  const saves = [...keepers.values()].some((k) => k.ataj > 0);
   const byPos = new Map();
   for (const p of roster.players) byPos.set(p.pos, [...(byPos.get(p.pos) ?? []), p]);
   const order = [...POS_ORDER, ...[...byPos.keys()].filter((k) => !POS_ORDER.includes(k))];
@@ -62,7 +73,7 @@ function Squad({ roster, players }) {
       <h3 className="h3">{POS_GROUP[pos] ?? 'Otros'}</h3>
       <div className="squad-grid">
         {[...byPos.get(pos)].sort((a, b) => Number(a.jersey ?? 99) - Number(b.jersey ?? 99)).map((p) => (
-          <PlayerCard key={p.id} p={p} stats={statsById.get(p.id)} sanction={sanctions.find((d) => d.id === p.id)} label={current?.label ?? 'Torneo actual'} />
+          <PlayerCard key={p.id} p={p} stats={statsById.get(p.id)} keeper={keepers.get(p.id)} saves={saves} sanction={sanctions.find((d) => d.id === p.id)} label={current?.label ?? 'Torneo actual'} />
         ))}
       </div>
     </section>
@@ -121,6 +132,7 @@ function Stats({ players }) {
 
 function Plantel() {
   const players = useJson(`${DATA}players.json`);
+  const games = useJson(`${DATA}games.json`);
   const roster = useRoster();
   const sanctions = players?.discipline ?? [];
   useScrollToHash(players !== undefined && roster !== undefined);
@@ -141,9 +153,9 @@ function Plantel() {
       <section className="block" aria-labelledby="t-plantel">
         <div className="section-head">
           <h2 className="h2" id="t-plantel">Jugadores</h2>
-          <p className="muted small">{players?.tournaments?.[0] ? `Partidos, goles y asistencias del ${players.tournaments[0].label}.` : ''}</p>
+          <p className="muted small">{players?.tournaments?.[0] ? `Partidos, goles y asistencias del ${players.tournaments[0].label} (arqueros: vallas invictas).` : ''}</p>
         </div>
-        <Squad roster={roster} players={players} />
+        <Squad roster={roster} players={players} games={games} />
       </section>
       <section className="block bleed bleed-gray" id="estadisticas" aria-labelledby="t-estadisticas">
         <h2 className="h2" id="t-estadisticas">Estadísticas</h2>

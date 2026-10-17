@@ -3,12 +3,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import { mount } from '../main.jsx';
 import { DATA, fmt } from '../lib/core.js';
+import { keeperRecord } from '../lib/espn.js';
 import { useJson, useRoster } from '../hooks/data.js';
 import { Layout, PageBand } from '../components/Layout.jsx';
 import { Empty, ResultBadge, Skeletons } from '../components/ui.jsx';
 
 const POS = { G: 'Arquero', D: 'Defensor', M: 'Mediocampista', F: 'Delantero' };
 const COLS = [['pj', 'PJ'], ['tit', 'Tit'], ['g', 'Goles'], ['a', 'Asist'], ['am', 'Amar'], ['r', 'Rojas']];
+const KEEPER_COLS = [['pj', 'PJ'], ['tit', 'Tit'], ['ataj', 'Ataj'], ['gc', 'Recib'], ['am', 'Amar'], ['r', 'Rojas']];
+
+/** Los cuatro números grandes de un arquero (sin atajadas si ESPN no las informó). */
+const keeperLeaders = (k) => [['Partidos', k.pj], ['Vallas invictas', k.vi], k.ataj > 0 ? ['Atajadas', k.ataj] : null, ['Goles recibidos', k.gc]].filter(Boolean);
 
 /** Lo que hizo el jugador en cada partido del año, del más nuevo al más viejo. */
 function playerGames(games, id) {
@@ -43,6 +48,9 @@ function Jugador() {
   const stats = (players?.tournaments ?? []).map((t) => ({ t, s: t.players.find((x) => x.id === id) })).filter((x) => x.s);
   const log = useMemo(() => playerGames(games?.games, id), [games, id]);
   const name = p?.name ?? stats[0]?.s.name ?? log[0]?.me.name;
+  // Arqueros: vallas invictas, atajadas y goles recibidos en vez de goles y asistencias.
+  const keeper = p?.pos === 'G' ? keeperRecord(games?.games, id) : null;
+  const cols = keeper ? KEEPER_COLS : COLS;
 
   useEffect(() => {
     if (!id) return;
@@ -75,15 +83,15 @@ function Jugador() {
               {stats.length ? (
                 <>
                   <div className="leaders">
-                    {[['g', 'Goles'], ['a', 'Asistencias'], ['pj', 'Partidos'], ['tit', 'Titular']].map(([k, label]) => (
-                      <div key={k} className="leader"><span className="leader-label">{label}</span><strong>En el año</strong><b className="num">{stats.reduce((n, x) => n + (x.s[k] ?? 0), 0)}</b></div>
+                    {(keeper ? keeperLeaders(keeper) : [['g', 'Goles'], ['a', 'Asistencias'], ['pj', 'Partidos'], ['tit', 'Titular']].map(([k, label]) => [label, stats.reduce((n, x) => n + (x.s[k] ?? 0), 0)])).map(([label, n]) => (
+                      <div key={label} className="leader"><span className="leader-label">{label}</span><strong>En el año</strong><b className="num">{n}</b></div>
                     ))}
                   </div>
                   <div className="table-scroll">
                     <table>
                       <caption className="sr-only">Estadísticas de {name} por torneo</caption>
-                      <thead><tr><th scope="col" className="team">Torneo</th>{COLS.map(([, l]) => <th key={l} scope="col">{l}</th>)}</tr></thead>
-                      <tbody>{stats.map(({ t, s }) => <tr key={t.key}><td className="team">{t.label}</td>{COLS.map(([k]) => <td key={k}>{s[k] ?? 0}</td>)}</tr>)}</tbody>
+                      <thead><tr><th scope="col" className="team">Torneo</th>{cols.map(([, l]) => <th key={l} scope="col">{l}</th>)}</tr></thead>
+                      <tbody>{stats.map(({ t, s }) => <tr key={t.key}><td className="team">{t.label}</td>{cols.map(([k]) => <td key={k}>{s[k] ?? 0}</td>)}</tr>)}</tbody>
                     </table>
                   </div>
                 </>
@@ -101,7 +109,9 @@ function Jugador() {
                         <strong>{g.home ? 'vs' : 'en cancha de'} {g.rival.name}</strong>
                         <small className="muted">{g.label} · {g.me.s ? 'Titular' : 'Entró'}</small>
                       </span>
-                      <span className="pl-marks" aria-label={[g.me.g && `${g.me.g} goles`, g.me.a && `${g.me.a} asistencias`, g.me.am && 'amarilla', g.me.r && 'roja'].filter(Boolean).join(', ') || 'Sin goles ni tarjetas'}>
+                      <span className="pl-marks" role="img" aria-label={[keeper && g.me.s === 1 && g.score.endsWith('-0') && 'valla invicta', keeper && g.me.ataj > 0 && `${g.me.ataj} atajadas`, g.me.g && `${g.me.g} goles`, g.me.a && `${g.me.a} asistencias`, g.me.am && 'amarilla', g.me.r && 'roja'].filter(Boolean).join(', ') || 'Sin goles ni tarjetas'}>
+                        {keeper && g.me.s === 1 && g.score.endsWith('-0') && <span className="pl-mark pl-vi" aria-hidden="true">Valla invicta</span>}
+                        {keeper && g.me.ataj > 0 && <span className="pl-mark pl-a" aria-hidden="true">{g.me.ataj} ataj.</span>}
                         {g.me.g > 0 && <span className="pl-mark pl-g" aria-hidden="true">{'⚽'.repeat(Math.min(g.me.g, 3))}</span>}
                         {g.me.a > 0 && <span className="pl-mark pl-a" aria-hidden="true">A{g.me.a > 1 ? `×${g.me.a}` : ''}</span>}
                         {g.me.am > 0 && <span className="pl-mark pl-y" aria-hidden="true" />}
