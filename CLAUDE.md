@@ -130,6 +130,9 @@ npm run preview # sirve dist/
   Alrededores (confirmado por el usuario): Av. Juan B. Justo por el norte (rampas, estacionamiento, sede) y la
   Autopista Perito Moreno (AU6), elevada, pegada a la Sur (es la vía ancha de la foto). Las vías del Sarmiento no se
   dibujan: no se sabe de qué lado de la autopista pasan.
+- **Línea de tiempo del estadio 3D (oct-2026):** 1924 (Villa Luro: Basualdo, Pizarro, Guardia Nacional, Schmidl),
+  1951, años 70, 1978 y hoy, a partir de fotos de época que pasó el usuario. Formas en `lib/stadium.js › ERAS`,
+  textos en `club.json › estadio.epocas`. Son aproximadas; solo en «hoy» se eligen tribunas.
 
 ## Ideas no hechas (solo si el usuario las pide)
 

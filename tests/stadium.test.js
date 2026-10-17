@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { LAYOUT, OUT, cameraFor, depthOf, sectorCapacity, sideNearest, stepProfile, totalCapacity } from '../src/lib/stadium.js';
+import { ERAS, ERA_ORDER, LAYOUT, OUT, cameraFor, depthOf, sectorCapacity, sideNearest, stepProfile, totalCapacity } from '../src/lib/stadium.js';
 
 test('stepProfile: arranca en el pie del frente, sube en escalones y cierra contra el piso', () => {
   const p = stepProfile(6, 1, 4, 2);
@@ -42,4 +42,24 @@ test('club.json: los sectores del estadio suman la capacidad publicada', () => {
   assert.equal(sectorCapacity(t.sectores[0]), 8751);
   const declared = Number(club.estadio.datos.find((d) => /Capacidad/.test(d.etiqueta)).valor.replace('.', ''));
   assert.equal(totalCapacity(t.sectores), declared);
+});
+
+test('ERAS: cada época tiene las cuatro tribunas, su texto en club.json y cámaras de su lado', () => {
+  const club = JSON.parse(readFileSync(new URL('../public/data/club.json', import.meta.url), 'utf8'));
+  assert.deepEqual(club.estadio.epocas.map((e) => e.id), ERA_ORDER);
+  assert.equal(ERAS.hoy.layout, LAYOUT);
+  for (const id of ERA_ORDER) {
+    const { layout, style } = ERAS[id];
+    assert.deepEqual(Object.keys(layout).sort(), ['este', 'norte', 'oeste', 'sur'], id);
+    assert.ok(style.seats && style.streets, id);
+    for (const lado of Object.keys(OUT)) {
+      assert.equal(sideNearest(cameraFor(lado, 'tribuna', layout).pos), lado, `${id} ${lado}`);
+      assert.ok(layout[lado].some((p) => p.level != null), `${id} ${lado}: tiene gradas`);
+    }
+  }
+  // Villa Luro: tribunas bajas (de madera), mucho más chicas que las de hoy
+  assert.ok(depthOf('norte', ERAS[1924].layout) < depthOf('norte') / 5);
+  // Las torres llegaron en 1968
+  assert.equal(ERAS[1951].style.towers, null);
+  assert.ok(ERAS[1970].style.towers);
 });

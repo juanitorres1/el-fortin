@@ -79,7 +79,7 @@ datos (no lo redibuja) y enseguida pide lo nuevo a ESPN.
 | Calendario para suscribirse | `velez.ics` | Cada 1 h |
 | Pronóstico a la hora del partido | Open-Meteo (sin key) | Si el partido es dentro de 7 días |
 | Historia, estadio, cómo llegar, palmarés, ídolos, récords | `public/data/club.json` (a mano; récords de Wikipedia) | Cuando se edita |
-| Estadio en 3D (Club › Estadio): tribunas, capacidad, puertas y accesos | Three.js (se baja solo en esa sección) + `club.json › estadio.tribunas`; modelo hecho a partir de fotos aéreas | Cuando se edita |
+| Estadio en 3D (Club › Estadio): tribunas, capacidad, puertas y accesos, y línea de tiempo (1924 → hoy) | Three.js (se baja solo en esa sección) + `club.json › estadio.tribunas`; modelo hecho a partir de fotos aéreas | Cuando se edita |
 | Imagen para compartir el resultado y la previa (Inicio) | Se dibuja en el navegador con `<canvas>` (1080×1350) | Al tocar el botón |
 | Simulador «¿Qué necesita Vélez?» (Partidos) | Tabla en vivo + partidos que quedan (los mismos de los playoffs) | Cada 15 min |
 | Récords del historial y efemérides (Historial) | `historico.json` + `matches.json` + `club.json`, calculados en el navegador | Cada 1 h |

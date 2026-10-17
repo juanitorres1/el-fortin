@@ -1,5 +1,6 @@
 // El Amalfitani en 3D (Club › Estadio): se gira y se acerca con el dedo o el mouse, se puede ver desde cada tribuna,
-// desde arriba y de noche con las torres LED encendidas. La escena (Three.js) está en estadio-scene.js y se baja
+// desde arriba y de noche con las torres LED encendidas, y con la línea de tiempo se ve cómo era en cada época
+// (Villa Luro, 1951, los 70, el Mundial 78 y hoy). La escena (Three.js) está en estadio-scene.js y se baja
 // recién cuando la sección está por aparecer: el resto del sitio no la carga. Los sectores salen de
 // data/club.json (estadio.tribunas); las medidas, de lib/stadium.js.
 import { useEffect, useRef, useState } from 'react';
@@ -46,8 +47,8 @@ function Info({ s, level, general }) {
   );
 }
 
-/** `tribunas` = club.json › estadio.tribunas. */
-export function Estadio3D({ tribunas }) {
+/** `tribunas` = club.json › estadio.tribunas; `epocas` = club.json › estadio.epocas (línea de tiempo). */
+export function Estadio3D({ tribunas, epocas = [] }) {
   const sectores = tribunas?.sectores ?? [];
   const box = useRef(null);
   const api = useRef(null);
@@ -56,6 +57,23 @@ export function Estadio3D({ tribunas }) {
   const [mode, setMode] = useState('general');
   const [night, setNight] = useState(false);
   const [spin, setSpin] = useState(false);
+  const [era, setEra] = useState('hoy');
+  const scene = useRef(null); // el módulo de la escena, una vez cargado
+  const nightRef = useRef(false);
+  nightRef.current = night;
+
+  /** Arma la escena de una época, desde donde está mirando la cámara. */
+  function build(eraId, start) {
+    api.current?.dispose();
+    api.current = scene.current.createStadium(box.current, {
+      sectores,
+      era: eraId,
+      start,
+      reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches,
+      onPick: (id, level) => select(id, level),
+    });
+    if (nightRef.current) api.current.setNight(true);
+  }
 
   function select(id, level = null, view = 'general') {
     setPick({ id, level });
@@ -75,15 +93,12 @@ export function Estadio3D({ tribunas }) {
       io.disconnect();
       setStatus('loading');
       import('./estadio-scene.js')
-        .then(({ createStadium }) => {
+        .then((mod) => {
           if (!alive) return;
           const probe = document.createElement('canvas');
           if (!(probe.getContext('webgl2') || probe.getContext('webgl'))) throw new Error('Sin WebGL');
-          api.current = createStadium(el, {
-            sectores,
-            reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches,
-            onPick: (id, level) => select(id, level),
-          });
+          scene.current = mod;
+          build('hoy');
           setStatus('ready');
         })
         .catch((err) => {
@@ -102,7 +117,15 @@ export function Estadio3D({ tribunas }) {
   }, []);
 
   if (!sectores.length) return null;
-  const selected = sectores.find((s) => s.id === pick.id);
+  const selected = era === 'hoy' ? sectores.find((s) => s.id === pick.id) : null;
+  const epoca = epocas.find((x) => x.id === era);
+  const changeEra = (id) => {
+    if (id === era) return;
+    setEra(id);
+    setSpin(false);
+    setPick({ id: null, level: null });
+    if (scene.current) build(id, api.current?.getCamera());
+  };
   const setView = (m) => {
     setMode(m);
     setSpin(false);
@@ -123,6 +146,14 @@ export function Estadio3D({ tribunas }) {
             </p>
           )}
         </div>
+        {epocas.length > 1 && (
+          <div className="st3d-eras">
+            <p className="kicker">Línea de tiempo</p>
+            <div className="segmented" role="group" aria-label="Época del estadio">
+              {epocas.map((x) => <button key={x.id} type="button" className="seg" aria-pressed={x.id === era} onClick={() => changeEra(x.id)}>{x.etiqueta}</button>)}
+            </div>
+          </div>
+        )}
         <div className="st3d-controls" role="group" aria-label="Vista del estadio">
           <button type="button" className="btn btn-outline" aria-pressed={mode === 'general'} onClick={() => setView('general')}>Vista general</button>
           <button type="button" className="btn btn-outline" aria-pressed={mode === 'tribuna'} onClick={() => setView('tribuna')}>Desde la tribuna</button>
@@ -133,9 +164,18 @@ export function Estadio3D({ tribunas }) {
         <p className="muted small">Arrastrá para girarlo y usá la ruedita o dos dedos para acercarte. Modelo aproximado hecho a partir de una foto aérea: las alturas son estimadas.</p>
       </div>
       <div className="st3d-side">
+        {epoca && era !== 'hoy' && (
+          <div className="card st3d-era" aria-live="polite">
+            <p className="kicker">{epoca.etiqueta} · {epoca.lugar}</p>
+            <h3 className="h3 st3d-name">{epoca.titulo}</h3>
+            <p>{epoca.texto}</p>
+            <p className="muted small">Forma aproximada, según fotos aéreas de la época. Las tribunas y puertas de abajo son las de hoy.</p>
+            <button type="button" className="btn btn-outline" onClick={() => changeEra('hoy')}>Volver al estadio de hoy</button>
+          </div>
+        )}
         <div className="segmented" role="group" aria-label="Elegir tribuna">
           {sectores.map((s) => (
-            <button key={s.id} type="button" className="seg" aria-pressed={s.id === pick.id} onClick={() => select(s.id, null, mode === 'tribuna' ? 'tribuna' : 'general')}>{shortName(s)}</button>
+            <button key={s.id} type="button" className="seg" aria-pressed={s.id === pick.id} onClick={() => { if (era !== 'hoy') changeEra('hoy'); select(s.id, null, mode === 'tribuna' ? 'tribuna' : 'general'); }}>{shortName(s)}</button>
           ))}
         </div>
         <div className="card st3d-info" aria-live="polite">

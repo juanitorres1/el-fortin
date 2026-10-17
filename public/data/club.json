@@ -184,6 +184,43 @@
         "Socios: carnet, QR de la app Mi Vélez o DNI. No socios: QR de la entrada."
       ]
     },
+    "epocas": [
+      {
+        "id": "1924",
+        "etiqueta": "1924",
+        "titulo": "El Fortín de Villa Luro",
+        "lugar": "Basualdo, Pizarro, Guardia Nacional y Schmidl",
+        "texto": "La cancha de la calle Basualdo, con tribunas bajas de madera. En 1926 ya tenía luz artificial y en 1932 el diario Crítica la bautizó «el Fortín». Vélez jugó ahí hasta 1940."
+      },
+      {
+        "id": "1951",
+        "etiqueta": "1951",
+        "titulo": "La casa de cemento",
+        "lugar": "Liniers",
+        "texto": "El 22 de abril se reinaugura el estadio de Liniers en cemento, con un 2-0 a Huracán. Un anillo de una sola bandeja, con una de las cabeceras todavía baja."
+      },
+      {
+        "id": "1970",
+        "etiqueta": "Años 70",
+        "titulo": "Luces y anillo completo",
+        "lugar": "Liniers",
+        "texto": "En 1968 se encienden las cuatro torres de iluminación y la tribuna norte termina de rodear la cancha. Ese diciembre, el estadio pasa a llamarse José Amalfitani."
+      },
+      {
+        "id": "1978",
+        "etiqueta": "1978",
+        "titulo": "Sede del Mundial",
+        "lugar": "Liniers",
+        "texto": "Se remodela para la Copa del Mundo: la Platea Sur suma su bandeja alta con palcos y las torres lucen rayadas en rojo y blanco."
+      },
+      {
+        "id": "hoy",
+        "etiqueta": "Hoy",
+        "titulo": "El Amalfitani de hoy",
+        "lugar": "Liniers",
+        "texto": "49.540 lugares, butacas azules con «VELEZ» en la Norte Alta y la V en la Sur Baja, frentes de vidrio en las plateas y torres LED."
+      }
+    ],
     "datos": [
       {
         "valor": "49.540",
@@ -223,7 +260,8 @@
         "fecha": "1978",
         "texto": "Remodelación para la Copa del Mundo, en la que fue sede."
       }
-    ]
+    ],
+    "_nota_epocas": "Línea de tiempo del estadio 3D: las formas de cada época salen de fotos aéreas y son aproximadas (src/lib/stadium.js › ERAS)."
   },
   "frases": [
     {

@@ -34,6 +34,62 @@ export const LAYOUT = {
   oeste: [tier(30, 1, 16, 76, { level: 0, curved: true })],
 };
 
+// ---------- Línea de tiempo: el estadio en cada época ----------
+// Formas aproximadas a partir de fotos aéreas de época (Club › Estadio). Los textos de cada época están en
+// data/club.json (estadio.epocas). `style` define colores y detalles; `layout`, las tribunas.
+
+const cement = (d, y0, y1, len, extra = {}) => tier(d, y0, y1, len, { level: 0, ...extra });
+
+export const ERAS = {
+  1924: {
+    style: { seats: 'madera', towers: null, screen: null, glass: false, decals: false, streets: 'villa-luro' },
+    // La cancha de Basualdo: tribunas bajas de madera alrededor, sin curvas.
+    layout: {
+      norte: [cement(6, 0.6, 3, 104)],
+      sur: [cement(6, 0.6, 3, 104)],
+      este: [cement(5, 0.6, 2.4, 70)],
+      oeste: [cement(5, 0.6, 2.4, 70)],
+    },
+  },
+  1951: {
+    style: { seats: 'cemento', towers: null, screen: null, glass: false, decals: false, streets: 'liniers-viejo' },
+    // Liniers en cemento: un anillo de una bandeja, con la cabecera oeste todavía baja.
+    layout: {
+      norte: [cement(20, 1, 10, 100)],
+      sur: [cement(22, 1, 11, 100)],
+      este: [cement(22, 1, 10, 76, { curved: true })],
+      oeste: [cement(10, 1, 4, 76)],
+    },
+  },
+  1970: {
+    style: { seats: 'cemento', towers: 'clasicas', screen: null, glass: false, decals: false, streets: 'liniers-viejo' },
+    // Con las torres de 1968 y la Norte cerrando el anillo: populares curvas en las dos cabeceras.
+    layout: {
+      norte: [cement(30, 1, 14, 104)],
+      sur: [cement(22, 1, 11, 100)],
+      este: [cement(26, 1, 13, 76, { curved: true })],
+      oeste: [cement(26, 1, 13, 76, { curved: true })],
+    },
+  },
+  1978: {
+    style: { seats: 'cemento', towers: 'rayadas', screen: 'tablero', glass: false, decals: false, streets: 'liniers-viejo' },
+    // Para el Mundial: la Sur suma la bandeja alta; torres rayadas en rojo y blanco.
+    layout: {
+      norte: [tier(13, 1, 6, 100, { level: 0 }), tier(9, 7, 11, 100, { level: 1 }), tier(28, 12, 25, 100, { level: 2 })],
+      sur: [tier(24, 1, 9, 104, { level: 0 }), tier(34, 12, 28, 116, { level: 1 })],
+      este: [tier(30, 1, 16, 76, { level: 0, curved: true })],
+      oeste: [tier(30, 1, 16, 76, { level: 0, curved: true })],
+    },
+  },
+  hoy: {
+    style: { seats: 'azul', towers: 'led', screen: 'led', glass: true, decals: true, streets: 'liniers' },
+    layout: LAYOUT,
+  },
+};
+
+/** El orden de la línea de tiempo. */
+export const ERA_ORDER = ['1924', '1951', '1970', '1978', 'hoy'];
+
 /** Distancia del centro a la primera fila de cada lado (las populares, detrás del arco). */
 export const FRONT = { norte: PITCH.width / 2 + GAP, sur: PITCH.width / 2 + GAP, este: PITCH.length / 2 + GAP, oeste: PITCH.length / 2 + GAP };
 
@@ -41,7 +97,7 @@ export const FRONT = { norte: PITCH.width / 2 + GAP, sur: PITCH.width / 2 + GAP,
 export const OUT = { norte: [0, -1], sur: [0, 1], este: [1, 0], oeste: [-1, 0] };
 
 /** Profundidad total de un lado (hasta la espalda de la última pieza). */
-export const depthOf = (lado) => LAYOUT[lado].reduce((t, p) => t + p.d, 0);
+export const depthOf = (lado, layout = LAYOUT) => layout[lado].reduce((t, p) => t + p.d, 0);
 
 /**
  * Perfil escalonado de una bandeja en su corte: [u, v] con u = distancia hacia afuera desde su frente y v = altura.
@@ -61,9 +117,9 @@ export function stepProfile(d, y0, y1, row = 1.2) {
 }
 
 /** Dónde empieza cada pieza de un lado (u desde el frente del lado). */
-export function offsets(lado) {
+export function offsets(lado, layout = LAYOUT) {
   let u = 0;
-  return LAYOUT[lado].map((p) => {
+  return layout[lado].map((p) => {
     const at = u;
     u += p.d;
     return at;
@@ -81,16 +137,18 @@ const rotate = ([u, w], lado) => {
  * `tribuna`: sentado en el medio del sector, mirando la cancha. `arriba`: desde arriba, con el norte arriba.
  * Devuelve { pos: [x, y, z], target: [x, y, z] }.
  */
-export function cameraFor(lado, mode = 'general') {
+export function cameraFor(lado, mode = 'general', layout = LAYOUT) {
   if (mode === 'arriba') return { pos: [0, 340, 1], target: [0, 0, 0] };
   const front = FRONT[lado];
+  const pieces = layout[lado];
   if (mode === 'tribuna') {
-    const p = LAYOUT[lado].find((x) => x.level != null && x.level === (lado === 'norte' ? 2 : lado === 'sur' ? 1 : 0)) ?? LAYOUT[lado][0];
-    const u = offsets(lado)[LAYOUT[lado].indexOf(p)] + p.d * 0.45;
+    // La bandeja más alta con butacas (la última que tiene nivel).
+    const p = [...pieces].reverse().find((x) => x.level != null) ?? pieces[0];
+    const u = offsets(lado, layout)[pieces.indexOf(p)] + p.d * 0.45;
     const [x, z] = rotate([front + u, 0], lado);
     return { pos: [x, (p.y0 + p.y1) / 2 + 2.5, z], target: [0, 0, 0] };
   }
-  const [x, z] = rotate([front + depthOf(lado) + 95, lado === 'norte' || lado === 'sur' ? 40 : 30], lado);
+  const [x, z] = rotate([front + depthOf(lado, layout) + 95, lado === 'norte' || lado === 'sur' ? 40 : 30], lado);
   return { pos: [x, 115, z], target: [0, 0, 0] };
 }
 

@@ -53,7 +53,7 @@ function Stadium({ e }) {
       {e.tribunas && (
         <div className="arrive" id="tribunas">
           <h3 className="h3">Las tribunas</h3>
-          <Estadio3D tribunas={e.tribunas} />
+          <Estadio3D tribunas={e.tribunas} epocas={e.epocas} />
         </div>
       )}
       <div className="arrive" id="como-llegar">

@@ -831,3 +831,9 @@ button.btn-ghost { border: 2px solid currentColor; }
 .st3d-general { font-size: 0.9375rem; }
 .st3d-draft { margin: 0.75rem 0 0.5rem; padding: 0.6rem 0.8rem; border-radius: var(--radius-sm); background: var(--warn-bg); color: var(--warn-text); font-size: 0.875rem; }
 .st3d-access { font-size: 0.9375rem; }
+.st3d-eras { margin-top: 0.75rem; }
+.st3d-eras .kicker { margin-bottom: 0.4rem; }
+.st3d-eras .segmented { margin-bottom: 0; }
+.st3d-era { display: grid; gap: 0.5rem; margin-bottom: 1rem; border-top: 4px solid var(--accent); }
+.st3d-era p { margin: 0; }
+.st3d-era .btn { justify-self: start; border: 0; cursor: pointer; }

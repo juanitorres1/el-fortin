@@ -8,13 +8,13 @@
 // (elevada) pegada a la Sur.
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { DEFAULT_VIEW, FRONT, GAP, LAYOUT, OUT, PITCH, cameraFor, depthOf, offsets, stepProfile } from '../lib/stadium.js';
+import { DEFAULT_VIEW, ERAS, FRONT, GAP, OUT, PITCH, cameraFor, depthOf, offsets, stepProfile } from '../lib/stadium.js';
 
-// Todo azul, como en la foto aérea de hoy: plateas y populares.
-const COLOR = {
-  seat: 0x1f4c94, seatAlt: 0x2456a3, concrete: 0xb8bec7, popular: 0x2352a0, facade: 0xe8ebef, roof: 0x9ba4ae,
-  palcos: 0x1b2430, on: 0x7cc3ff, onLevel: 0xdff1ff, mast: 0x5d6673, grass: 0x2f8a4f, grass2: 0x2a7f48,
-};
+const COLOR = { facade: 0xe8ebef, roof: 0x9ba4ae, palcos: 0x1b2430, on: 0x7cc3ff, onLevel: 0xdff1ff, mast: 0x5d6673 };
+// Colores de las gradas según la época: butacas azules hoy, cemento antes, madera en Villa Luro.
+const SEATS = { azul: [0x1f4c94, 0x2456a3, 0x2352a0], cemento: [0xadb2b9, 0xa2a8b0, 0xb3b8be], madera: [0x8a6a48, 0x7c5e3f, 0x8a6a48] };
+// Calles alrededor: hoy Juan B. Justo y la AU6; antes de la autopista, solo Juan B. Justo; en Villa Luro, la manzana.
+const VILLA_LURO = { norte: 'Guardia Nacional', sur: 'Basualdo', oeste: 'Schmidl', este: 'Pizarro' };
 const ANGLE = { este: 0, norte: Math.PI / 2, sur: -Math.PI / 2, oeste: Math.PI };
 const TOWERS = [[1, 1], [1, -1], [-1, 1], [-1, -1]].map(([sx, sz]) => [sx * (PITCH.length / 2 + GAP + 26), sz * (PITCH.width / 2 + GAP + 26)]);
 
@@ -90,6 +90,30 @@ function surTexture() {
   });
 }
 
+/** Mástil rayado en rojo y blanco (las torres del Mundial 78). */
+function stripesTexture() {
+  return canvasTexture(16, 128, (g, w, h) => {
+    for (let i = 0; i < 8; i++) {
+      g.fillStyle = i % 2 ? '#ffffff' : '#c8312f';
+      g.fillRect(0, (i * h) / 8, w, h / 8);
+    }
+  });
+}
+
+/** Tablero viejo, sin pantalla LED. */
+function boardTexture() {
+  return canvasTexture(512, 210, (g, w, h) => {
+    g.fillStyle = '#16181b';
+    g.fillRect(0, 0, w, h);
+    g.fillStyle = '#f2f2f2';
+    g.font = '700 70px Arial, sans-serif';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText('VÉLEZ  0', w / 2, h * 0.32);
+    g.fillText('VISITA 0', w / 2, h * 0.72);
+  });
+}
+
 /** Calzada con carriles (para Juan B. Justo y la autopista). */
 function roadTexture() {
   return canvasTexture(1024, 160, (g, w, h) => {
@@ -118,7 +142,10 @@ function screenTexture() {
  * Crea la escena en `container`. `sectores` = club.json › estadio.tribunas.sectores. `onPick(id, level)` se llama
  * al tocar una tribuna. Devuelve { select, view, setNight, setAutoRotate, dispose }.
  */
-export function createStadium(container, { sectores, onPick, reducedMotion = false }) {
+export function createStadium(container, { sectores, era = 'hoy', start, onPick, reducedMotion = false }) {
+  const { layout, style } = ERAS[era] ?? ERAS.hoy;
+  const today = layout === ERAS.hoy.layout; // las tribunas de hoy son las que se pueden elegir
+  const [seat, seatAlt, popular] = SEATS[style.seats];
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   renderer.shadowMap.enabled = true;
@@ -129,7 +156,7 @@ export function createStadium(container, { sectores, onPick, reducedMotion = fal
 
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(42, 1, 1, 2000);
-  camera.position.set(...DEFAULT_VIEW.pos);
+  camera.position.set(...(start?.pos ?? DEFAULT_VIEW.pos));
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.enablePan = false;
@@ -137,7 +164,7 @@ export function createStadium(container, { sectores, onPick, reducedMotion = fal
   controls.maxDistance = 460;
   controls.maxPolarAngle = Math.PI * 0.47;
   controls.autoRotateSpeed = 0.6;
-  controls.target.set(...DEFAULT_VIEW.target);
+  controls.target.set(...(start?.target ?? DEFAULT_VIEW.target));
 
   const hemi = new THREE.HemisphereLight(0xffffff, 0x6f7d70, 1.25);
   const sun = new THREE.DirectionalLight(0xffffff, 1.9);
@@ -172,28 +199,68 @@ export function createStadium(container, { sectores, onPick, reducedMotion = fal
   plaza.position.y = -0.02;
   scene.add(plaza);
   // Alrededores: Av. Juan B. Justo por el norte (con el estacionamiento entre la avenida y la Norte) y la
-  // Autopista Perito Moreno (AU6), elevada, pegada a la Sur, como se ve en la foto aérea.
+  // Autopista Perito Moreno (AU6), elevada, pegada a la Sur, como se ve en la foto aérea. En Villa Luro, las cuatro
+  // calles de la manzana y las casas del barrio.
   const roadTex = keep(roadTexture());
   roadTex.wrapS = THREE.RepeatWrapping;
   roadTex.repeat.set(8, 1);
   const roadMat = mat(0xffffff, { map: roadTex });
-  const zJusto = -(FRONT.norte + depthOf('norte') + 48);
-  const justo = add(new THREE.PlaneGeometry(1000, 28), roadMat, { cast: false });
-  justo.rotation.x = -Math.PI / 2;
-  justo.position.set(0, 0.03, zJusto);
-  scene.add(justo);
-  const zAu6 = FRONT.sur + depthOf('sur') + 24;
-  const deck = add(new THREE.BoxGeometry(1000, 1.6, 30), mat(0x9aa1aa));
-  deck.position.set(0, 8.2, zAu6);
-  scene.add(deck);
-  const deckTop = add(new THREE.PlaneGeometry(1000, 28), roadMat, { cast: false });
-  deckTop.rotation.x = -Math.PI / 2;
-  deckTop.position.set(0, 9.02, zAu6);
-  scene.add(deckTop);
-  for (let x = -480; x <= 480; x += 30) {
-    const pier = add(new THREE.BoxGeometry(2, 8, 10), mat(0xa9b0b8));
-    pier.position.set(x, 4, zAu6);
-    scene.add(pier);
+  const streets = []; // [texto, posición del cartel]
+  const road = (w, x, z, rotY = 0, y = 0.03) => {
+    const r = add(new THREE.PlaneGeometry(1000, w), roadMat, { cast: false });
+    r.rotation.set(-Math.PI / 2, 0, rotY);
+    r.position.set(x, y, z);
+    scene.add(r);
+  };
+  if (style.streets === 'villa-luro') {
+    const gap = 16; // de la última fila a la calle
+    for (const [lado, name] of Object.entries(VILLA_LURO)) {
+      const [ox, oz] = OUT[lado];
+      const r = FRONT[lado] + depthOf(lado, layout) + gap;
+      road(12, ox * r, oz * r, ox ? Math.PI / 2 : 0);
+      streets.push([name, [ox * r + (oz ? 60 : 0), 2, oz * r + (ox ? 40 : 0)]]);
+    }
+    // Casas bajas del barrio, fuera de la manzana (siempre las mismas: pseudoaleatorio con semilla fija).
+    let seed = 7;
+    const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    const box = keep(new THREE.BoxGeometry(1, 1, 1));
+    const houses = new THREE.InstancedMesh(box, mat(0xffffff), 900);
+    const m4 = new THREE.Matrix4();
+    const color = new THREE.Color();
+    let n = 0;
+    const limX = FRONT.este + depthOf('este', layout) + gap + 10;
+    const limZ = FRONT.norte + depthOf('norte', layout) + gap + 10;
+    for (let x = -260; x <= 260; x += 13) {
+      for (let z = -220; z <= 220; z += 13) {
+        if ((Math.abs(x) < limX && Math.abs(z) < limZ) || rnd() < 0.18 || n >= 900) continue;
+        const h = 3 + rnd() * 5;
+        m4.compose(new THREE.Vector3(x + rnd() * 2, h / 2, z + rnd() * 2), new THREE.Quaternion(), new THREE.Vector3(9 + rnd() * 2, h, 9 + rnd() * 2));
+        houses.setMatrixAt(n, m4);
+        houses.setColorAt(n, color.setHSL(0.07 + rnd() * 0.05, 0.25, 0.62 + rnd() * 0.15));
+        n++;
+      }
+    }
+    houses.count = n;
+    houses.castShadow = true;
+    houses.receiveShadow = true;
+    scene.add(houses);
+  } else {
+    const zJusto = -(FRONT.norte + depthOf('norte', layout) + 48);
+    road(28, 0, zJusto);
+    streets.push(['Av. Juan B. Justo', [80, 2, zJusto]]);
+  }
+  if (style.streets === 'liniers') {
+    const zAu6 = FRONT.sur + depthOf('sur', layout) + 24;
+    const deck = add(new THREE.BoxGeometry(1000, 1.6, 30), mat(0x9aa1aa));
+    deck.position.set(0, 8.2, zAu6);
+    scene.add(deck);
+    road(28, 0, zAu6, 0, 9.02);
+    for (let x = -480; x <= 480; x += 30) {
+      const pier = add(new THREE.BoxGeometry(2, 8, 10), mat(0xa9b0b8));
+      pier.position.set(x, 4, zAu6);
+      scene.add(pier);
+    }
+    streets.push(['Autopista Perito Moreno (AU6)', [40, 12, zAu6]]);
   }
 
   const pitchTex = keep(pitchTexture());
@@ -206,26 +273,27 @@ export function createStadium(container, { sectores, onPick, reducedMotion = fal
   const pickable = [];
   const parts = []; // { mesh, sector, level, base }
   const glassMat = mat(0xcfe8ff, { transparent: true, opacity: 0.35, roughness: 0.1, metalness: 0.2 });
-  for (const s of sectores) {
+  for (const lado of Object.keys(layout)) {
+    const id = today ? sectores.find((x) => x.lado === lado)?.id ?? null : null;
     const group = new THREE.Group();
-    group.rotation.y = ANGLE[s.lado];
-    const at = offsets(s.lado);
-    LAYOUT[s.lado].forEach((p, idx) => {
-      const u0 = FRONT[s.lado] + at[idx];
+    group.rotation.y = ANGLE[lado];
+    const at = offsets(lado, layout);
+    layout[lado].forEach((p, idx) => {
+      const u0 = FRONT[lado] + at[idx];
       const solid = Boolean(p.kind);
       const pts = solid ? [[0, 0], [0, p.y1], [p.d, p.y1], [p.d, 0]] : stepProfile(p.d, p.y0, p.y1);
       const shape = new THREE.Shape(pts.map(([u, v]) => new THREE.Vector2(u, v)));
-      const base = p.kind === 'palcos' ? COLOR.palcos : p.kind === 'visera' ? COLOR.roof : p.curved ? COLOR.popular : idx % 2 ? COLOR.seatAlt : COLOR.seat;
+      const base = p.kind === 'palcos' ? COLOR.palcos : p.kind === 'visera' ? COLOR.roof : p.curved ? popular : idx % 2 ? seatAlt : seat;
       const material = mat(base, p.kind === 'palcos' ? { roughness: 0.2, metalness: 0.6 } : {});
       const geo = new THREE.ExtrudeGeometry(shape, { depth: p.len, bevelEnabled: false });
       geo.translate(0, 0, -p.len / 2);
       const mesh = add(geo, material);
       mesh.position.x = u0;
       group.add(mesh);
-      const part = { mesh, sector: s.id, level: p.level ?? null, base };
+      const part = { mesh, sector: id, level: p.level ?? null, base };
       parts.push(part);
       mesh.userData = part;
-      pickable.push(mesh);
+      if (id) pickable.push(mesh);
       if (p.curved) {
         // Las esquinas: el mismo perfil girado 90° alrededor de cada esquina de la primera fila.
         for (const [sign, start] of [[1, 0], [-1, Math.PI / 2]]) {
@@ -233,14 +301,14 @@ export function createStadium(container, { sectores, onPick, reducedMotion = fal
           const lathe = add(new THREE.LatheGeometry(pts.map(([u, v]) => new THREE.Vector2(u, v)).reverse(), 20, start, Math.PI / 2), material);
           lathe.position.set(u0, 0, (sign * p.len) / 2);
           group.add(lathe);
-          const lp = { mesh: lathe, sector: s.id, level: p.level ?? null, base };
+          const lp = { mesh: lathe, sector: id, level: p.level ?? null, base };
           parts.push(lp);
           lathe.userData = lp;
-          pickable.push(lathe);
+          if (id) pickable.push(lathe);
         }
       }
       // Frentes de vidrio de las plateas (reemplazaron a los alambrados).
-      if (!solid && !p.curved) {
+      if (style.glass && !solid && !p.curved) {
         const glass = add(new THREE.PlaneGeometry(p.len, 1.1), glassMat, { cast: false, receive: false });
         glass.position.set(u0 - 0.05, p.y0 + 0.55, 0);
         glass.rotation.y = Math.PI / 2;
@@ -253,7 +321,7 @@ export function createStadium(container, { sectores, onPick, reducedMotion = fal
         group.add(roof);
       }
       // Paredes de afuera (fachada de hormigón) detrás de la última pieza.
-      if (idx === LAYOUT[s.lado].length - 1) {
+      if (idx === layout[lado].length - 1) {
         const top = p.y1;
         const facade = add(new THREE.BoxGeometry(0.6, top, p.len), mat(COLOR.facade));
         facade.position.set(u0 + p.d + 0.3, top / 2, 0);
@@ -265,8 +333,8 @@ export function createStadium(container, { sectores, onPick, reducedMotion = fal
 
   // Plano apoyado sobre las puntas de los escalones de una o más piezas, con un dibujo hecho con butacas.
   const decal = (lado, idxFrom, idxTo, texture) => {
-    const L = LAYOUT[lado];
-    const at = offsets(lado);
+    const L = layout[lado];
+    const at = offsets(lado, layout);
     const a = L[idxFrom];
     const b = L[idxTo];
     const u0 = FRONT[lado] + at[idxFrom];
@@ -291,25 +359,40 @@ export function createStadium(container, { sectores, onPick, reducedMotion = fal
     return plane;
   };
   // Dibujos hechos con butacas: «VELEZ» en la Norte Alta y la V blanca en la Sur Baja.
-  decal('norte', 3, 3, velezTexture());
-  decal('sur', 0, 0, surTexture());
+  if (style.decals) {
+    decal('norte', 3, 3, velezTexture());
+    decal('sur', 0, 0, surTexture());
+  }
 
-  // Pantalla LED detrás de la Popular Este.
-  const screenTex = keep(screenTexture());
-  const screenBox = add(new THREE.BoxGeometry(1.4, 10, 24), mat(0x15191f));
-  const xScreen = FRONT.este + depthOf('este') + 1.5;
-  screenBox.position.set(xScreen, 21, 0);
-  scene.add(screenBox);
-  const screenFace = add(new THREE.PlaneGeometry(23, 9.2), mat(0xffffff, { map: screenTex, emissive: 0xffffff, emissiveMap: screenTex, emissiveIntensity: 0.6 }), { cast: false });
-  screenFace.position.set(xScreen - 0.75, 21, 0);
-  screenFace.rotation.y = -Math.PI / 2;
-  scene.add(screenFace);
+  // Pantalla detrás de la Popular Este: LED hoy, tablero viejo en el 78.
+  if (style.screen) {
+    const led = style.screen === 'led';
+    const screenTex = keep(led ? screenTexture() : boardTexture());
+    const screenBox = add(new THREE.BoxGeometry(1.4, 10, 24), mat(0x15191f));
+    const xScreen = FRONT.este + depthOf('este', layout) + 1.5;
+    screenBox.position.set(xScreen, 21, 0);
+    scene.add(screenBox);
+    const screenFace = add(new THREE.PlaneGeometry(23, 9.2), mat(0xffffff, led ? { map: screenTex, emissive: 0xffffff, emissiveMap: screenTex, emissiveIntensity: 0.6 } : { map: screenTex }), { cast: false });
+    screenFace.position.set(xScreen - 0.75, 21, 0);
+    screenFace.rotation.y = -Math.PI / 2;
+    scene.add(screenFace);
+  }
 
-  // Torres de iluminación LED en las esquinas: mástil reticulado (aproximado) y panel inclinado hacia la cancha.
-  const lampMat = mat(0xf4f7ff, { emissive: 0xffffff, emissiveIntensity: 0.15 });
+  // Torres de iluminación en las esquinas (desde 1968): mástil y panel inclinado hacia la cancha. Rayadas en rojo y
+  // blanco en el 78, LED hoy.
+  const lampMat = mat(style.towers === 'led' ? 0xf4f7ff : 0xfff3c4, { emissive: 0xffffff, emissiveIntensity: 0.15 });
   const towerLights = [];
-  for (const [x, z] of TOWERS) {
-    const mast = add(new THREE.CylinderGeometry(0.7, 1.6, 46, 4, 1), mat(COLOR.mast, { metalness: 0.5, roughness: 0.5 }));
+  let mastMat = null;
+  if (style.towers) {
+    if (style.towers === 'rayadas') {
+      const stripes = keep(stripesTexture());
+      stripes.wrapT = THREE.RepeatWrapping;
+      stripes.repeat.set(1, 3);
+      mastMat = mat(0xffffff, { map: stripes });
+    } else mastMat = mat(COLOR.mast, { metalness: 0.5, roughness: 0.5 });
+  }
+  for (const [x, z] of style.towers ? TOWERS : []) {
+    const mast = add(new THREE.CylinderGeometry(0.7, 1.6, 46, style.towers === 'rayadas' ? 12 : 4, 1), mastMat);
     mast.position.set(x, 23, z);
     mast.rotation.y = Math.PI / 4;
     scene.add(mast);
@@ -334,17 +417,17 @@ export function createStadium(container, { sectores, onPick, reducedMotion = fal
   labelLayer.className = 'st3d-labels';
   labelLayer.setAttribute('aria-hidden', 'true');
   container.appendChild(labelLayer);
-  const labels = sectores.map((s) => {
+  const labels = (today ? sectores : []).map((s) => {
     const el = document.createElement('span');
     el.className = 'st3d-label';
     el.textContent = s.nombre.replace(/ «.*»/, '');
     labelLayer.appendChild(el);
     const [ox, oz] = OUT[s.lado];
-    const r = FRONT[s.lado] + depthOf(s.lado) * 0.55;
-    const top = Math.max(...LAYOUT[s.lado].map((p) => p.y1)) + 8;
+    const r = FRONT[s.lado] + depthOf(s.lado, layout) * 0.55;
+    const top = Math.max(...layout[s.lado].map((p) => p.y1)) + 8;
     return { el, id: s.id, pos: new THREE.Vector3(ox * r, top, oz * r) };
   });
-  for (const [text, pos] of [['Av. Juan B. Justo', [80, 2, zJusto]], ['Autopista Perito Moreno (AU6)', [40, 12, zAu6]]]) {
+  for (const [text, pos] of streets) {
     const el = document.createElement('span');
     el.className = 'st3d-label st3d-label-street';
     el.textContent = text;
@@ -440,15 +523,19 @@ export function createStadium(container, { sectores, onPick, reducedMotion = fal
       }
       for (const l of labels) l.el.classList.toggle('is-on', l.id === id);
       const s = sectores.find((x) => x.id === id);
-      if (s) goTo(cameraFor(s.lado, mode));
+      if (s) goTo(cameraFor(s.lado, mode, layout));
     },
     /** `mode` = 'general' | 'tribuna' | 'arriba'; sin `lado`, la vista general es la inicial (desde el sudeste). */
     view(mode, lado) {
       controls.autoRotate = false;
-      goTo(mode === 'general' && !lado ? DEFAULT_VIEW : cameraFor(lado ?? 'sur', mode));
+      goTo(mode === 'general' && !lado ? DEFAULT_VIEW : cameraFor(lado ?? 'sur', mode, layout));
     },
     reset() {
       goTo(DEFAULT_VIEW);
+    },
+    /** Dónde está la cámara (para no saltar al cambiar de época). */
+    getCamera() {
+      return { pos: camera.position.toArray(), target: controls.target.toArray() };
     },
     setAutoRotate(on) {
       controls.autoRotate = on;
