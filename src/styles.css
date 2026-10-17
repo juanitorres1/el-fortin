@@ -578,7 +578,9 @@ html:has(.subnav) { scroll-padding-top: calc(var(--topbar-h) + 4.5rem); }
 .card, .match, .player, .alert, .table-scroll, .stadium-stats div, .stadium-hitos li, .arrive-list li, .quote, .leader, .h2h-card,
 .fortin, .empty, .skeleton, .ai-note, .timeline li { border-radius: var(--radius); }
 .h2h-stats div, select, .tag, .chip, .res, .ai-badge, .countdown div { border-radius: var(--radius-sm); }
-.match, .player, .timeline li, .table-scroll, .h2h-card, .alert { overflow: hidden; }
+.match, .player, .timeline li, .h2h-card, .alert { overflow: hidden; }
+/* Las tablas recortan las esquinas pero se deslizan de costado en celular (overflow: hidden no deja deslizar). */
+.table-scroll { overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
 .quote-main { border-radius: 0; }
 
 /* ---------- App instalable (Inicio) ---------- */
