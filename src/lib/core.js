@@ -104,3 +104,17 @@ export function liveStandings(rows, events) {
 
 /** «20261019»: el día en la Argentina, como lo pide el scoreboard de ESPN. */
 export const espnDay = (date) => new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(date).replaceAll('-', '');
+
+/**
+ * Las tablas del torneo con los partidos en juego sumados como si terminaran así: cada zona y la anual. Con esto
+ * salen también los promedios en vivo (la fase en curso entra a los promedios con estos puntos).
+ * `standings` = la tabla de ESPN (fetchStandings); `events` = partidos del día.
+ */
+export function liveTables(standings, events) {
+  if (!standings) return standings;
+  return {
+    ...standings,
+    groups: standings.groups.map((g) => ({ ...g, rows: liveStandings(g.rows, events) })),
+    annual: standings.annual ? { ...standings.annual, rows: liveStandings(standings.annual.rows, events) } : standings.annual,
+  };
+}

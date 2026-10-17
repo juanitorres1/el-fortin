@@ -1,14 +1,15 @@
 // Modo cancha: el partido de Vélez en grande, el minuto a minuto, los otros partidos de la fecha y la tabla de la
-// zona como quedaría si todo terminara así. Pensado para el celular en la tribuna: letra grande, poco para leer,
+// zona, la anual y los promedios como quedarían si todo terminara así. Pensado para el celular en la tribuna: letra grande, poco para leer,
 // se refresca solo (cada 1 min mientras se juega) y puede dejar la pantalla prendida.
 import { useEffect, useRef, useState } from 'react';
 import { mount } from '../main.jsx';
 import { VELEZ_ID, fetchScoreboard } from '../lib/espn.js';
-import { capitalize, espnDay, fmt, liveStandings, sourceNote } from '../lib/core.js';
-import { useCached, useLiveData } from '../hooks/data.js';
+import { DATA, capitalize, espnDay, fmt, liveStandings, liveTables, sourceNote } from '../lib/core.js';
+import { useCached, useJson, useLiveData } from '../hooks/data.js';
 import { useLiveTitle } from '../hooks/page.js';
 import { Layout } from '../components/Layout.jsx';
-import { Crest, Empty, Skeletons } from '../components/ui.jsx';
+import { Crest, Empty, Segmented, Skeletons } from '../components/ui.jsx';
+import { StandingsTable, buildTables } from '../sections/Tablas.jsx';
 import { Countdown, LiveEvents } from '../sections/Juega.jsx';
 
 /** «Mantener la pantalla prendida» (Wake Lock): solo si el navegador lo permite. */
@@ -56,8 +57,25 @@ function Other({ m }) {
   );
 }
 
+/** Tabla anual y promedios, con los partidos en juego sumados (y quién descendería hoy). */
+function LongTables({ standings, promedios, live, note }) {
+  const [name, setName] = useState('Tabla anual');
+  const tables = buildTables(standings, promedios ?? null).filter((t) => t.name === 'Tabla anual' || t.name === 'Promedios');
+  if (!tables.length) return null;
+  const table = tables.find((t) => t.name === name) ?? tables[0];
+  return (
+    <section className="block" aria-labelledby="t-largas">
+      <h2 className="h2" id="t-largas">{live ? 'Anual y promedios en vivo' : 'Anual y promedios'}</h2>
+      <Segmented label="Elegir tabla" options={tables.map((t) => ({ value: t.name, label: t.name }))} value={table.name} onChange={setName} />
+      <div className="table-scroll"><StandingsTable table={table} /></div>
+      <p className="muted small">{live ? 'Con los partidos que se están jugando sumados como si terminaran así. ' : ''}{table.note} {note}</p>
+    </section>
+  );
+}
+
 function Vivo() {
   const state = useLiveData();
+  const promedios = useJson(`${DATA}promedios.json`);
   const data = state.data;
   useLiveTitle(data?.fixture);
   const match = data && (data.fixture.find((m) => m.status === 'in') ?? data.fixture.find((m) => !m.completed));
@@ -68,6 +86,7 @@ function Vivo() {
   const zone = data?.standings.groups.find((g) => g.rows.some((r) => r.id === VELEZ_ID));
   const table = zone && others ? liveStandings(zone.rows, others) : null;
   const anyLive = others?.some((m) => m.status === 'in');
+  const standings = data && (others ? liveTables(data.standings, others) : data.standings);
 
   const isLive = match?.status === 'in';
   return (
@@ -122,6 +141,9 @@ function Vivo() {
           </div>
         )}
         {!leagueMatch && match && <p className="muted">Los otros resultados y la tabla en vivo aparecen cuando Vélez juega por la Liga.</p>}
+        {standings && promedios !== undefined && (
+          <LongTables standings={standings} promedios={promedios} live={Boolean(leagueMatch && anyLive)} note={sourceNote(state.live, data.updatedAt)} />
+        )}
       </div>
     </Layout>
   );

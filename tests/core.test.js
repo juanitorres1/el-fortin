@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { espnDay, goalBy, liveStandings, scoreTitle } from '../src/lib/core.js';
+import { espnDay, goalBy, liveStandings, liveTables, scoreTitle } from '../src/lib/core.js';
 
 const live = (home, away, { velezHome = true, id = '1' } = {}) => ({
   id, clock: "67'",
@@ -39,4 +39,18 @@ test('liveStandings: suma los partidos en juego como si terminaran así y reorde
 
 test('espnDay: el día en la Argentina', () => {
   assert.equal(espnDay(new Date('2026-10-20T02:00:00Z')), '20261019');
+});
+
+test('liveTables: el partido en juego suma en su zona y en la anual', () => {
+  const row = (id, pts, rank) => ({ id, pts, pj: 10, gf: 10, gc: 10, dg: 0, rank });
+  const standings = {
+    groups: [{ name: 'Zona A', rows: [row('B', 20, 1), row('21', 19, 2)] }],
+    annual: { phases: ['Apertura', 'Clausura'], rows: [row('B', 40, 1), row('X', 39, 2), row('21', 38, 3)] },
+  };
+  const ev = [{ id: '1', status: 'in', home: { id: '21', score: 1 }, away: { id: 'Z', score: 0 } }];
+  const out = liveTables(standings, ev);
+  assert.deepEqual(out.groups[0].rows.map((r) => [r.id, r.pts]), [['21', 22], ['B', 20]]);
+  assert.deepEqual(out.annual.rows.map((r) => [r.id, r.pts, r.rank]), [['21', 41, 1], ['B', 40, 2], ['X', 39, 3]]);
+  assert.equal(out.annual.phases.length, 2);
+  assert.equal(standings.annual.rows[2].pts, 38); // no toca el original
 });

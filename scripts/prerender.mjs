@@ -21,7 +21,7 @@ const PAGE_DATA = {
   club: { json: ['data/club.json'] },
   juegos: { live: true, json: ['data/club.json', `${GENERATED}games.json`], roster: true },
   jugador: { json: [`${GENERATED}players.json`, `${GENERATED}games.json`], roster: true }, // el jugador sale de ?id= al abrir
-  vivo: { live: true },
+  vivo: { live: true, json: [`${GENERATED}promedios.json`] },
 };
 
 async function readJson(path) {

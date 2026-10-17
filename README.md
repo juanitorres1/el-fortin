@@ -86,7 +86,7 @@ datos (no lo redibuja) y enseguida pide lo nuevo a ESPN.
 | Juegos: trivia diaria | Preguntas armadas solas con `club.json` (sin preguntas a mano) | Una nueva por día |
 | Juegos: prode y «Adiviná el once» | Fixture en vivo + `games.json`; lo elegido queda en el navegador | Cada 1 h |
 | Ficha de cada jugador | `players.json` + `games.json` (partido por partido del año) | Cada 1 h |
-| Modo cancha | ESPN: el partido, el scoreboard de la fecha y la tabla «si terminara así» | Cada 1 min en vivo |
+| Modo cancha | ESPN: el partido, el scoreboard de la fecha y la tabla de la zona, la anual y los promedios «si terminara así» | Cada 1 min en vivo |
 
 Si ESPN no responde, la página usa el último `snapshot.json` y lo indica.
 
