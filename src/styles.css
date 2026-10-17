@@ -801,10 +801,11 @@ button.btn-ghost { border: 2px solid currentColor; }
 .st3d { display: grid; gap: 1.5rem; margin-top: 1rem; }
 @media (min-width: 60rem) { .st3d { grid-template-columns: 1.5fr 1fr; align-items: start; } }
 .st3d {
-  --st-ground: #dfe6ec; --st-top: #c3ccd7; --st-face: #8e9aaa; --st-side: #a7b2c0;
+  --st-ground: #dfe6ec; --st-top: #c3ccd7; --st-step: #a9b4c1; --st-face: #8e9aaa; --st-side: #a7b2c0;
+  --st-seat: #dfe7f0; --st-seat-2: #9fb2c8; --st-mast: #6f7b8b;
   --st-on-top: #0061a8; --st-on-face: #004476; --st-level: #4ea3f0; --st-pitch: #2f8a4f; --st-pitch-2: #2a7f48;
 }
-@media (prefers-color-scheme: dark) { .st3d { --st-ground: #1d232b; --st-top: #9aa6b5; --st-face: #5f6b7b; --st-side: #778395; } }
+@media (prefers-color-scheme: dark) { .st3d { --st-ground: #1d232b; --st-top: #9aa6b5; --st-step: #7d8899; --st-face: #5f6b7b; --st-side: #778395; --st-seat: #b9c5d3; --st-seat-2: #7d90a6; --st-mast: #8a95a5; } }
 .st3d-view {
   position: relative; overflow: hidden; border-radius: var(--radius); background: var(--bg-2); border: 1px solid var(--line);
   cursor: grab; touch-action: pan-y; user-select: none; -webkit-user-select: none;
@@ -813,7 +814,7 @@ button.btn-ghost { border: 2px solid currentColor; }
 .st3d-view.is-dragging .st3d-scene, .st3d-view.is-dragging .st3d-label { transition: none; }
 .st3d-stage { position: absolute; left: 50%; top: 0; translate: -50% 0; transform-origin: top center; }
 .st3d-camera { position: relative; width: 100%; height: 100%; perspective: 1300px; perspective-origin: 50% 30%; }
-.st3d-scene { position: absolute; left: 0; top: -20px; transform-style: preserve-3d; transform-origin: 50% 50%; transition: transform 0.6s ease; }
+.st3d-scene { position: absolute; left: 0; top: 10px; transform-style: preserve-3d; transform-origin: 50% 50%; transition: transform 0.6s ease; }
 .st3d-scene > *, .st3d-center, .st3d-stand, .st3d-tier { transform-style: preserve-3d; }
 .st3d-ground { position: absolute; inset: 24px 40px; background: var(--st-ground); border-radius: 56px; }
 .st3d-pitch {
@@ -828,16 +829,30 @@ button.btn-ghost { border: 2px solid currentColor; }
 .st3d-area-e { right: -3px; }
 .st3d-center { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
 .st3d-stand { position: absolute; left: 0; top: 0; width: 0; height: 0; }
-.st3d-tier { position: absolute; background: var(--st-top); cursor: pointer; box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.12); }
-.st3d-tier::before { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(0deg, transparent 0 6px, rgba(0, 0, 0, 0.07) 6px 7px); }
-.st3d-face { position: absolute; display: block; background: var(--st-face); }
-.st3d-front { left: 0; top: 100%; width: 100%; height: var(--z); transform-origin: top; transform: rotateX(-90deg); }
-.st3d-back { left: 0; top: 0; width: 100%; height: var(--z); transform-origin: top; transform: rotateX(-90deg); background: var(--st-side); }
-.st3d-left { left: 0; top: 0; width: var(--z); height: 100%; transform-origin: left; transform: rotateY(90deg); background: var(--st-side); }
-.st3d-right { right: 0; top: 0; width: var(--z); height: 100%; transform-origin: right; transform: rotateY(-90deg); background: var(--st-side); }
-.st3d-tier.is-on { background: var(--st-on-top); }
+.st3d-tier { position: absolute; left: 0; top: 0; width: 0; height: 0; cursor: pointer; }
+/* Grada: filas de butacas en las plateas, escalones de cemento en las populares. */
+.st3d-slope {
+  position: absolute; transform-origin: bottom;
+  background: repeating-linear-gradient(0deg, var(--st-seat) 0 5px, var(--st-seat-2) 5px 7px);
+}
+.st3d-tier.is-popular .st3d-slope { background: repeating-linear-gradient(0deg, var(--st-top) 0 6px, var(--st-step) 6px 8px); }
+.st3d-face { position: absolute; display: block; background: var(--st-face); transform-origin: top; }
+.st3d-back { background: var(--st-side); }
+.st3d-left, .st3d-right { background: var(--st-side); }
+.st3d-left { transform-origin: left; clip-path: polygon(0 0, 100% 0, 100% 100%, var(--cut) 100%); }
+.st3d-right { transform-origin: right; clip-path: polygon(0 0, 100% 0, calc(100% - var(--cut)) 100%, 0 100%); }
+.st3d-tier.is-on .st3d-slope { background: repeating-linear-gradient(0deg, var(--st-on-top) 0 5px, var(--st-on-face) 5px 7px); }
 .st3d-tier.is-on .st3d-face { background: var(--st-on-face); }
-.st3d-tier.is-level { background: var(--st-level); }
+.st3d-tier.is-level .st3d-slope { background: repeating-linear-gradient(0deg, var(--st-level) 0 5px, var(--st-on-top) 5px 7px); }
+/* Torres de iluminación: mástil y panel de reflectores. */
+.st3d-tower { position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: none; }
+.st3d-tower, .st3d-mast { transform-style: preserve-3d; }
+.st3d-mast { position: absolute; left: -3px; width: 6px; background: var(--st-mast); transform-origin: bottom; transform: rotateX(-90deg); }
+.st3d-mast-b { transform: rotateX(-90deg) rotateY(90deg); }
+.st3d-lamps {
+  position: absolute; left: -21px; top: -10px; width: 48px; height: 26px; border-radius: 3px; background-color: var(--st-mast);
+  background-image: radial-gradient(circle, #fff7d6 0 2.5px, transparent 3px); background-size: 8px 8px; background-position: 2px 1px;
+}
 .st3d-compass { position: absolute; left: -0.6rem; top: -0.75rem; width: 1.2rem; text-align: center; font: 800 1.25rem/1.5rem var(--display); color: var(--text-2); }
 .st3d-label {
   position: absolute; left: 0; top: 0; white-space: nowrap; pointer-events: none;
@@ -861,3 +876,4 @@ button.btn-ghost { border: 2px solid currentColor; }
 .st3d-general { font-size: 0.9375rem; }
 .st3d-draft { margin: 0.75rem 0 0.5rem; padding: 0.6rem 0.8rem; border-radius: var(--radius-sm); background: var(--warn-bg); color: var(--warn-text); font-size: 0.875rem; }
 @media (prefers-reduced-motion: reduce) { .st3d-scene, .st3d-label { transition: none; } }
+.st3d-access { font-size: 0.9375rem; }

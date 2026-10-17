@@ -93,35 +93,35 @@
       "comoLlegoUrl": "https://mapa.buenosaires.gob.ar/comollego/"
     },
     "tribunas": {
-      "_nota": "BORRADOR (oct-2026): armado con resultados de búsqueda, sin poder abrir las fuentes. Lo que está en «aConfirmar» falta que lo revise alguien que va a la cancha; con todo revisado, poner «borrador»: false. Las puertas cambian según el partido: el club las publica en sus redes.",
-      "borrador": true,
-      "fuente": "Capacidades: Wikipedia, «Estadio José Amalfitani». Puertas: publicación del club en redes para un partido de 2026. Acceso a la Popular Este: guía de Tangol. Sin verificar en la cancha.",
+      "_nota": "Revisado con el usuario (oct-2026). Las puertas pueden cambiar según el partido: el club las confirma en sus redes. Si algo cambia, corregirlo acá.",
+      "borrador": false,
+      "fuente": "Capacidades: Wikipedia, «Estadio José Amalfitani». Nombres, sectores, puertas y accesos: revisados por El Fortín en octubre de 2026. Las puertas pueden cambiar según el partido: confirmalas en las redes del club.",
       "sectores": [
         {
           "id": "platea-norte",
           "lado": "norte",
-          "nombre": "Platea Norte",
+          "nombre": "Platea Norte «José Luis Chilavert»",
           "tipo": "Platea",
           "niveles": [
             {
               "nombre": "Baja",
               "capacidad": 1728,
-              "puertas": "9"
+              "puertas": "9 (a veces 8)"
             },
             {
               "nombre": "Media",
-              "capacidad": 1932
+              "capacidad": 1932,
+              "puertas": "1, 2, 3 y 4"
             },
             {
               "nombre": "Alta",
-              "capacidad": 5091
+              "capacidad": 5091,
+              "puertas": "1, 2, 3 y 4"
             }
           ],
-          "texto": "Platea sobre uno de los laterales de la cancha, en tres niveles.",
-          "aConfirmar": [
-            "Una fuente dice que lleva el nombre de José Luis Chilavert; no está confirmado.",
-            "Puertas de la Media y la Alta."
-          ]
+          "texto": "Platea sobre uno de los laterales de la cancha, en tres bandejas. Lleva el nombre del histórico arquero del club.",
+          "aConfirmar": [],
+          "acceso": "La baja, por la puerta 9. La media y la alta, por las rampas del sector Norte, desde el estacionamiento sobre Av. Juan B. Justo."
         },
         {
           "id": "platea-sur",
@@ -132,7 +132,8 @@
             {
               "nombre": "Baja",
               "capacidad": 5817,
-              "puertas": "15"
+              "puertas": "15",
+              "nota": "Solo socios"
             },
             {
               "nombre": "Alta",
@@ -140,10 +141,9 @@
               "puertas": "16"
             }
           ],
-          "texto": "La platea más grande, en dos niveles. En 2024 el club le puso el nombre de Carlos Bianchi.",
-          "aConfirmar": [
-            "Que la platea con el nombre de Bianchi sea la Sur (Wikipedia lo dice; otras fuentes no lo precisan)."
-          ]
+          "texto": "La platea más grande, en dos bandejas. Lleva el nombre de Carlos Bianchi. La baja es solo para socios.",
+          "aConfirmar": [],
+          "acceso": "Puertas 15 y 16, por el lado de Av. Álvarez Jonte (la Reserva) o el playón Este."
         },
         {
           "id": "popular-este",
@@ -157,29 +157,25 @@
               "puertas": "6"
             }
           ],
-          "texto": "Tribuna popular detrás de uno de los arcos. Se entra por los portones peatonales de la avenida Juan B. Justo, a la altura del 9200.",
-          "aConfirmar": [
-            "Que sea la popular de la hinchada local.",
-            "Que el acceso sea siempre por Juan B. Justo."
-          ]
+          "texto": "La cabecera de la hinchada de Vélez, detrás de uno de los arcos.",
+          "aConfirmar": [],
+          "acceso": "Por el corredor peatonal de Av. Juan B. Justo al 9200, puerta 6."
         },
         {
           "id": "popular-oeste",
           "lado": "oeste",
           "nombre": "Popular Oeste",
-          "tipo": "Popular",
+          "tipo": "Popular visitante",
           "niveles": [
             {
               "nombre": "Popular",
               "capacidad": 14200,
-              "puertas": "10 y 15"
+              "puertas": "10, 14 y 15"
             }
           ],
-          "texto": "Tribuna popular detrás del otro arco. En los partidos sin público visitante la usan los hinchas de Vélez; cuando hay visitantes, sería la de ellos.",
-          "aConfirmar": [
-            "Si es la tribuna visitante cuando hay público visitante.",
-            "Por qué calle se entra."
-          ]
+          "texto": "Detrás del otro arco. Es la tribuna visitante cuando la AFA y Seguridad autorizan público visitante o neutral; en los partidos solo con público local, se habilita para socios de Vélez.",
+          "aConfirmar": [],
+          "acceso": "Por el sector Oeste (Polideportivo), desde Av. Juan B. Justo al 9200, junto a la Sede Social y el Playón de Gimnasia."
         }
       ],
       "general": [

@@ -120,9 +120,10 @@ npm run preview # sirve dist/
 - El panel del navegador integrado a veces queda oculto y no saca capturas: medir el DOM (por ejemplo, cargando cada
   página en un iframe) en vez de depender de capturas.
 
-- **Tribunas (oct-2026): BORRADOR.** Sectores, capacidades y puertas salieron de búsquedas sin poder abrir las
-  fuentes; cada sector lista lo que falta en `aConfirmar` y la página muestra el aviso mientras `borrador` sea true.
-  No dar por cierto nada de eso hasta que el usuario lo revise.
+- **Tribunas (oct-2026):** nombres, sectores, puertas y accesos los confirmó el usuario; capacidades de Wikipedia
+  (suman 49.540). El 3D imita al Amalfitani (sin techo, gradas inclinadas, Norte con 3 bandejas, Sur con 2, populares
+  de una, 4 torres de luz detrás de las esquinas) pero es un esquema. El modelo de SketchUp 3D Warehouse que pasó el
+  usuario no se usó: no se pudo abrir desde el entorno y meterlo pediría Three.js (rompe «solo React y Vite»).
 
 ## Ideas no hechas (solo si el usuario las pide)
 
