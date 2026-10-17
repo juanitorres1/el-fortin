@@ -283,7 +283,8 @@ export function createStadium(container, { sectores, era = 'hoy', start, onPick,
       const solid = Boolean(p.kind);
       const pts = solid ? [[0, 0], [0, p.y1], [p.d, p.y1], [p.d, 0]] : stepProfile(p.d, p.y0, p.y1);
       const shape = new THREE.Shape(pts.map(([u, v]) => new THREE.Vector2(u, v)));
-      const base = p.kind === 'palcos' ? COLOR.palcos : p.kind === 'visera' ? COLOR.roof : p.curved ? popular : idx % 2 ? seatAlt : seat;
+      const base = p.kind === 'palcos' ? COLOR.palcos : p.kind === 'visera' ? COLOR.roof : p.material ? SEATS[p.material][idx % 2]
+        : p.curved ? popular : idx % 2 ? seatAlt : seat;
       const material = mat(base, p.kind === 'palcos' ? { roughness: 0.2, metalness: 0.6 } : {});
       const geo = new THREE.ExtrudeGeometry(shape, { depth: p.len, bevelEnabled: false });
       geo.translate(0, 0, -p.len / 2);
@@ -319,6 +320,18 @@ export function createStadium(container, { sectores, era = 'hoy', start, onPick,
         const roof = add(new THREE.BoxGeometry(p.d + 4, 0.8, p.len), mat(0xd7dbe0, { metalness: 0.4, roughness: 0.4 }));
         roof.position.set(u0 + p.d / 2 - 2, p.y1 + 0.4, 0);
         group.add(roof);
+      }
+      // Tribuna techada (la Norte de madera de 1951): techo a dos metros sobre la última fila, con postes adelante.
+      if (p.techo) {
+        const woodMat = mat(0x5e4630);
+        const roof = add(new THREE.BoxGeometry(p.d + 3, 0.5, p.len), woodMat);
+        roof.position.set(u0 + p.d / 2 - 1, p.y1 + 3, 0);
+        group.add(roof);
+        for (let w = -p.len / 2 + 4; w <= p.len / 2 - 4; w += 12) {
+          const post = add(new THREE.BoxGeometry(0.35, p.y1 + 3, 0.35), woodMat);
+          post.position.set(u0 + 1, (p.y1 + 3) / 2, w);
+          group.add(post);
+        }
       }
       // Paredes de afuera (fachada de hormigón) detrás de la última pieza.
       if (idx === layout[lado].length - 1) {

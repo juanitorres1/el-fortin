@@ -53,12 +53,13 @@ export const ERAS = {
   },
   1951: {
     style: { seats: 'cemento', towers: null, screen: null, glass: false, decals: false, streets: 'liniers-viejo' },
-    // Liniers en cemento: un anillo de una bandeja, con la cabecera oeste todavía baja.
+    // Liniers en cemento: la Este, alta y completa; la Oeste, más baja y con tablones del estadio de madera atrás;
+    // la Norte, todavía la vieja tribuna techada de madera del primer estadio de Liniers.
     layout: {
-      norte: [cement(20, 1, 10, 100)],
+      norte: [cement(16, 1, 7, 96, { material: 'madera', techo: true })],
       sur: [cement(22, 1, 11, 100)],
       este: [cement(22, 1, 10, 76, { curved: true })],
-      oeste: [cement(10, 1, 4, 76)],
+      oeste: [cement(10, 1, 4, 76), tier(5, 4.4, 6, 76, { material: 'madera' })],
     },
   },
   1970: {
