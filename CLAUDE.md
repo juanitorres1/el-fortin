@@ -27,8 +27,8 @@ un servidor en Render/Railway/Vercel). Node ≥ 20. Detalle en `README.md`.
 - `src/components/`: `Layout`/`PageBand`, `MatchRow`/`MatchList`, `Crest`, `ResultBadge`, `Segmented`,
   `Skeletons`, `Lines`, `Empty`, `ExtLink`, `ShareCard` (imagen 1080×1350 con `<canvas>`), `InstallApp`.
   `src/sections/`: bloques grandes (Juega, Previa, Noticias, Tablas, Goleadores, Playoffs, Simulador, Records,
-  Estadio3D: el Amalfitani en 3D con CSS, sin librerías; datos en `club.json › estadio.tribunas`, ángulos en
-  `lib/stadium.js`).
+  Estadio3D). El estadio 3D usa **Three.js** en `sections/estadio-scene.js`, que se carga con import dinámico solo
+  en Club › Estadio; medidas y cámaras en `lib/stadium.js`; datos en `club.json › estadio.tribunas`.
 - Prerender: `npm run build` = `vite build` + `vite build --ssr src/prerender.jsx` + `scripts/prerender.mjs`, que mete
   en cada `dist/*.html` el contenido dibujado y los datos (`<script id="initial-data">`, leído por `src/initial.js`).
   `src/main.jsx` hidrata si la página viene prerenderizada. Qué datos lleva cada página: `PAGE_DATA` en el script.
@@ -85,7 +85,9 @@ npm run preview # sirve dist/
 - **Accesibilidad como piso:** contraste ≥ 4,5:1 (medirlo con números, no a ojo), letra mínima 12 px, controles de
   44 px, tamaños en `rem`, «reducir movimiento» respetado.
 - **React + Vite** (oct-2026, pedido del usuario; antes se había sugerido Astro). Multipágina, sin router ni librerías
-  de estado: React y Vite son las únicas dependencias. React suma ~66 KB gzip compartidos entre páginas.
+  de estado. React suma ~66 KB gzip compartidos entre páginas. **Three.js** (oct-2026, pedido del usuario para el
+  estadio 3D) es la única otra dependencia: solo `three`, sin `@react-three/fiber` ni `drei`, en un archivo aparte
+  (~150 KB gzip) que baja únicamente Club › Estadio.
 - Se sacó a Fabián Cubero de la sección Ídolos (sigue en Récords porque son datos).
 
 ## Cómo trabaja el usuario
@@ -121,9 +123,11 @@ npm run preview # sirve dist/
   página en un iframe) en vez de depender de capturas.
 
 - **Tribunas (oct-2026):** nombres, sectores, puertas y accesos los confirmó el usuario; capacidades de Wikipedia
-  (suman 49.540). El 3D imita al Amalfitani (sin techo, gradas inclinadas, Norte con 3 bandejas, Sur con 2, populares
-  de una, 4 torres de luz detrás de las esquinas) pero es un esquema. El modelo de SketchUp 3D Warehouse que pasó el
-  usuario no se usó: no se pudo abrir desde el entorno y meterlo pediría Three.js (rompe «solo React y Vite»).
+  (suman 49.540). El 3D sale de dos fotos aéreas actuales que pasó el usuario (la referencia que manda): todo azul,
+  **«VELEZ» en la Norte Alta**, **V blanca en la Sur Baja** (vértice hacia la cancha), populares curvas detrás de los
+  arcos, Norte con 3 bandejas, palcos y visera, Sur con 2 bandejas y descubierta, 4 torres LED, pantalla detrás de
+  la Popular Este. Las alturas son estimadas. No se usó el modelo de SketchUp (el dominio está bloqueado acá). La
+  avenida se sacó del modelo: la foto y los datos de accesos no coinciden sobre de qué lado pasa Juan B. Justo.
 
 ## Ideas no hechas (solo si el usuario las pide)
 

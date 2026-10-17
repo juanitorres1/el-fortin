@@ -24,6 +24,8 @@ export default defineConfig({
   plugins: [react(), siteHead()],
   server: { port: 5173, strictPort: true },
   build: {
+    // Three.js (~580 KB sin comprimir, ~150 KB gzip) va en su propio archivo y solo lo baja Club › Estadio.
+    chunkSizeWarningLimit: 650,
     rollupOptions: { input: Object.fromEntries(PAGES.map((p) => [p.key, resolve(import.meta.dirname, p.file)])) },
   },
 });

@@ -2,7 +2,7 @@
 
 Sitio de hinchas (no oficial) de Vélez: https://juanitorres1.github.io/el-fortin/
 
-**React 19 + Vite 6**, multipágina, publicado en GitHub Pages. Los datos salen de ESPN (en vivo desde el navegador) y
+**React 19 + Vite 6**, multipágina, publicado en GitHub Pages. Three.js solo para el estadio en 3D (Club › Estadio), cargado aparte. Los datos salen de ESPN (en vivo desde el navegador) y
 de archivos que genera el deploy cada hora. No hay servidor propio ni API keys. Cada página se **prerenderiza** en el
 deploy: el HTML ya trae el contenido y React lo actualiza en vivo.
 
@@ -79,7 +79,7 @@ datos (no lo redibuja) y enseguida pide lo nuevo a ESPN.
 | Calendario para suscribirse | `velez.ics` | Cada 1 h |
 | Pronóstico a la hora del partido | Open-Meteo (sin key) | Si el partido es dentro de 7 días |
 | Historia, estadio, cómo llegar, palmarés, ídolos, récords | `public/data/club.json` (a mano; récords de Wikipedia) | Cuando se edita |
-| Tribunas en 3D (Club › Estadio): sectores, capacidad, puertas y accesos | `club.json › estadio.tribunas` (capacidades de Wikipedia; puertas revisadas en oct-2026) | Cuando se edita |
+| Estadio en 3D (Club › Estadio): tribunas, capacidad, puertas y accesos | Three.js (se baja solo en esa sección) + `club.json › estadio.tribunas`; modelo hecho a partir de fotos aéreas | Cuando se edita |
 | Imagen para compartir el resultado y la previa (Inicio) | Se dibuja en el navegador con `<canvas>` (1080×1350) | Al tocar el botón |
 | Simulador «¿Qué necesita Vélez?» (Partidos) | Tabla en vivo + partidos que quedan (los mismos de los playoffs) | Cada 15 min |
 | Récords del historial y efemérides (Historial) | `historico.json` + `matches.json` + `club.json`, calculados en el navegador | Cada 1 h |

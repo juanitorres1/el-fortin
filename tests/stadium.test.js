@@ -1,24 +1,38 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { nearestAngle, rotatePoint, sectorCapacity, sideInFront, totalCapacity, viewFrom } from '../src/lib/stadium.js';
+import { LAYOUT, OUT, cameraFor, depthOf, sectorCapacity, sideNearest, stepProfile, totalCapacity } from '../src/lib/stadium.js';
 
-test('viewFrom y sideInFront: el lado elegido queda adelante', () => {
-  assert.equal(viewFrom('sur'), 0);
-  assert.equal(viewFrom('norte'), 180);
-  for (const lado of ['norte', 'sur', 'este', 'oeste']) assert.equal(sideInFront(viewFrom(lado)), lado);
-  assert.equal(sideInFront(-90 + 10), sideInFront(270)); // ángulos negativos y redondeo al lado más cercano
+test('stepProfile: arranca en el pie del frente, sube en escalones y cierra contra el piso', () => {
+  const p = stepProfile(6, 1, 4, 2);
+  assert.deepEqual(p[0], [0, 0]);
+  assert.deepEqual(p[1], [0, 1]);
+  assert.deepEqual(p.at(-1), [6, 0]);
+  assert.deepEqual(p.at(-2), [6, 4]);
+  const heights = p.slice(1, -1).map(([, v]) => v);
+  assert.ok(heights.every((v, i) => i === 0 || v >= heights[i - 1]), 'la altura nunca baja');
+  assert.equal(p.length, 2 + 3 * 2 + 1); // 3 escalones de 2 m
 });
 
-test('viewFrom: después de girar, la tribuna elegida queda abajo en la pantalla (cerca de quien mira)', () => {
-  const pos = { norte: [0, -1], sur: [0, 1], este: [1, 0], oeste: [-1, 0] };
-  for (const [lado, p] of Object.entries(pos)) assert.deepEqual(rotatePoint(p, viewFrom(lado)), [0, 1], lado);
+test('LAYOUT: cada nivel de club.json tiene su bandeja en el 3D', () => {
+  const club = JSON.parse(readFileSync(new URL('../public/data/club.json', import.meta.url), 'utf8'));
+  for (const s of club.estadio.tribunas.sectores) {
+    const levels = LAYOUT[s.lado].filter((p) => p.level != null).map((p) => p.level);
+    assert.deepEqual(levels, s.niveles.map((_, i) => i), s.id);
+  }
 });
 
-test('nearestAngle: gira por el camino corto', () => {
-  assert.equal(nearestAngle(350, 0), 360);
-  assert.equal(nearestAngle(10, 270), -90);
-  assert.equal(nearestAngle(0, 180), -180);
+test('cameraFor: la cámara general y la de tribuna quedan del lado elegido; desde arriba, encima del centro', () => {
+  for (const lado of Object.keys(OUT)) {
+    const g = cameraFor(lado);
+    const t = cameraFor(lado, 'tribuna');
+    assert.equal(sideNearest(g.pos), lado, `general ${lado}`);
+    assert.equal(sideNearest(t.pos), lado, `tribuna ${lado}`);
+    const dist = Math.hypot(t.pos[0], t.pos[2]);
+    assert.ok(dist > 34 && dist < 40 + depthOf(lado) + 60, `la de tribuna está en la tribuna (${dist})`);
+  }
+  assert.deepEqual(cameraFor('norte', 'arriba').target, [0, 0, 0]);
+  assert.ok(cameraFor('norte', 'arriba').pos[1] > 200);
 });
 
 test('club.json: los sectores del estadio suman la capacidad publicada', () => {
