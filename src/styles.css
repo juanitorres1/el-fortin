@@ -813,7 +813,8 @@ button.btn-ghost { border: 2px solid currentColor; }
   background: var(--card); color: var(--text); font: 800 0.8125rem/1 var(--body); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 .st3d-label.is-on { background: var(--velez); color: #fff; }
-.st3d-label-street { background: #3d434c; color: #fff; font-weight: 700; }
+.st3d-label { z-index: 1; }
+.st3d-label-street { z-index: 0; background: #3d434c; color: #fff; font-weight: 700; font-size: 0.75rem; }
 .st3d-controls { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.75rem 0 0.25rem; }
 .st3d-controls .btn { border: 0; cursor: pointer; }
 .st3d-controls .btn[aria-pressed='true'] { background: var(--accent); color: var(--bg); }

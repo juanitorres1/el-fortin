@@ -4,7 +4,8 @@
 // Lo que se ve, según la foto aérea actual: todo azul; populares curvas detrás de los arcos; Platea Norte con tres
 // bandejas, palcos, «VELEZ» escrito con butacas blancas en la alta y la estructura de la visera atrás; Platea Sur
 // con la V blanca en la baja, palcos y la alta descubierta; frentes de vidrio en las plateas, cuatro torres LED y la
-// pantalla detrás de la Popular Este.
+// pantalla detrás de la Popular Este. Alrededor: Av. Juan B. Justo por el norte y la Autopista Perito Moreno
+// (elevada) pegada a la Sur.
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { DEFAULT_VIEW, FRONT, GAP, LAYOUT, OUT, PITCH, cameraFor, depthOf, offsets, stepProfile } from '../lib/stadium.js';
@@ -89,6 +90,18 @@ function surTexture() {
   });
 }
 
+/** Calzada con carriles (para Juan B. Justo y la autopista). */
+function roadTexture() {
+  return canvasTexture(1024, 160, (g, w, h) => {
+    g.fillStyle = '#4b5059';
+    g.fillRect(0, 0, w, h);
+    g.fillStyle = '#d9b43a';
+    g.fillRect(0, h / 2 - 2, w, 4);
+    g.fillStyle = 'rgba(255,255,255,0.7)';
+    for (let x = 0; x < w; x += 48) for (const y of [h / 6, h / 3, (2 * h) / 3, (5 * h) / 6]) g.fillRect(x, y, 24, 3);
+  });
+}
+
 function screenTexture() {
   return canvasTexture(512, 210, (g, w, h) => {
     g.fillStyle = '#0b2f63';
@@ -158,6 +171,31 @@ export function createStadium(container, { sectores, onPick, reducedMotion = fal
   plaza.rotation.x = -Math.PI / 2;
   plaza.position.y = -0.02;
   scene.add(plaza);
+  // Alrededores: Av. Juan B. Justo por el norte (con el estacionamiento entre la avenida y la Norte) y la
+  // Autopista Perito Moreno (AU6), elevada, pegada a la Sur, como se ve en la foto aérea.
+  const roadTex = keep(roadTexture());
+  roadTex.wrapS = THREE.RepeatWrapping;
+  roadTex.repeat.set(8, 1);
+  const roadMat = mat(0xffffff, { map: roadTex });
+  const zJusto = -(FRONT.norte + depthOf('norte') + 48);
+  const justo = add(new THREE.PlaneGeometry(1000, 28), roadMat, { cast: false });
+  justo.rotation.x = -Math.PI / 2;
+  justo.position.set(0, 0.03, zJusto);
+  scene.add(justo);
+  const zAu6 = FRONT.sur + depthOf('sur') + 24;
+  const deck = add(new THREE.BoxGeometry(1000, 1.6, 30), mat(0x9aa1aa));
+  deck.position.set(0, 8.2, zAu6);
+  scene.add(deck);
+  const deckTop = add(new THREE.PlaneGeometry(1000, 28), roadMat, { cast: false });
+  deckTop.rotation.x = -Math.PI / 2;
+  deckTop.position.set(0, 9.02, zAu6);
+  scene.add(deckTop);
+  for (let x = -480; x <= 480; x += 30) {
+    const pier = add(new THREE.BoxGeometry(2, 8, 10), mat(0xa9b0b8));
+    pier.position.set(x, 4, zAu6);
+    scene.add(pier);
+  }
+
   const pitchTex = keep(pitchTexture());
   const pitch = add(new THREE.PlaneGeometry(PITCH.length + 2 * GAP, PITCH.width + 2 * GAP), mat(0xffffff, { map: pitchTex }), { cast: false });
   pitch.rotation.x = -Math.PI / 2;
@@ -306,6 +344,14 @@ export function createStadium(container, { sectores, onPick, reducedMotion = fal
     const top = Math.max(...LAYOUT[s.lado].map((p) => p.y1)) + 8;
     return { el, id: s.id, pos: new THREE.Vector3(ox * r, top, oz * r) };
   });
+  for (const [text, pos] of [['Av. Juan B. Justo', [80, 2, zJusto]], ['Autopista Perito Moreno (AU6)', [40, 12, zAu6]]]) {
+    const el = document.createElement('span');
+    el.className = 'st3d-label st3d-label-street';
+    el.textContent = text;
+    labelLayer.appendChild(el);
+    labels.push({ el, id: null, pos: new THREE.Vector3(...pos) });
+  }
+
   // Tamaño y colores según el tema.
   const applyTheme = () => {
     const dark = matchMedia('(prefers-color-scheme: dark)').matches;

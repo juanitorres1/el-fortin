@@ -126,8 +126,10 @@ npm run preview # sirve dist/
   (suman 49.540). El 3D sale de dos fotos aéreas actuales que pasó el usuario (la referencia que manda): todo azul,
   **«VELEZ» en la Norte Alta**, **V blanca en la Sur Baja** (vértice hacia la cancha), populares curvas detrás de los
   arcos, Norte con 3 bandejas, palcos y visera, Sur con 2 bandejas y descubierta, 4 torres LED, pantalla detrás de
-  la Popular Este. Las alturas son estimadas. No se usó el modelo de SketchUp (el dominio está bloqueado acá). La
-  avenida se sacó del modelo: la foto y los datos de accesos no coinciden sobre de qué lado pasa Juan B. Justo.
+  la Popular Este. Las alturas son estimadas. No se usó el modelo de SketchUp (el dominio está bloqueado acá). 
+  Alrededores (confirmado por el usuario): Av. Juan B. Justo por el norte (rampas, estacionamiento, sede) y la
+  Autopista Perito Moreno (AU6), elevada, pegada a la Sur (es la vía ancha de la foto). Las vías del Sarmiento no se
+  dibujan: no se sabe de qué lado de la autopista pasan.
 
 ## Ideas no hechas (solo si el usuario las pide)
 
