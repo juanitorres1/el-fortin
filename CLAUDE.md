@@ -25,7 +25,7 @@ un servidor en Render/Railway/Vercel). Node ≥ 20. Detalle en `README.md`.
   componentes), `useCached` (promesa con vencimiento), `useRoster`, `useNow`, `useLiveTitle`, `useScrollToHash`,
   `useCurrentSection`. Convención: `undefined` = cargando, `null` = falló o no hay.
 - `src/components/`: `Layout`/`PageBand`, `MatchRow`/`MatchList`, `Crest`, `ResultBadge`, `Segmented`,
-  `Skeletons`, `Lines`, `Empty`, `ExtLink`, `ShareCard` (imagen 1080×1350 con `<canvas>`), `InstallApp`.
+  `Skeletons`, `Lines`, `Empty` (`Crest` sin escudo de ESPN = escudo gris con «?»), `ExtLink`, `ShareCard` (imagen 1080×1350 con `<canvas>`), `InstallApp`.
   `src/sections/`: bloques grandes (Juega, Previa, Formaciones (probables onces, dentro de la previa), Resumen = «Así terminó», Cifras = Vélez en cifras, Noticias, Tablas, Goleadores, Playoffs, Simulador, Records,
   Estadio3D). El estadio 3D usa **Three.js** en `sections/estadio-scene.js`, que se carga con import dinámico solo
   en Club › Estadio; medidas y cámaras en `lib/stadium.js`; datos en `club.json › estadio.tribunas`.

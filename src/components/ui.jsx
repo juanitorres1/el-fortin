@@ -1,13 +1,26 @@
 // Piezas chicas que se repiten en todas las páginas.
+import { useState } from 'react';
 import { RESULT_LABEL, sized } from '../lib/core.js';
 
-/** Escudo de un equipo (ESPN no tiene todos: si la imagen falla, queda el lugar vacío). */
+/** Escudo gris con un signo de pregunta: el lugar de un equipo sin escudo (ESPN no los tiene a todos). */
+function NoCrest({ size, className }) {
+  return (
+    <svg className={`${className} crest-none`} width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 1.5 3 4.2v6.6c0 5.6 3.8 10 9 11.7 5.2-1.7 9-6.1 9-11.7V4.2z" fill="#b8bdc6" stroke="#1b1d21" strokeWidth="1.6" strokeLinejoin="round" />
+      <path d="M9.4 9.3a2.7 2.7 0 1 1 3.9 2.4c-.8.4-1.3 1-1.3 1.9v.6" fill="none" stroke="#1b1d21" strokeWidth="1.9" strokeLinecap="round" />
+      <rect x="11" y="16" width="2" height="2" fill="#1b1d21" />
+    </svg>
+  );
+}
+
+/** Escudo de un equipo. Si ESPN no lo tiene (sin `url`) o la imagen no carga, va el escudo gris. */
 export function Crest({ url, size = 24, className = 'crest' }) {
-  if (!url) return null;
+  const [failed, setFailed] = useState(false);
+  if (!url || failed) return <NoCrest size={size} className={className} />;
   return (
     <img
       className={className} src={sized(url, size)} alt="" width={size} height={size} loading="lazy" decoding="async"
-      onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }}
+      onError={() => setFailed(true)}
     />
   );
 }
