@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { historyRecords, isNeutral, monthDay, onThisDay, parseDay, rivalDetail, rivalFacts, scoreResult, streakLines, upcomingAnniversaries } from '../src/lib/facts.js';
+import { historyRecords, isNeutral, teamForm, monthDay, onThisDay, parseDay, rivalDetail, rivalFacts, scoreResult, streakLines, upcomingAnniversaries } from '../src/lib/facts.js';
 
 let seq = 0;
 // Partido de Vélez (id 21) contra un rival; `vs` = goles de Vélez, `rs` = del rival.
@@ -115,4 +115,21 @@ test('upcomingAnniversaries: los que vienen, con años que se cumplen y días qu
   assert.deepEqual(out.map((a) => [a.text, a.inDays, a.years]), [['Cemento', 5, 75], ['Intercontinental', 45, 32]]);
   // Pasado el día, va al año siguiente
   assert.equal(upcomingAnniversaries(club, new Date('2026-12-02T15:00:00Z'), 365).find((a) => a.text === 'Intercontinental').years, 33);
+});
+
+test('teamForm: últimos resultados desde el lado del equipo, de local y de visitante', () => {
+  const m = (id, date, h, a, hs, as, extra = {}) => ({ id, date, comp: 'Liga Profesional', completed: true, home: { id: h, name: h, score: hs }, away: { id: a, name: a, score: as }, ...extra });
+  const ms = [
+    m('1', '2026-09-01T20:00Z', 'R', 'A', 2, 0),
+    m('2', '2026-09-08T20:00Z', 'B', 'R', 1, 1),
+    m('3', '2026-09-15T20:00Z', 'C', 'R', 3, 1),
+    m('4', '2026-09-20T20:00Z', 'R', 'D', 0, 0, { comp: 'Amistoso' }), // no cuenta
+    m('5', '2026-09-22T20:00Z', 'R', 'E', 1, 0),
+  ];
+  const f = teamForm(ms, 'R', 2);
+  assert.deepEqual(f.last.map((x) => [x.result, x.score, x.rival, x.home]), [['G', '1-0', 'E', true], ['P', '1-3', 'C', false]]);
+  assert.deepEqual(f.home, { g: 2, e: 0, p: 0 });
+  assert.deepEqual(f.away, { g: 0, e: 1, p: 1 });
+  assert.deepEqual([f.gf, f.gc, f.pj], [5, 4, 4]);
+  assert.equal(teamForm([], 'R'), null);
 });

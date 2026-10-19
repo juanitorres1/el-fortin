@@ -1,4 +1,4 @@
-// Inicio: «Juega Vélez», la previa, noticias y una frase de Don Pepe.
+// Inicio: «Juega Vélez», el resumen del último partido, la previa, noticias y una frase de Don Pepe.
 import { mount } from '../main.jsx';
 import { DATA, mergeResults } from '../lib/core.js';
 import { useJson, useLiveData } from '../hooks/data.js';
@@ -6,6 +6,7 @@ import { useLiveTitle } from '../hooks/page.js';
 import { Layout } from '../components/Layout.jsx';
 import { Juega } from '../sections/Juega.jsx';
 import { Previa } from '../sections/Previa.jsx';
+import { Resumen } from '../sections/Resumen.jsx';
 import { Noticias } from '../sections/Noticias.jsx';
 import { InstallApp } from '../components/InstallApp.jsx';
 
@@ -33,6 +34,7 @@ function Inicio() {
       <section className="match-band" aria-label="Próximo partido de Vélez">
         <div className="wrap juega"><Juega state={state} results={results} facts={facts} /></div>
       </section>
+      <Resumen match={results.at(-1)} />
       <Previa facts={facts} data={state.data} />
       <Noticias news={news} summary={summary} />
       <InstallApp />

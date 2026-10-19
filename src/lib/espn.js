@@ -110,6 +110,12 @@ export function normalizeStandings(json) {
 const sortTime = (m) => (m.date ? Date.parse(m.date) : Date.UTC(m.year, 0, 1));
 const byDate = (a, b) => sortTime(a) - sortTime(b);
 
+/** Partidos de cualquier equipo en la temporada en curso (para «Cómo llega el rival»). */
+export async function fetchTeamSchedule(teamId, fetchImpl) {
+  const json = await getJson(`${SITE}/all/teams/${teamId}/schedule`, fetchImpl);
+  return (json.events ?? []).map(normalizeEvent).sort(byDate);
+}
+
 export async function fetchSchedule({ season, fixture = false } = {}, fetchImpl) {
   const qs = new URLSearchParams();
   if (season) qs.set('season', season);
@@ -399,6 +405,47 @@ export function keyEvents(summary) {
     out.push({ id: String(e.id), minute: e.clock?.displayValue || '', kind, text, team: teamId && teams[teamId] ? teams[teamId] : null, velez: teamId === VELEZ_ID });
   }
   return out.reverse();
+}
+
+// Estadísticas de equipo del detalle del partido (boxscore de ESPN), en el orden en que se muestran.
+const TEAM_STATS = [
+  ['possessionPct', 'Posesión', '%'], ['totalShots', 'Remates'], ['shotsOnTarget', 'Remates al arco'],
+  ['wonCorners', 'Córners'], ['foulsCommitted', 'Faltas'], ['offsides', 'Offsides'], ['saves', 'Atajadas'],
+];
+
+/**
+ * Estadísticas de los dos equipos de un partido: [{ key, label, home, away }] con números (solo las que ESPN informa
+ * para los dos). `summary` = fetchSummary(match). Si ESPN no manda el boxscore, devuelve [].
+ */
+export function teamStats(summary, match) {
+  const teams = summary.boxscore?.teams ?? [];
+  const find = (id) => teams.find((t) => String(t.team?.id) === String(id));
+  const h = find(match.home.id);
+  const a = find(match.away.id);
+  if (!h || !a) return [];
+  const value = (t, key) => {
+    const st = (t.statistics ?? []).find((x) => x.name === key);
+    const n = st == null ? NaN : Number(String(st.displayValue ?? st.value).replace('%', ''));
+    return Number.isFinite(n) ? n : null;
+  };
+  return TEAM_STATS.map(([key, label, unit]) => ({ key, label, unit: unit ?? '', home: value(h, key), away: value(a, key) }))
+    .filter((x) => x.home != null && x.away != null);
+}
+
+/**
+ * La figura estadística de Vélez en un partido, con los números de ESPN (playersFromSummary): pesan goles,
+ * asistencias, remates al arco y atajadas. Es una cuenta, no una votación. null si nadie hizo nada que pese.
+ */
+export function matchFigure(players) {
+  const score = (p) => p.stats.g * 3 + p.stats.a * 2 + (p.stats.arco ?? 0) * 0.5 + (p.stats.ataj ?? 0) * 0.6 - (p.stats.r ?? 0) * 3;
+  const best = [...players].sort((x, y) => score(y) - score(x))[0];
+  if (!best || score(best) <= 0) return null;
+  const s = best.stats;
+  const parts = [
+    s.g && `${s.g} ${s.g === 1 ? 'gol' : 'goles'}`, s.a && `${s.a} ${s.a === 1 ? 'asistencia' : 'asistencias'}`,
+    s.arco && `${s.arco} ${s.arco === 1 ? 'remate' : 'remates'} al arco`, s.ataj && `${s.ataj} ${s.ataj === 1 ? 'atajada' : 'atajadas'}`,
+  ].filter(Boolean);
+  return { id: best.id, name: best.name, line: parts.join(', ') };
 }
 
 /** Torneo al que pertenece un partido: Apertura/Clausura por separado, copas por nombre. */

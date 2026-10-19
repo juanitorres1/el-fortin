@@ -16,8 +16,8 @@ un servidor en Render/Railway/Vercel). Node ≥ 20. Detalle en `README.md`.
 - `src/site.js`: **fuente única** de las páginas (título, descripción, ícono, URL) y del `<head>` (vista previa para
   compartir); lo usan `vite.config.js`, el menú y los tests. Menú y pie ya no se copian: están en
   `src/components/Layout.jsx`.
-- `src/lib/`: **lógica pura sin React**, compartida con los scripts de Node: `espn.js` (cliente ESPN), `facts.js`
-  (rachas, rival, un día como hoy, cancha neutral), `playoffs.js`, `weather.js`, `news.js`, `rules.js` (reglamento,
+- `src/lib/`: **lógica pura sin React**, compartida con los scripts de Node: `espn.js` (cliente ESPN; `teamStats` y `matchFigure` para el resumen), `facts.js`
+  (rachas, rival, `teamForm` del rival, un día como hoy, cancha neutral), `playoffs.js`, `weather.js`, `news.js`, `rules.js` (reglamento,
   `RULES_YEAR`), `core.js` (formato, carga con respaldo, marcador y tabla en vivo), `card.js` (textos de las imágenes
   para compartir), `trivia.js` (trivia diaria desde `club.json`), `games.js` (prode y once), `storage.js`
   (`localStorage` con prefijo `fortin:`). Testear acá, no en los componentes.
@@ -26,7 +26,7 @@ un servidor en Render/Railway/Vercel). Node ≥ 20. Detalle en `README.md`.
   `useCurrentSection`. Convención: `undefined` = cargando, `null` = falló o no hay.
 - `src/components/`: `Layout`/`PageBand`, `MatchRow`/`MatchList`, `Crest`, `ResultBadge`, `Segmented`,
   `Skeletons`, `Lines`, `Empty`, `ExtLink`, `ShareCard` (imagen 1080×1350 con `<canvas>`), `InstallApp`.
-  `src/sections/`: bloques grandes (Juega, Previa, Noticias, Tablas, Goleadores, Playoffs, Simulador, Records,
+  `src/sections/`: bloques grandes (Juega, Previa, Resumen = «Así terminó», Noticias, Tablas, Goleadores, Playoffs, Simulador, Records,
   Estadio3D). El estadio 3D usa **Three.js** en `sections/estadio-scene.js`, que se carga con import dinámico solo
   en Club › Estadio; medidas y cámaras en `lib/stadium.js`; datos en `club.json › estadio.tribunas`.
 - Prerender: `npm run build` = `vite build` + `vite build --ssr src/prerender.jsx` + `scripts/prerender.mjs`, que mete

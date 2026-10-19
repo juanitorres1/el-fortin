@@ -290,3 +290,33 @@ export function upcomingAnniversaries(club, now, days = 60) {
   }
   return out.sort((a, b) => a.inDays - b.inDays || a.year - b.year);
 }
+
+// ---------- Cómo llega un equipo (para la previa del rival) ----------
+
+/**
+ * Forma de un equipo con sus partidos (de ESPN, todas las competiciones oficiales): los últimos `n` resultados desde
+ * su lado, cómo le fue de local y de visitante y los goles. `matches` = fetchTeamSchedule(teamId).
+ * Devuelve { last: [{ id, result, score, rival, home, date }], home: { g, e, p }, away: { g, e, p }, gf, gc, pj } o null.
+ */
+export function teamForm(matches, teamId, n = 5) {
+  const played = matches.filter((m) => official(m) && m.date && m.away.score != null).sort(byDate);
+  if (!played.length) return null;
+  const view = (m) => {
+    const home = m.home.id === teamId;
+    const [f, c] = home ? [m.home.score, m.away.score] : [m.away.score, m.home.score];
+    return { id: m.id, result: f > c ? 'G' : f < c ? 'P' : 'E', score: `${f}-${c}`, gf: f, gc: c, rival: (home ? m.away : m.home).name, home, date: m.date };
+  };
+  const all = played.map(view);
+  const split = (h) => {
+    const rs = all.filter((x) => x.home === h);
+    return { g: rs.filter((x) => x.result === 'G').length, e: rs.filter((x) => x.result === 'E').length, p: rs.filter((x) => x.result === 'P').length };
+  };
+  return {
+    last: all.slice(-n).reverse().map(({ gf, gc, ...x }) => x),
+    home: split(true),
+    away: split(false),
+    gf: all.reduce((t, x) => t + x.gf, 0),
+    gc: all.reduce((t, x) => t + x.gc, 0),
+    pj: all.length,
+  };
+}

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { aggregateStats, annualTable, averagesTable, discipline, gamesLog, headToHead, keeperRecord, keyEvents, normalizeEvent, normalizeScorers, normalizeStandings, playersFromSummary, playoffTeams, relegation, velezView } from '../src/lib/espn.js';
+import { aggregateStats, annualTable, averagesTable, discipline, gamesLog, headToHead, keeperRecord, matchFigure, teamStats, keyEvents, normalizeEvent, normalizeScorers, normalizeStandings, playersFromSummary, playoffTeams, relegation, velezView } from '../src/lib/espn.js';
 
 const side = (id, name, homeAway, score, extra = {}) => ({
   homeAway,
@@ -229,4 +229,25 @@ test('gamesLog y keeperRecord: vallas invictas del arquero titular, por torneo',
   assert.deepEqual(keeperRecord(log, 'k', 'Clausura 2026'), { pj: 3, vi: 1, ataj: 8, gc: 2 });
   assert.deepEqual(keeperRecord(log, 'k'), { pj: 4, vi: 2, ataj: 13, gc: 2 });
   assert.deepEqual(keeperRecord(log, 'otro'), { pj: 0, vi: 0, ataj: 0, gc: 0 });
+});
+
+test('teamStats: estadísticas que ESPN informa para los dos equipos, en números', () => {
+  const st = (pairs) => pairs.map(([name, displayValue]) => ({ name, displayValue }));
+  const summary = {
+    boxscore: {
+      teams: [
+        { team: { id: '5' }, statistics: st([['possessionPct', '41.5'], ['totalShots', '9'], ['wonCorners', '3']]) },
+        { team: { id: '21' }, statistics: st([['possessionPct', '58.5'], ['totalShots', '14'], ['shotsOnTarget', '6']]) },
+      ],
+    },
+  };
+  const match = { home: { id: '21' }, away: { id: '5' } };
+  assert.deepEqual(teamStats(summary, match).map((x) => [x.label, x.home, x.away]), [['Posesión', 58.5, 41.5], ['Remates', 14, 9]]);
+  assert.deepEqual(teamStats({}, match), []);
+});
+
+test('matchFigure: el de mejores números (goles, asistencias, remates, atajadas)', () => {
+  const p = (id, stats) => ({ id, name: `J${id}`, stats: { g: 0, a: 0, arco: 0, ataj: 0, r: 0, ...stats } });
+  assert.deepEqual(matchFigure([p('1', { a: 1 }), p('2', { g: 1, arco: 2 }), p('3', { ataj: 4 })]), { id: '2', name: 'J2', line: '1 gol, 2 remates al arco' });
+  assert.equal(matchFigure([p('1', {})]), null);
 });
