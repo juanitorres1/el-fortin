@@ -448,6 +448,71 @@ export function matchFigure(players) {
   return { id: best.id, name: best.name, line: parts.join(', ') };
 }
 
+// ---------- Formaciones (probables onces de la previa) ----------
+
+/** Línea de la cancha según la posición de ESPN: 0 arquero, 1 defensa, 2 volante central, 3 medio, 4 enganche, 5 delantero. */
+export function lineOf(abbr = '') {
+  const a = abbr.toUpperCase();
+  if (a === 'G' || a === 'GK') return 0;
+  if (/^(DM|CDM)/.test(a)) return 2;
+  if (/^(CD|CB|LB|RB|LWB|RWB|SW|D)/.test(a)) return 1;
+  if (/^(AM|CAM|LAM|RAM)/.test(a)) return 4;
+  if (/^(F|CF|ST|SS|LW|RW|LF|RF)/.test(a)) return 5;
+  return 3;
+}
+/** Lado, de izquierda a derecha: -2 punta izquierda («LB», «LW»), -1 centro izquierda («CD-L»), 0 centro, 1 y 2. */
+const sideOf = (abbr = '') => (/^L/i.test(abbr) ? -2 : /-L$/i.test(abbr) ? -1 : /^R/i.test(abbr) ? 2 : /-R$/i.test(abbr) ? 1 : 0);
+/** Apellido para la cancha: «C. Aquino» → «Aquino»; si no, la última palabra del nombre. */
+const shortOf = (a) => (a.shortName ? a.shortName.replace(/^[A-ZÁÉÍÓÚÑ]\.\s*/u, '') : a.displayName.split(' ').at(-1));
+
+/**
+ * El once titular de un equipo en un partido (desde /summary). Devuelve { formation, players, rows } o null si ESPN no
+ * manda los 11. `rows` = filas de la cancha desde el arco hacia adelante, cada una de izquierda a derecha; es null si
+ * falta la posición de algún titular (entonces se muestra la lista).
+ */
+export function lineupFromSummary(summary, teamId) {
+  const team = summary.rosters?.find((r) => String(r.team?.id) === String(teamId));
+  const starters = (team?.roster ?? []).filter((p) => p.starter);
+  if (starters.length !== 11) return null;
+  const players = starters.map((p) => ({
+    id: String(p.athlete.id), name: p.athlete.displayName, short: shortOf(p.athlete), jersey: p.jersey ?? null, pos: p.position?.abbreviation ?? '',
+  }));
+  let rows = null;
+  if (players.every((p) => p.pos)) {
+    const lines = new Map();
+    for (const p of players) lines.set(lineOf(p.pos), [...(lines.get(lineOf(p.pos)) ?? []), p]);
+    rows = [...lines].sort((a, b) => a[0] - b[0]).map(([, ps]) => ps.map((p, i) => [p, i]).sort((x, y) => sideOf(x[0].pos) - sideOf(y[0].pos) || x[1] - y[1]).map(([p]) => p));
+  }
+  const formation = /^\d(-\d){2,4}$/.test(team.formation ?? '') ? team.formation : rows ? rows.slice(1).map((r) => r.length).join('-') : null;
+  return { formation, players, rows };
+}
+
+// ---------- Goles con su minuto (para «Vélez en cifras») ----------
+
+/**
+ * Los goles de un partido, en orden: [{ min, add, velez, kind }] con `add` = minutos de descuento y `kind` = 'p'
+ * (penal), 'c' (cabeza), 'tl' (tiro libre), 'ec' (en contra) o '' (jugada). Sin los penales de una definición.
+ * En un gol en contra, ESPN pone el equipo beneficiado: `velez` = el gol cuenta para Vélez.
+ */
+export function goalEvents(summary) {
+  const out = [];
+  for (const e of summary.keyEvents ?? []) {
+    const type = e.type?.type ?? '';
+    if (e.shootout) continue;
+    let kind;
+    if (type === 'own-goal') kind = 'ec';
+    else if (type === 'penalty---scored' || type === 'goal---penalty') kind = 'p';
+    else if (type === 'goal---header') kind = 'c';
+    else if (type === 'goal---free-kick') kind = 'tl';
+    else if (type.startsWith('goal')) kind = '';
+    else continue;
+    const [min, add = 0] = (e.clock?.displayValue ?? '').match(/\d+/g)?.map(Number) ?? [];
+    if (min == null) continue;
+    out.push({ min, add, velez: String(e.team?.id) === VELEZ_ID, kind });
+  }
+  return out.sort((a, b) => a.min - b.min || a.add - b.add);
+}
+
 /** Torneo al que pertenece un partido: Apertura/Clausura por separado, copas por nombre. */
 export function tournamentOf(m) {
   const year = new Date(m.date).getUTCFullYear();
@@ -511,7 +576,7 @@ export function aggregateStats(games) {
  * que se muestran (goles, asistencias, amarillas, rojas; atajadas y goles recibidos para los arqueros).
  */
 export function gamesLog(games) {
-  return games.map(({ match, players }) => {
+  return games.map(({ match, players, goals }) => {
     const { velezHome, velez, rival, result } = velezView(match);
     return {
       id: match.id,
@@ -526,6 +591,8 @@ export function gamesLog(games) {
         id: p.id, name: p.name, s: p.starter ? 1 : 0, g: p.stats.g ?? 0, a: p.stats.a ?? 0, am: p.stats.am ?? 0, r: p.stats.r ?? 0,
         ataj: p.stats.ataj ?? 0, gc: p.stats.gc ?? 0, // de arquero (al resto ESPN les da 0)
       })),
+      // Goles con minuto (goalEvents), compactos: [minuto, descuento, 1 si es de Vélez, tipo].
+      ...(goals && { goals: goals.map((g) => [g.min, g.add, g.velez ? 1 : 0, g.kind]) }),
     };
   });
 }

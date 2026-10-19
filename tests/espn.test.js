@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { aggregateStats, annualTable, averagesTable, discipline, gamesLog, headToHead, keeperRecord, matchFigure, teamStats, keyEvents, normalizeEvent, normalizeScorers, normalizeStandings, playersFromSummary, playoffTeams, relegation, velezView } from '../src/lib/espn.js';
+import { aggregateStats, annualTable, averagesTable, discipline, gamesLog, goalEvents, headToHead, lineupFromSummary, keeperRecord, matchFigure, teamStats, keyEvents, normalizeEvent, normalizeScorers, normalizeStandings, playersFromSummary, playoffTeams, relegation, velezView } from '../src/lib/espn.js';
 
 const side = (id, name, homeAway, score, extra = {}) => ({
   homeAway,
@@ -250,4 +250,32 @@ test('matchFigure: el de mejores números (goles, asistencias, remates, atajadas
   const p = (id, stats) => ({ id, name: `J${id}`, stats: { g: 0, a: 0, arco: 0, ataj: 0, r: 0, ...stats } });
   assert.deepEqual(matchFigure([p('1', { a: 1 }), p('2', { g: 1, arco: 2 }), p('3', { ataj: 4 })]), { id: '2', name: 'J2', line: '1 gol, 2 remates al arco' });
   assert.equal(matchFigure([p('1', {})]), null);
+});
+
+test('lineupFromSummary: el once en filas desde el arco, de izquierda a derecha, y la formación', () => {
+  const p = (id, pos, extra = {}) => ({ starter: true, jersey: id, position: { abbreviation: pos }, athlete: { id, displayName: `Jugador ${id}`, ...extra } });
+  const roster = [p('1', 'G'), p('2', 'RB'), p('3', 'CD-R'), p('4', 'CD-L'), p('5', 'LB'), p('6', 'DM'), p('7', 'CM-R'), p('8', 'CM-L'),
+    p('9', 'RW'), p('10', 'CF', { shortName: 'B. Romero' }), p('11', 'LW'), { starter: false, position: { abbreviation: 'SUB' }, athlete: { id: '12', displayName: 'Suplente' } }];
+  const summary = { rosters: [{ team: { id: '21' }, formation: '4-3-3', roster }] };
+  const lu = lineupFromSummary(summary, '21');
+  assert.equal(lu.formation, '4-3-3');
+  assert.deepEqual(lu.rows.map((r) => r.map((x) => x.id)), [['1'], ['5', '4', '3', '2'], ['6'], ['8', '7'], ['11', '10', '9']]);
+  assert.equal(lu.rows.at(-1)[1].short, 'Romero');
+  assert.equal(lu.players[0].short, '1'); // sin shortName: la última palabra del nombre
+  // Sin formación de ESPN, se arma con las filas; sin posiciones, no hay cancha; sin 11 titulares, nada.
+  assert.equal(lineupFromSummary({ rosters: [{ team: { id: '21' }, roster }] }, '21').formation, '4-1-2-3');
+  assert.equal(lineupFromSummary({ rosters: [{ team: { id: '21' }, roster: roster.map((x) => ({ ...x, position: null })) }] }, '21').rows, null);
+  assert.equal(lineupFromSummary({ rosters: [{ team: { id: '21' }, roster: roster.slice(1) }] }, '21'), null);
+});
+
+test('goalEvents: goles con minuto y tipo, en orden, sin la definición por penales', () => {
+  const ev = (id, type, clock, team, extra = {}) => ({ id, type: { type }, clock: { displayValue: clock }, team: { id: team }, participants: [{ athlete: { displayName: 'X' } }], ...extra });
+  const summary = { keyEvents: [
+    ev('1', 'goal---header', "90'+3'", '21'), ev('2', 'yellow-card', "40'", '5'), ev('3', 'own-goal', "12'", '21'),
+    ev('4', 'penalty---scored', "55'", '5'), ev('5', 'goal---free-kick', "45'+1'", '21'), ev('6', 'goal', '', '21', { shootout: true }),
+  ] };
+  assert.deepEqual(goalEvents(summary), [
+    { min: 12, add: 0, velez: true, kind: 'ec' }, { min: 45, add: 1, velez: true, kind: 'tl' },
+    { min: 55, add: 0, velez: false, kind: 'p' }, { min: 90, add: 3, velez: true, kind: 'c' },
+  ]);
 });

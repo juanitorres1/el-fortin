@@ -869,3 +869,66 @@ button.btn-ghost { border: 2px solid currentColor; }
 .rs-bar { grid-column: 1 / -1; display: flex; gap: 3px; height: 0.45rem; }
 .rs-bar i { display: block; border-radius: 999px; background: var(--line); }
 .rs-bar i.is-velez { background: var(--accent); }
+
+/* ---------- Probables formaciones (previa) ---------- */
+.fm { margin-top: 1rem; }
+.fm-teams { display: grid; gap: 1rem; }
+.fm-team { display: grid; gap: 0.5rem; }
+.fm-team p { margin: 0; }
+@media (max-width: 47.99rem) { .fm-team:not(.is-active) { display: none; } }
+@media (min-width: 48rem) { .fm-switch { display: none; } .fm-teams { grid-template-columns: 1fr 1fr; } }
+/* Cancha a rayas, igual en los dos modos (el blanco sobre el verde más claro da 6,4:1) */
+.fm-pitch {
+  display: grid; gap: 0.35rem; padding: 0.9rem 0.25rem; border-radius: var(--radius-sm); position: relative; min-height: 19rem; align-content: space-evenly;
+  background: repeating-linear-gradient(180deg, #276b43 0 2.2rem, #24633e 2.2rem 4.4rem);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.35);
+}
+.fm-pitch::after { content: ''; position: absolute; left: 32%; right: 32%; bottom: 0; height: 7%; border: 2px solid rgba(255, 255, 255, 0.25); border-bottom: 0; }
+.fm-row { display: flex; justify-content: space-evenly; gap: 0.15rem; position: relative; z-index: 1; }
+.fm-player { display: grid; justify-items: center; gap: 0.15rem; min-width: 0; flex: 1 1 0; max-width: 5.5rem; }
+.fm-dot { width: 2rem; height: 2rem; border-radius: 50%; display: grid; place-items: center; background: #ffffff; color: #1b1d21; font-size: 1rem; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4); }
+.fm-pitch.is-velez .fm-dot { background: #0061a8; color: #ffffff; box-shadow: 0 0 0 2px #ffffff; }
+.fm-name { color: #ffffff; font-size: 0.75rem; font-weight: 700; line-height: 1.15; text-align: center; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fm-list { margin: 0; padding-left: 1.25rem; columns: 2; }
+
+/* ---------- Vélez en cifras (Partidos) ---------- */
+.cifras { display: grid; gap: 1rem; margin-top: 1rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr)); align-items: start; }
+.cf-card { display: grid; gap: 0.75rem; }
+.cf-card p { margin: 0; }
+.cf-splits { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+.cf-split { display: grid; gap: 0.2rem; }
+.cf-big { font-size: 2.25rem; line-height: 1; color: var(--accent); }
+.cf-big small { font: 600 0.875rem var(--body); color: var(--text-2); }
+.cf-bands { list-style: none; margin: 0; padding: 1.2rem 0; display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.35rem; }
+.cf-bands li { display: grid; grid-template-rows: 5rem auto 5rem; align-items: end; justify-items: center; }
+.cf-bar { width: 70%; min-height: 2px; border-radius: 4px 4px 0 0; display: flex; justify-content: center; align-items: flex-start; }
+.cf-bar b { font-size: 0.8125rem; transform: translateY(-1.1rem); color: var(--text); }
+.cf-bar.is-for { background: var(--accent); }
+.cf-bar.is-against { align-self: start; background: var(--draw); border-radius: 0 0 4px 4px; align-items: flex-end; }
+.cf-bar.is-against b { transform: translateY(1.1rem); }
+.cf-band { font-size: 0.75rem; color: var(--text-2); padding: 0.3rem 0; border-block: 1px solid var(--line); width: 100%; text-align: center; white-space: nowrap; }
+.cf-legend { display: flex; align-items: center; gap: 0.4rem; }
+.cf-legend i { width: 0.8rem; height: 0.8rem; border-radius: 3px; display: inline-block; }
+.cf-legend i.is-for { background: var(--accent); }
+.cf-legend i.is-against { background: var(--draw); margin-left: 0.6rem; }
+.cf-kinds, .cf-first { margin: 0; display: grid; gap: 0.6rem; }
+.cf-kinds div { display: grid; grid-template-columns: 9.5rem 1fr; align-items: center; gap: 0.5rem; }
+.cf-kinds dt, .cf-first dt { font-weight: 600; }
+.cf-kinds dd { margin: 0; display: flex; align-items: center; gap: 0.5rem; }
+.cf-kinds dd b { min-width: 1.5rem; font-size: 1.15rem; }
+.cf-kinds dd i { height: 0.5rem; border-radius: 999px; background: var(--accent); }
+.cf-first dt { font-size: 0.8125rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-2); }
+.cf-first dd { margin: 0; font-weight: 600; }
+
+/* ---------- Mejores y peores rivales (Historial) ---------- */
+.rk { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+.rk li { display: grid; grid-template-columns: 22px 1fr auto; gap: 0.6rem; align-items: center; }
+.rk-crest { width: 22px; height: 22px; display: grid; place-items: center; }
+.rk li .crest { max-width: none; }
+.rk-main { position: relative; display: flex; flex-direction: column; padding-bottom: 0.35rem; min-width: 0; }
+.rk-main .link-btn { text-align: left; font-weight: 600; min-height: var(--tap); }
+.rk-main small { font-size: 0.75rem; margin-top: -0.6rem; }
+.rk-main i { position: absolute; left: 0; bottom: 0; height: 3px; border-radius: 2px; }
+.rk-main i.is-g { background: var(--win); }
+.rk-main i.is-p { background: var(--loss); }
+.rk b { font-size: 1.15rem; }

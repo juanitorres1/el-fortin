@@ -320,3 +320,83 @@ export function teamForm(matches, teamId, n = 5) {
     pj: all.length,
   };
 }
+
+// ---------- Vélez en cifras (Partidos) ----------
+
+const BANDS = [[1, 15], [16, 30], [31, 45], [46, 60], [61, 75], [76, 90]];
+const bandOf = (min) => Math.max(0, BANDS.findIndex(([, to]) => min <= to)) + (min > 90 ? BANDS.length - 1 : 0);
+const pointsOf = { G: 3, E: 1, P: 0 };
+
+/**
+ * Los números de una temporada desde games.json (partidos oficiales de Vélez, con `goals` = [minuto, descuento, 1 si
+ * es de Vélez, tipo]): goles por cuarto de hora, local y visitante, cómo llegan los goles, cuando convierte primero,
+ * remontadas y ventajas perdidas. El resultado se toma de los goles (sin penales de definición). Los partidos sin
+ * goles cargados (o con goles que no cierran con el resultado) no cuentan para lo que depende del minuto.
+ */
+export function seasonNumbers(games) {
+  const empty = () => ({ pj: 0, g: 0, e: 0, p: 0, pts: 0, gf: 0, gc: 0 });
+  const out = {
+    pj: 0, home: empty(), away: empty(), known: 0,
+    bands: BANDS.map(([a, b]) => ({ label: b === 90 ? `${a}-90+` : b === 45 ? `${a}-45+` : `${a}-${b}`, gf: 0, gc: 0 })),
+    kinds: { p: 0, c: 0, tl: 0, ec: 0, '': 0 },
+    first: { ...empty(), against: empty() },
+    comebacks: { n: 0, pts: 0, won: 0 }, blown: { n: 0, pts: 0 },
+  };
+  for (const g of games ?? []) {
+    const [v, r] = g.score.split('-').map(Number);
+    const result = v > r ? 'G' : v < r ? 'P' : 'E';
+    const add = (t) => {
+      t.pj += 1;
+      t[result.toLowerCase()] += 1;
+      t.pts += pointsOf[result];
+      t.gf += v;
+      t.gc += r;
+    };
+    out.pj += 1;
+    add(g.home ? out.home : out.away);
+    const goals = g.goals;
+    if (!goals || goals.filter((x) => x[2]).length !== v || goals.filter((x) => !x[2]).length !== r) continue;
+    out.known += 1;
+    let diff = 0;
+    let min = 0;
+    let max = 0;
+    for (const [m, , isVelez, kind] of goals) {
+      out.bands[bandOf(m)][isVelez ? 'gf' : 'gc'] += 1;
+      if (isVelez) out.kinds[kind in out.kinds ? kind : ''] += 1;
+      diff += isVelez ? 1 : -1;
+      min = Math.min(min, diff);
+      max = Math.max(max, diff);
+    }
+    if (goals.length) add(goals[0][2] ? out.first : out.first.against);
+    if (min < 0 && result !== 'P') {
+      out.comebacks.n += 1;
+      out.comebacks.pts += pointsOf[result];
+      if (result === 'G') out.comebacks.won += 1;
+    }
+    if (max > 0 && result !== 'G') {
+      out.blown.n += 1;
+      out.blown.pts += 3 - pointsOf[result];
+    }
+  }
+  return out;
+}
+
+// ---------- Mejores y peores rivales (Historial) ----------
+
+/** Efectividad: porcentaje de los puntos posibles, con 3 por triunfo (también para los años de 2 puntos). */
+export const effectiveness = (r) => (r.pj ? (3 * r.g + r.e) / (3 * r.pj) : 0);
+
+/**
+ * Contra quién le va mejor y peor a Vélez. `rows` = headToHead(). Toma el primer mínimo de partidos de `mins` con el
+ * que haya al menos 2·n rivales (para no comparar un 3 de 3 con un clásico de 200 partidos).
+ * Devuelve { minPj, best, worst } (cada lista con `eff` de 0 a 100), o null si hay muy pocos rivales.
+ */
+export function rivalRanking(rows, { n = 8, mins = [20, 10, 5, 3] } = {}) {
+  const minPj = mins.find((m) => rows.filter((r) => r.pj >= m).length >= 2 * n) ?? mins.at(-1);
+  const list = rows.filter((r) => r.pj >= minPj).map((r) => ({ ...r, eff: Math.round(effectiveness(r) * 1000) / 10 }));
+  if (list.length < 4) return null;
+  const size = Math.min(n, Math.floor(list.length / 2));
+  const sorted = [...list].sort((a, b) => b.eff - a.eff || b.pj - a.pj);
+  const worst = [...list].sort((a, b) => a.eff - b.eff || b.pj - a.pj);
+  return { minPj, best: sorted.slice(0, size), worst: worst.slice(0, size) };
+}

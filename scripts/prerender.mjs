@@ -15,7 +15,7 @@ const GENERATED = 'data/generated/';
 // 570 KB y se siguen bajando aparte; su HTML trae la estructura y los esqueletos.
 const PAGE_DATA = {
   inicio: { live: true, json: [`${GENERATED}facts.json`, `${GENERATED}news.json`, `${GENERATED}resumen.json`] },
-  partidos: { live: true, json: [`${GENERATED}promedios.json`, `${GENERATED}players.json`] },
+  partidos: { live: true, json: [`${GENERATED}promedios.json`, `${GENERATED}players.json`, `${GENERATED}games.json`] }, // games: Vélez en cifras
   plantel: { json: [`${GENERATED}players.json`, `${GENERATED}games.json`], roster: true }, // games: vallas invictas
   historial: {},
   club: { json: ['data/club.json'] },

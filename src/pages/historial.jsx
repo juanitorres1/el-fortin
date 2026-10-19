@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { mount } from '../main.jsx';
 import { headToHead, teamLogo } from '../lib/espn.js';
-import { rivalDetail, rivalFacts } from '../lib/facts.js';
+import { rivalDetail, rivalFacts, rivalRanking } from '../lib/facts.js';
 import { DATA, mergeResults } from '../lib/core.js';
 import { useJson } from '../hooks/data.js';
 import { Layout, PageBand } from '../components/Layout.jsx';
@@ -97,6 +97,40 @@ function H2HCard({ r }) {
   );
 }
 
+/** Contra quién le va mejor y peor (efectividad), con los filtros de arriba. Tocar un rival abre su historial. */
+function RivalRanking({ rows, onPick }) {
+  const r = rivalRanking(rows);
+  if (!r) return null;
+  const List = ({ title, list, tone }) => (
+    <article className="card rk-card">
+      <h3 className="h3">{title}</h3>
+      <ol className="rk">
+        {list.map((x) => (
+          <li key={x.id}>
+            <span className="rk-crest"><Crest url={x.logo} size={22} /></span>
+            <span className="rk-main">
+              <button type="button" className="link-btn" onClick={() => onPick(x.id)}>{x.name}</button>
+              <small className="muted">{x.pj} PJ · {x.g} G · {x.e} E · {x.p} P</small>
+              <i className={tone} style={{ width: `${x.eff}%` }} />
+            </span>
+            <b className="num">{x.eff.toLocaleString('es-AR')}%</b>
+          </li>
+        ))}
+      </ol>
+    </article>
+  );
+  return (
+    <section className="block" aria-labelledby="t-ranking">
+      <h2 className="h2" id="t-ranking">Mejores y peores rivales</h2>
+      <div className="records">
+        <List title="Le va mejor contra" list={r.best} tone="is-g" />
+        <List title="Le cuesta más contra" list={r.worst} tone="is-p" />
+      </div>
+      <p className="muted small">Efectividad: porcentaje de los puntos posibles, con 3 por triunfo (también en los años en que el triunfo daba 2). Rivales con al menos {r.minPj} partidos, con la época y la competición elegidas arriba.</p>
+    </section>
+  );
+}
+
 function Historial() {
   const espn = useJson(`${DATA}matches.json`);
   const old = useJson('data/historico.json');
@@ -179,6 +213,7 @@ function Historial() {
           )}
         </div>
       </section>
+      {matches && <RivalRanking rows={rows} onPick={pickFromTable} />}
       {matches && <HistoryRecords matches={matches} />}
       {matches && club !== undefined && <Efemerides matches={matches} club={club} />}
     </Layout>

@@ -31,7 +31,7 @@ src/
   initial.js     datos con los que se prerenderizó la página (los lee del <script id="initial-data">)
   prerender.jsx  entrada del build para Node: dibuja cada página a HTML
   pages/         una por página (inicio, partidos, plantel, historial, juegos, club, jugador, vivo)
-  sections/      bloques grandes: Juega, Previa, Resumen, Noticias, Tablas, Goleadores, Playoffs, Simulador, Records
+  sections/      bloques grandes: Juega, Previa, Formaciones, Resumen, Cifras, Noticias, Tablas, Goleadores, Playoffs, Simulador, Records
   components/    Layout (menú, banda, pie), MatchRow/MatchList, Crest, ResultBadge, Segmented, Skeletons, ShareCard, InstallApp…
   hooks/         useLiveData, useJson, useCached, useRoster, useNow, useLiveTitle, useScrollToHash, useCurrentSection
   lib/           lógica pura, sin React (la usan también los scripts): espn, facts, playoffs, weather, news, rules, core,
@@ -75,6 +75,9 @@ datos (no lo redibuja) y enseguida pide lo nuevo a ESPN.
 | La previa: rachas, historial con el rival, un día como hoy | `facts.json` + resultados en vivo | Cada 1 h |
 | Cómo llega el rival (previa): últimos 5, posición, local/visitante, goles y su goleador | ESPN, calendario del rival (`teams/{id}/schedule`) + tabla y goleadores | Cada 30 min |
 | «Así terminó» (Inicio, hasta 4 días después): goles, rojas, cambios, estadísticas y figura por los números | ESPN, detalle del partido (`summary`) | Al entrar |
+| Probables formaciones (previa): último once de Vélez y del rival en una cancha | ESPN, detalle del último partido de cada uno (`summary`) | Al entrar |
+| Vélez en cifras (Partidos): local/visitante, goles por cuarto de hora, cómo llegan, primer gol, remontadas | `games.json` (goles con minuto de cada partido oficial del año) | Cada 1 h |
+| Mejores y peores rivales (Historial), por efectividad | `historico.json` + `matches.json` | Cada 1 h |
 | Historial por rival | `historico.json` (1931–2000, dominio público) + `matches.json` (ESPN, desde 2001) | Cada 1 h |
 | Noticias | velez.com.ar (no tiene RSS: se leen las secciones) | Cada 1 h |
 | Resumen de los últimos 7 días con IA | Qwen3-8B con llama.cpp en GitHub Actions | Todos los días 20:30, si hay notas nuevas |

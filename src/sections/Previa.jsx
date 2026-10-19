@@ -1,17 +1,18 @@
 // «La previa»: rachas, historial con el próximo rival, cómo llega el rival y un día como hoy. Sale de facts.json (lo
 // genera el deploy) más los resultados en vivo, para que un partido que terminó hace minutos ya cuente en la racha.
-// Cómo llega el rival (sus últimos partidos y goleadores) se pide a ESPN en el navegador.
-import { VELEZ_ID, fetchScorers, fetchTeamSchedule } from '../lib/espn.js';
+// Cómo llega el rival (sus últimos partidos y goleadores) y las probables formaciones se piden a ESPN en el navegador.
+import { VELEZ_ID, fetchScorers } from '../lib/espn.js';
 import { monthDay, streakLines, teamForm } from '../lib/facts.js';
 import { useCached, useNow } from '../hooks/data.js';
 import { Lines, ResultBadge } from '../components/ui.jsx';
+import { Formaciones, scheduleOf } from './Formaciones.jsx';
 
 const FORM_TTL_MS = 30 * 60 * 1000;
 const rec = (r) => `${r.g} G · ${r.e} E · ${r.p} P`;
 
 /** Cómo llega el rival: últimos 5 resultados, posición, cómo le va de local o visitante, goles y su goleador. */
 function RivalForm({ rival, velezHome, standings }) {
-  const form = useCached(`forma-${rival.id}`, async () => teamForm(await fetchTeamSchedule(rival.id), rival.id), { ttl: FORM_TTL_MS });
+  const form = useCached(`forma-${rival.id}`, async () => teamForm(await scheduleOf(rival.id), rival.id), { ttl: FORM_TTL_MS });
   const scorers = useCached(standings?.phaseKey ? `goleadores-${standings.phaseKey}` : null, () => fetchScorers(standings), { ttl: FORM_TTL_MS });
   if (!form) return null; // cargando o ESPN no respondió: mejor no mostrar una tarjeta vacía
   const zone = standings?.groups.find((g) => g.rows.some((r) => r.id === rival.id));
@@ -97,6 +98,7 @@ export function Previa({ facts, data }) {
             </article>
           )}
         </div>
+        {rival && <Formaciones last={data.results.at(-1)} rival={rival} />}
       </div>
     </section>
   );

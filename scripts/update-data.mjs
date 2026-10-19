@@ -7,13 +7,14 @@
 // - facts.json: datos para la previa del Inicio (rachas, historial con el próximo rival, un día como hoy).
 // - velez.ics: calendario de partidos para suscribirse (Google, Apple, Outlook).
 // - players.json: estadísticas de jugadores por torneo del año y sanciones probables (desde el detalle de cada partido).
-// - games.json: partido por partido del año con quién jugó (página de cada jugador y «Adiviná el once»).
+// - games.json: partido por partido del año con quién jugó y los goles con su minuto (página de cada jugador,
+//   «Adiviná el once» y «Vélez en cifras»).
 // Uso: node scripts/update-data.mjs
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { buildCalendar } from './ics.mjs';
 import { writeHeadlines } from './news.mjs';
 import { monthDay, onThisDay, rivalFacts } from '../src/lib/facts.js';
-import { VELEZ_ID, aggregateStats, discipline, gamesLog, fetchAverageParts, fetchLive, fetchRoster, fetchSchedule, fetchSummary, playersFromSummary, tournamentOf } from '../src/lib/espn.js';
+import { VELEZ_ID, aggregateStats, discipline, gamesLog, fetchAverageParts, fetchLive, fetchRoster, fetchSchedule, fetchSummary, goalEvents, playersFromSummary, tournamentOf } from '../src/lib/espn.js';
 
 const OUT = new URL('../public/data/generated/', import.meta.url);
 const FIRST_SEASON = 2000; // ESPN no tiene datos de Vélez anteriores a 2001
@@ -114,7 +115,7 @@ async function writePlayers(live) {
   const games = [];
   for (const match of played) {
     const summary = await withRetry(() => fetchSummary(match));
-    games.push({ match, players: playersFromSummary(summary) });
+    games.push({ match, players: playersFromSummary(summary), goals: goalEvents(summary) });
   }
   const activeKeys = new Set(live.fixture.filter((m) => !m.completed).map((m) => tournamentOf(m).key));
   const tournaments = aggregateStats(games);

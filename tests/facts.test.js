@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { historyRecords, isNeutral, teamForm, monthDay, onThisDay, parseDay, rivalDetail, rivalFacts, scoreResult, streakLines, upcomingAnniversaries } from '../src/lib/facts.js';
+import { effectiveness, historyRecords, isNeutral, rivalRanking, seasonNumbers, teamForm, monthDay, onThisDay, parseDay, rivalDetail, rivalFacts, scoreResult, streakLines, upcomingAnniversaries } from '../src/lib/facts.js';
 
 let seq = 0;
 // Partido de Vélez (id 21) contra un rival; `vs` = goles de Vélez, `rs` = del rival.
@@ -132,4 +132,35 @@ test('teamForm: últimos resultados desde el lado del equipo, de local y de visi
   assert.deepEqual(f.away, { g: 0, e: 1, p: 1 });
   assert.deepEqual([f.gf, f.gc, f.pj], [5, 4, 4]);
   assert.equal(teamForm([], 'R'), null);
+});
+
+test('seasonNumbers: local/visitante, goles por cuarto de hora, cómo llegan, remontadas y ventajas perdidas', () => {
+  const games = [
+    { score: '2-1', home: true, goals: [[10, 0, 0, ''], [50, 0, 1, 'p'], [90, 3, 1, 'c']] }, // remontada ganada
+    { score: '1-1', home: false, goals: [[30, 0, 1, ''], [80, 0, 0, '']] }, // ventaja perdida
+    { score: '0-0', home: true }, // sin goles cargados
+    { score: '3-0', home: false, goals: [[5, 0, 1, '']] }, // los goles no cierran: no cuenta para los minutos
+  ];
+  const s = seasonNumbers(games);
+  assert.equal(s.pj, 4);
+  assert.deepEqual([s.home.pts, s.home.pj, s.away.pts, s.away.gf], [4, 2, 4, 4]);
+  assert.equal(s.known, 2);
+  assert.deepEqual(s.bands.map((b) => [b.gf, b.gc]), [[0, 1], [1, 0], [0, 0], [1, 0], [0, 0], [1, 1]]);
+  assert.equal(s.bands.at(-1).label, '76-90+');
+  assert.deepEqual([s.kinds.p, s.kinds.c, s.kinds['']], [1, 1, 1]);
+  assert.deepEqual([s.first.pj, s.first.e, s.first.against.g], [1, 1, 1]);
+  assert.deepEqual(s.comebacks, { n: 1, pts: 3, won: 1 });
+  assert.deepEqual(s.blown, { n: 1, pts: 2 });
+});
+
+test('rivalRanking: mejores y peores rivales con un mínimo de partidos', () => {
+  const row = (id, pj, g, e) => ({ id, name: id, pj, g, e, p: pj - g - e });
+  const rows = [row('A', 30, 20, 5), row('B', 30, 5, 5), row('C', 25, 12, 8), row('D', 22, 10, 2), row('E', 3, 3, 0), row('F', 40, 15, 15)];
+  const r = rivalRanking(rows, { n: 2, mins: [20, 3] });
+  assert.equal(r.minPj, 20); // con 20 partidos ya hay 5 rivales (≥ 2·n): el 3 de 3 de E no entra
+  assert.deepEqual(r.best.map((x) => x.id), ['A', 'C']);
+  assert.deepEqual(r.worst.map((x) => x.id), ['B', 'D']); // D: 48,5 %, F: 50 %
+  assert.equal(r.best[0].eff, 72.2);
+  assert.equal(effectiveness(row('X', 10, 10, 0)), 1);
+  assert.equal(rivalRanking(rows.slice(0, 2)), null);
 });

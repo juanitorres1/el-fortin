@@ -1,4 +1,4 @@
-// Partidos: lo que viene (con el calendario para suscribirse), resultados, tablas, goleadores, camino a los playoffs
+// Partidos: lo que viene (con el calendario para suscribirse), resultados, Vélez en cifras, tablas, goleadores, camino a los playoffs
 // y copas. Todo de ESPN en vivo; los promedios suman las temporadas que guarda el deploy.
 import { useEffect, useRef } from 'react';
 import { mount } from '../main.jsx';
@@ -12,6 +12,7 @@ import { ResultBadge } from '../components/ui.jsx';
 import { Tablas, buildTables } from '../sections/Tablas.jsx';
 import { Goleadores } from '../sections/Goleadores.jsx';
 import { Playoffs } from '../sections/Playoffs.jsx';
+import { Cifras } from '../sections/Cifras.jsx';
 
 const ICS = 'juanitorres1.github.io/el-fortin/data/generated/velez.ics';
 
@@ -57,6 +58,7 @@ function Partidos() {
   const state = useLiveData();
   const promedios = useJson(`${DATA}promedios.json`);
   const players = useJson(`${DATA}players.json`);
+  const games = useJson(`${DATA}games.json`);
   const data = state.data;
   const results = data ? mergeResults([], data.results) : undefined;
   const source = data ? sourceNote(state.live, data.updatedAt) : '';
@@ -88,6 +90,7 @@ function Partidos() {
           <MatchList matches={failed ? [] : results?.slice(-8).reverse()} showYear empty="Sin resultados." />
         </section>
       </div>
+      <Cifras games={games?.games} />
       <Tablas tables={data && promedios !== undefined ? buildTables(data.standings, promedios) : failed ? [] : undefined} source={source} />
       <Goleadores standings={data?.standings} players={players} refresh={data?.updatedAt} />
       <Playoffs standings={data?.standings} refresh={data?.updatedAt} />
