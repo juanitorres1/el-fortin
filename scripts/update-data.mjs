@@ -5,6 +5,8 @@
 //   .github/workflows/news-summary.yml y el deploy lo baja como artifact.
 // - promedios.json: tablas de las fases que cuentan para los promedios (últimas 3 temporadas).
 // - facts.json: datos para la previa del Inicio (rachas, historial con el próximo rival, un día como hoy).
+// - escudos.json: ids de ESPN para los equipos del historial 1931–2000 que no los tienen (escudo y unión con sus
+//   partidos desde 2001; ver src/lib/crests.js).
 // - velez.ics: calendario de partidos para suscribirse (Google, Apple, Outlook).
 // - players.json: estadísticas de jugadores por torneo del año y sanciones probables (desde el detalle de cada partido).
 // - games.json: partido por partido del año con quién jugó y los goles con su minuto (página de cada jugador,
@@ -14,7 +16,8 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { buildCalendar } from './ics.mjs';
 import { writeHeadlines } from './news.mjs';
 import { monthDay, onThisDay, rivalFacts } from '../src/lib/facts.js';
-import { VELEZ_ID, aggregateStats, discipline, gamesLog, fetchAverageParts, fetchLive, fetchRoster, fetchSchedule, fetchSummary, goalEvents, playersFromSummary, tournamentOf } from '../src/lib/espn.js';
+import { linkTeams, relinkMatch } from '../src/lib/crests.js';
+import { VELEZ_ID, aggregateStats, discipline, gamesLog, fetchAverageParts, fetchLive, fetchRoster, fetchSchedule, fetchSummary, fetchTeams, goalEvents, playersFromSummary, tournamentOf } from '../src/lib/espn.js';
 
 const OUT = new URL('../public/data/generated/', import.meta.url);
 const FIRST_SEASON = 2000; // ESPN no tiene datos de Vélez anteriores a 2001
@@ -74,15 +77,36 @@ async function main() {
   await writeFile(new URL('matches.json', OUT), JSON.stringify({ updatedAt: new Date().toISOString(), matches }));
   console.log(`historial: ${matches.length} partidos (${matches[0]?.date.slice(0, 10)} → ${matches.at(-1)?.date.slice(0, 10)})`);
 
-  await writeFacts(matches, live);
+  const crestIds = await writeCrests(matches);
+  await writeFacts(matches, live, crestIds);
+}
+
+// Ligas de ESPN donde buscar a los equipos del historial viejo (de Primera a la Primera C y la Copa Argentina).
+const TEAM_LEAGUES = ['arg.1', 'arg.2', 'arg.3', 'arg.4', 'arg.5', 'arg.copa'];
+async function writeCrests(matches) {
+  const historic = JSON.parse(await readFile(new URL('../public/data/historico.json', import.meta.url), 'utf8')).matches;
+  const unlinked = new Map();
+  for (const m of historic) for (const t of [m.home, m.away]) if (!/^\d+$/.test(t.id)) unlinked.set(t.id, t.name);
+  const espn = matches.flatMap((m) => [m.home, m.away]).map((t) => ({ id: t.id, names: [t.name] }));
+  for (const league of TEAM_LEAGUES) {
+    try {
+      espn.push(...(await withRetry(() => fetchTeams(league))));
+    } catch (err) {
+      console.warn(`escudos: no se pudo leer ${league}:`, err.message);
+    }
+  }
+  const { ids, missing } = linkTeams([...unlinked].map(([id, name]) => ({ id, name })), espn);
+  await writeFile(new URL('escudos.json', OUT), JSON.stringify({ updatedAt: new Date().toISOString(), ids }));
+  console.log(`escudos: ${Object.keys(ids).length} de ${unlinked.size} equipos del historial viejo unidos con ESPN; sin escudo: ${missing.join(', ') || 'ninguno'}`);
+  return ids;
 }
 
 // Datos para la previa del Inicio: lo justo para no bajar el historial entero (~900 KB) en la portada.
 const RECENT_FOR_STREAKS = 60;
 const FACT_DAYS = 3; // hoy y los 2 siguientes: el deploy corre cada hora, así que pasada la medianoche ya está el día nuevo
-async function writeFacts(matches, live) {
+async function writeFacts(matches, live, crestIds) {
   const historic = JSON.parse(await readFile(new URL('../public/data/historico.json', import.meta.url), 'utf8')).matches.map((m) => ({
-    ...m, date: null, comp: 'Primera División', completed: true,
+    ...relinkMatch(m, crestIds), date: null, comp: 'Primera División', completed: true,
   }));
   const club = JSON.parse(await readFile(new URL('../public/data/club.json', import.meta.url), 'utf8'));
   const all = [...historic, ...matches];

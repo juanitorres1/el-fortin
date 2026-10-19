@@ -111,6 +111,14 @@ const sortTime = (m) => (m.date ? Date.parse(m.date) : Date.UTC(m.year, 0, 1));
 const byDate = (a, b) => sortTime(a) - sortTime(b);
 
 /** Partidos de cualquier equipo en la temporada en curso (para «Cómo llega el rival»). */
+/** Equipos de una liga de ESPN ('arg.2' = Primera Nacional…): [{ id, names }] con sus nombres largo, corto y de ciudad. */
+export async function fetchTeams(league, fetchImpl) {
+  const json = await getJson(`${SITE}/${league}/teams`, fetchImpl);
+  return (json.sports?.[0]?.leagues?.[0]?.teams ?? []).map(({ team: t }) => ({
+    id: String(t.id), names: [teamName(t.displayName), t.displayName, t.shortDisplayName, t.name, t.location],
+  }));
+}
+
 export async function fetchTeamSchedule(teamId, fetchImpl) {
   const json = await getJson(`${SITE}/all/teams/${teamId}/schedule`, fetchImpl);
   return (json.events ?? []).map(normalizeEvent).sort(byDate);

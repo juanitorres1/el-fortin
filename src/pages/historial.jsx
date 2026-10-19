@@ -5,6 +5,7 @@ import { mount } from '../main.jsx';
 import { headToHead, teamLogo } from '../lib/espn.js';
 import { rivalDetail, rivalFacts, rivalRanking } from '../lib/facts.js';
 import { DATA, mergeResults } from '../lib/core.js';
+import { relinkMatch } from '../lib/crests.js';
 import { useJson } from '../hooks/data.js';
 import { Layout, PageBand } from '../components/Layout.jsx';
 import { MatchList } from '../components/Match.jsx';
@@ -22,10 +23,12 @@ const COMP_FILTERS = {
 const ERA_FILTERS = { todas: ['Desde 1931', () => true], historico: ['1931–2000', (m) => !m.date], espn: ['Desde 2001', (m) => Boolean(m.date)] };
 const WHERE = { local: 'de local', visitante: 'de visitante', neutral: 'en cancha neutral' };
 
-// historico.json viene en formato compacto (ver scripts/import-historico.mjs).
-function hydrateHistoric(m) {
+// historico.json viene en formato compacto (ver scripts/import-historico.mjs). `ids` = escudos.json › ids: los equipos
+// sin id de ESPN que el deploy encontró por nombre (así tienen escudo y se juntan con sus partidos desde 2001).
+function hydrateHistoric(m, ids) {
   const withLogo = (t) => ({ ...t, logo: /^\d+$/.test(t.id) ? teamLogo(t.id) : null });
-  return { ...m, date: null, comp: 'Primera División', status: 'post', completed: true, home: withLogo(m.home), away: withLogo(m.away) };
+  const r = relinkMatch(m, ids);
+  return { ...r, date: null, comp: 'Primera División', status: 'post', completed: true, home: withLogo(r.home), away: withLogo(r.away) };
 }
 
 function Select({ label, value, onChange, options, selectRef }) {
@@ -135,9 +138,11 @@ function Historial() {
   const espn = useJson(`${DATA}matches.json`);
   const old = useJson('data/historico.json');
   const club = useJson('data/club.json');
+  const crests = useJson(`${DATA}escudos.json`);
   const matches = useMemo(
-    () => (espn === undefined || old === undefined ? undefined : [...(old?.matches ?? []).map(hydrateHistoric), ...mergeResults(espn?.matches ?? [], [])]),
-    [espn, old],
+    () => (espn === undefined || old === undefined || crests === undefined ? undefined
+      : [...(old?.matches ?? []).map((m) => hydrateHistoric(m, crests?.ids)), ...mergeResults(espn?.matches ?? [], [])]),
+    [espn, old, crests],
   );
   const [rival, setRival] = useState(null);
   // El rival de la URL se lee al montar (el HTML prerenderizado es el mismo para todos los ?rival=).
@@ -149,7 +154,8 @@ function Historial() {
   const allRivals = useMemo(() => (matches ? headToHead(matches) : []), [matches]);
   const filtered = useMemo(() => (matches ?? []).filter((m) => COMP_FILTERS[comp][1](m) && ERA_FILTERS[era][1](m)), [matches, comp, era]);
   const rows = useMemo(() => headToHead(filtered), [filtered]);
-  const rivalId = rival ?? allRivals.find((r) => r.name === 'River Plate')?.id ?? allRivals[0]?.id;
+  // Un link viejo con el id del dataset (?rival=k40) sigue andando si ese equipo ahora tiene id de ESPN.
+  const rivalId = (rival && (crests?.ids?.[rival] ?? rival)) ?? allRivals.find((r) => r.name === 'River Plate')?.id ?? allRivals[0]?.id;
   const r = rows.find((x) => x.id === rivalId);
   const rivalName = allRivals.find((x) => x.id === rivalId)?.name;
 
@@ -157,10 +163,10 @@ function Historial() {
   useEffect(() => {
     if (!rival || !rivalName) return;
     const url = new URL(location.href);
-    url.searchParams.set('rival', rival);
+    url.searchParams.set('rival', rivalId);
     history.replaceState(null, '', url);
     document.title = `Vélez vs. ${rivalName} · Historial · El Fortín`;
-  }, [rival, rivalName]);
+  }, [rival, rivalId, rivalName]);
 
   const pickFromTable = (id) => {
     setRival(id);

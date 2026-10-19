@@ -78,7 +78,7 @@ datos (no lo redibuja) y enseguida pide lo nuevo a ESPN.
 | Probables formaciones (previa): último once de Vélez y del rival en una cancha | ESPN, detalle del último partido de cada uno (`summary`) | Al entrar |
 | Vélez en cifras (Partidos): local/visitante, goles por cuarto de hora, cómo llegan, primer gol, remontadas | `games.json` (goles con minuto de cada partido oficial del año) | Cada 1 h |
 | Mejores y peores rivales (Historial), por efectividad | `historico.json` + `matches.json` | Cada 1 h |
-| Historial por rival | `historico.json` (1931–2000, dominio público) + `matches.json` (ESPN, desde 2001) | Cada 1 h |
+| Historial por rival | `historico.json` (1931–2000, dominio público) + `matches.json` (ESPN, desde 2001); los equipos viejos se unen con ESPN por nombre (`escudos.json`) para tener escudo | Cada 1 h |
 | Noticias | velez.com.ar (no tiene RSS: se leen las secciones) | Cada 1 h |
 | Resumen de los últimos 7 días con IA | Qwen3-8B con llama.cpp en GitHub Actions | Todos los días 20:30, si hay notas nuevas |
 | Calendario para suscribirse | `velez.ics` | Cada 1 h |

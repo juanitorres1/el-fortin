@@ -19,7 +19,7 @@ un servidor en Render/Railway/Vercel). Node ≥ 20. Detalle en `README.md`.
 - `src/lib/`: **lógica pura sin React**, compartida con los scripts de Node: `espn.js` (cliente ESPN; `teamStats` y `matchFigure` para el resumen, `lineupFromSummary` para las formaciones, `goalEvents` para games.json), `facts.js`
   (rachas, rival, `teamForm` del rival, un día como hoy, cancha neutral, `seasonNumbers` = Vélez en cifras, `rivalRanking`), `playoffs.js`, `weather.js`, `news.js`, `rules.js` (reglamento,
   `RULES_YEAR`), `core.js` (formato, carga con respaldo, marcador y tabla en vivo), `card.js` (textos de las imágenes
-  para compartir), `trivia.js` (trivia diaria desde `club.json`), `games.js` (prode y once), `storage.js`
+  para compartir), `trivia.js` (trivia diaria desde `club.json`), `games.js` (prode y once), `crests.js` (une por nombre los equipos del historial 1931–2000 con su id de ESPN → `escudos.json`), `storage.js`
   (`localStorage` con prefijo `fortin:`). Testear acá, no en los componentes.
 - `src/hooks/`: `useLiveData` (ESPN con refresco 5 min / 1 min en vivo), `useJson` (JSON compartido entre
   componentes), `useCached` (promesa con vencimiento), `useRoster`, `useNow`, `useLiveTitle`, `useScrollToHash`,
