@@ -87,6 +87,7 @@ datos (no lo redibuja) y enseguida pide lo nuevo a ESPN.
 | Estadio en 3D (Club › Estadio): tribunas, capacidad, puertas y accesos, y línea de tiempo (1924 → hoy) | Three.js (se baja solo en esa sección) + `club.json › estadio.tribunas`; modelo hecho a partir de fotos aéreas | Cuando se edita |
 | Imagen para compartir el resultado y la previa (Inicio) | Se dibuja en el navegador con `<canvas>` (1080×1350) | Al tocar el botón |
 | Simulador «¿Qué necesita Vélez?» (Partidos) | Tabla en vivo + partidos que quedan (los mismos de los playoffs) | Cada 15 min |
+| Contador de visitas (solo el sitio publicado) | GoatCounter, sin cookies ni datos personales: panel en `juanignaciotorres.goatcounter.com` | En cada visita |
 | Récords del historial y efemérides (Historial) | `historico.json` + `matches.json` + `club.json`, calculados en el navegador | Cada 1 h |
 | Juegos: trivia diaria | Preguntas armadas solas con `club.json` (sin preguntas a mano) | Una nueva por día |
 | Juegos: prode y «Adiviná el once» | Fixture en vivo + `games.json`; lo elegido queda en el navegador | Cada 1 h |

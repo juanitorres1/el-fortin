@@ -36,6 +36,8 @@ un servidor en Render/Railway/Vercel). Node ≥ 20. Detalle en `README.md`.
 - **App instalable (PWA):** `public/manifest.webmanifest` («El Fortín», ícono fortín blanco con la V sobre la V de la
   camiseta: `public/assets/icons/`) y `public/sw.js` (red primero para páginas y datos, guardado para JS/CSS/íconos;
   ESPN no pasa por él). Se registra en `src/main.jsx` solo en producción. Cambiar `VERSION` para borrar lo guardado.
+- **Visitas:** GoatCounter (sin cookies, cifras agregadas), cargado desde `src/main.jsx` solo en `*.github.io`. Panel:
+  `juanignaciotorres.goatcounter.com` (cuenta del usuario).
 - `public/`: `assets/` (escudo, `og.png`, `icons/`), `data/club.json` (a mano), `data/historico.json`, `data/generated/`
   (lo genera el deploy; no va al repo).
 - `scripts/` (Node): `update-data.mjs` (genera `public/data/generated/`), `news.mjs` (titulares y resumen IA),
