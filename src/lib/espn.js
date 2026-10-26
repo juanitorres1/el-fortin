@@ -319,7 +319,17 @@ export async function fetchLive(fetchImpl) {
     fetchStandings(fetchImpl),
     getJson(`${SITE}/arg.1/scoreboard`, fetchImpl).catch(() => null),
   ]);
-  return { updatedAt: new Date().toISOString(), fixture, results: results.filter((m) => m.completed), standings, playing: playingNow(scoreboard, standings) };
+  return { updatedAt: new Date().toISOString(), fixture, results: completedResults(results, fixture), standings, playing: playingNow(scoreboard, standings) };
+}
+
+/**
+ * Partidos terminados de la temporada, en orden. ESPN marca el partido como terminado en el fixture horas antes de
+ * sumarlo a los resultados (el 0-5 en Santiago del Estero seguía afuera 4 h después): se toman de las dos listas.
+ */
+export function completedResults(results, fixture) {
+  const byId = new Map(results.filter((m) => m.completed).map((m) => [m.id, m]));
+  for (const m of fixture) if (m.completed && !byId.has(m.id)) byId.set(m.id, m);
+  return [...byId.values()].sort(byDate);
 }
 
 // ---------- Cálculos desde la óptica de Vélez ----------

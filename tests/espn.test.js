@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { aggregateStats, annualTable, averagesTable, discipline, gamesLog, goalEvents, headToHead, lineupFromSummary, keeperRecord, matchFigure, teamStats, keyEvents, normalizeEvent, playingNow, normalizeScorers, normalizeStandings, playersFromSummary, playoffTeams, relegation, velezView } from '../src/lib/espn.js';
+import { aggregateStats, annualTable, averagesTable, discipline, gamesLog, goalEvents, headToHead, lineupFromSummary, keeperRecord, matchFigure, teamStats, keyEvents, completedResults, normalizeEvent, playingNow, normalizeScorers, normalizeStandings, playersFromSummary, playoffTeams, relegation, velezView } from '../src/lib/espn.js';
 
 const side = (id, name, homeAway, score, extra = {}) => ({
   homeAway,
@@ -285,4 +285,11 @@ test('playingNow: solo los partidos en juego de la fase en curso', () => {
   const sb = { events: [ev('1', 'in', 'torneo-clausura'), ev('2', 'post', 'torneo-clausura'), ev('3', 'in', 'clausura-round-of-16')] };
   assert.deepEqual(playingNow(sb, { phase: 'Torneo Clausura' }).map((m) => m.id), ['1']);
   assert.deepEqual(playingNow(null, { phase: 'Torneo Clausura' }), []);
+});
+
+test('completedResults: suma los terminados que ESPN todavía tiene solo en el fixture, sin repetir', () => {
+  const m = (id, date, completed) => ({ id, date, completed });
+  const results = [m('2', '2026-10-17T23:00Z', true), m('1', '2026-10-12T19:00Z', true)];
+  const fixture = [m('3', '2026-10-26T00:30Z', true), m('2', '2026-10-17T23:00Z', true), m('4', '2026-10-31T22:15Z', false)];
+  assert.deepEqual(completedResults(results, fixture).map((x) => x.id), ['1', '2', '3']);
 });
