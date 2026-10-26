@@ -23,7 +23,7 @@ function RivalForm({ rival, velezHome, standings }) {
     // Si Vélez es local, al rival le importa cómo le va de visitante (y al revés).
     velezHome ? `De visitante: ${rec(form.away)}` : `De local: ${rec(form.home)}`,
     `${form.gf} goles a favor y ${form.gc} en contra en ${form.pj} partidos`,
-    scorer && `Su goleador: ${scorer.name} (${scorer.goals} ${scorer.goals === 1 ? 'gol' : 'goles'})`,
+    scorer && `Su goleador: ${scorer.name} (${scorer.n} ${scorer.n === 1 ? 'gol' : 'goles'})`,
   ].filter(Boolean);
   return (
     <article className="card previa-card">

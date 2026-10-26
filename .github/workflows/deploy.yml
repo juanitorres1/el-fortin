@@ -38,6 +38,12 @@ jobs:
           path: public/data/generated/img/news
           key: news-thumbs-${{ github.run_id }}
           restore-keys: news-thumbs-
+      # Las asistencias ya leídas de cada partido también: solo se piden los partidos nuevos (scripts/update-data.mjs).
+      - uses: actions/cache@v6
+        with:
+          path: public/data/generated/cache
+          key: asistencias-${{ github.run_id }}
+          restore-keys: asistencias-
       - run: npm run data
       # El resumen con IA lo genera news-summary.yml (todos los días, si hay notas nuevas). Se baja el artifact más nuevo
       # (no el de la última corrida: las que no tienen notas nuevas terminan sin resumen). Si no hay o venció (30 días),

@@ -181,6 +181,7 @@ export async function fetchStandings(fetchImpl) {
     season: season?.displayName ?? null,
     phase: phases.at(-1)?.name ?? null,
     phaseKey: phases.length ? phaseKey('arg.1', season.year, phases.at(-1).id) : null, // para reemplazar esta fase en los promedios
+    phaseStart: phases.at(-1)?.startDate ?? null, // desde ahí se piden los goles de la fase (goleadores)
     phaseEnd: phases.at(-1)?.endDate ?? null, // fin de la fase regular: hasta ahí se piden los partidos que quedan
     year: season?.year ?? null,
     playoffTeams: playoffTeams(season?.types ?? [], phases.at(-1)), // para «Camino a los playoffs»; null si no hay
@@ -266,40 +267,87 @@ export function relegation(averageRows, annualRows) {
  * El scoreboard de ESPN no acepta rangos de fechas largos: se pide mes por mes hasta el fin de la fase.
  */
 export async function fetchPhaseRemaining(standings, fetchImpl, now = new Date()) {
-  const slug = phaseSlug(standings.phase);
   const end = standings.phaseEnd ? new Date(standings.phaseEnd) : new Date(now.getFullYear(), now.getMonth() + 1, 28);
+  return (await fetchPhaseEvents(standings, now, end, fetchImpl)).map(normalizeEvent).filter((m) => !m.completed);
+}
+
+/**
+ * Partidos de la fase regular en curso (eventos crudos del scoreboard, con el detalle de los goles) entre dos fechas.
+ * El scoreboard de ESPN no acepta rangos de fechas largos: se pide mes por mes (6 como mucho).
+ */
+export async function fetchPhaseEvents(standings, from, to, fetchImpl) {
   const months = [];
-  for (let d = new Date(now.getFullYear(), now.getMonth(), 1); d <= end && months.length < 6; d.setMonth(d.getMonth() + 1)) {
+  for (let d = new Date(from.getFullYear(), from.getMonth(), 1); d <= to && months.length < 6; d.setMonth(d.getMonth() + 1)) {
     months.push(`${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}`);
   }
   const lists = await Promise.all(months.map((m) => getJson(`${SITE}/arg.1/scoreboard?dates=${m}`, fetchImpl)));
-  return lists
-    .flatMap((json) => json.events ?? [])
-    .filter((ev) => ev.season?.slug === slug)
-    .map(normalizeEvent)
-    .filter((m) => !m.completed);
+  const slug = phaseSlug(standings.phase);
+  return lists.flatMap((json) => json.events ?? []).filter((ev) => ev.season?.slug === slug);
 }
 
 // ---------- Goleadores del torneo ----------
 
-/** Top 10 de goleadores (ESPN solo da los 10 primeros): [{ id, name, goals, pj, team: { id, name, logo } }]. */
-export function normalizeScorers(json) {
-  const cat = json.leaders?.categories?.find((c) => c.name === 'goalsLeaders');
-  return (cat?.leaders ?? []).map((l) => ({
-    id: String(l.athlete?.id ?? ''),
-    name: l.athlete?.displayName ?? '',
-    goals: Number(l.value ?? 0),
-    pj: Number(String(l.displayValue ?? '').match(/Matches: (\d+)/)?.[1] ?? NaN) || null,
-    team: l.team ? { id: String(l.team.id), name: teamName(l.team.displayName), logo: l.team.logos?.[0]?.href ?? teamLogo(l.team.id) } : null,
-  }));
+// Se cuentan desde los partidos y no con la tabla de goleadores de ESPN: esa tarda horas en sumar la última fecha y
+// le cuenta a cada jugador solo los goles con su equipo actual (a Ronaldo Martínez le faltaba el que hizo con Talleres
+// antes de pasar a Vélez). Los goles cuentan para el torneo aunque el jugador haya cambiado de club.
+
+const sideTeam = (ev, id) => {
+  const c = ev.competitions?.[0]?.competitors?.find((x) => String(x.team?.id) === String(id));
+  return { id: String(id), name: teamName(c?.team?.displayName ?? ''), logo: c?.team?.logo ?? teamLogo(id) };
+};
+
+/**
+ * Goles de los partidos (eventos crudos del scoreboard, también los que se están jugando), sin goles en contra ni
+ * definiciones por penales: [{ id, name, team, date, pen }].
+ */
+export function phaseGoals(events) {
+  const out = [];
+  for (const ev of events) {
+    for (const d of ev.competitions?.[0]?.details ?? []) {
+      const a = d.athletesInvolved?.[0];
+      if (!d.scoringPlay || d.ownGoal || d.shootout || !a) continue;
+      out.push({ id: String(a.id), name: a.displayName, team: sideTeam(ev, d.team?.id ?? a.team?.id), date: ev.date, pen: Boolean(d.penaltyKick) });
+    }
+  }
+  return out;
 }
 
-/** Goleadores de la fase en curso (Apertura o Clausura). `standings` = fetchStandings(). */
-export async function fetchScorers(standings, fetchImpl) {
-  const type = standings.phaseKey?.split('-').at(-1);
-  // Sin la fase exacta ESPN devuelve otra (por ejemplo, los octavos del Apertura): mejor no mostrar nada.
-  if (!standings.year || !type) return [];
-  return normalizeScorers(await getJson(`https://site.api.espn.com/apis/site/v3/sports/soccer/arg.1/leaders?season=${standings.year}&seasontype=${type}`, fetchImpl));
+/**
+ * Asistencias de un partido desde su detalle (summary): el segundo participante de cada gol es quien asistió.
+ * Sin goles en contra ni definiciones por penales. `ev` = el evento del scoreboard (para nombre y escudo del equipo).
+ */
+export function summaryAssists(summary, ev) {
+  const out = [];
+  for (const k of summary.keyEvents ?? []) {
+    const a = k.participants?.[1]?.athlete;
+    if (!k.scoringPlay || k.shootout || k.type?.type === 'own-goal' || !a) continue;
+    out.push({ id: String(a.id), name: a.displayName, team: sideTeam(ev, k.team?.id), date: ev.date });
+  }
+  return out;
+}
+
+/**
+ * Ranking por jugador: [{ id, name, n, pen, team }] ordenado por cantidad (y nombre). `team` = el equipo con el que
+ * hizo el último (el actual, si cambió de club); `pen` = cuántos fueron de penal.
+ */
+export function leaderboard(items) {
+  const byId = new Map();
+  for (const x of [...items].sort((p, q) => Date.parse(p.date) - Date.parse(q.date))) {
+    const r = byId.get(x.id) ?? { id: x.id, name: x.name, n: 0, pen: 0, team: x.team };
+    r.n += 1;
+    if (x.pen) r.pen += 1;
+    r.team = x.team;
+    byId.set(x.id, r);
+  }
+  return [...byId.values()].sort((p, q) => q.n - p.n || p.name.localeCompare(q.name));
+}
+
+/** Goleadores de la fase en curso, contados desde sus partidos (también los que se están jugando). */
+export async function fetchScorers(standings, fetchImpl, now = new Date()) {
+  if (!standings?.phase) return [];
+  // Sin el inicio de la fase (datos guardados viejos), los últimos 6 meses: el filtro por fase deja solo los suyos.
+  const from = standings.phaseStart ? new Date(standings.phaseStart) : new Date(now.getFullYear(), now.getMonth() - 5, 1);
+  return leaderboard(phaseGoals(await fetchPhaseEvents(standings, from, now, fetchImpl)));
 }
 
 /** Partidos de la liga en un día («20261019», hora de la Argentina en ESPN): para los otros resultados de la fecha. */

@@ -11,13 +11,15 @@
 // - players.json: estadísticas de jugadores por torneo del año y sanciones probables (desde el detalle de cada partido).
 // - games.json: partido por partido del año con quién jugó y los goles con su minuto (página de cada jugador,
 //   «Adiviná el once» y «Vélez en cifras»).
+// - asistencias.json: asistidores de la fase en curso (desde el detalle de cada partido; lo ya leído queda en
+//   cache/asistencias.json, que el deploy conserva entre corridas).
 // Uso: node scripts/update-data.mjs
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { buildCalendar } from './ics.mjs';
 import { writeHeadlines } from './news.mjs';
 import { monthDay, onThisDay, rivalFacts } from '../src/lib/facts.js';
 import { linkTeams, relinkMatch } from '../src/lib/crests.js';
-import { VELEZ_ID, aggregateStats, discipline, gamesLog, fetchAverageParts, fetchLive, fetchRoster, fetchSchedule, fetchSummary, fetchTeams, goalEvents, playersFromSummary, tournamentOf } from '../src/lib/espn.js';
+import { VELEZ_ID, aggregateStats, discipline, gamesLog, fetchAverageParts, fetchLive, fetchPhaseEvents, fetchRoster, fetchSchedule, fetchSummary, fetchTeams, goalEvents, leaderboard, playersFromSummary, summaryAssists, tournamentOf } from '../src/lib/espn.js';
 
 const OUT = new URL('../public/data/generated/', import.meta.url);
 const FIRST_SEASON = 2000; // ESPN no tiene datos de Vélez anteriores a 2001
@@ -54,6 +56,14 @@ async function main() {
   console.log(`calendario: ${calendar.length} partidos`);
 
   await writePlayers(live);
+
+  // Asistidores del torneo. Si falla, la sección muestra solo los goleadores: no frena el deploy.
+  try {
+    const assists = await writeAssists(live.standings);
+    console.log(`asistencias: ${assists.read} partidos leídos ahora, ${assists.cached} del caché; líder: ${assists.top ?? '—'}`);
+  } catch (err) {
+    console.warn('No se pudieron armar las asistencias:', err.message);
+  }
 
   // Titulares de la web oficial (sin IA). Si falla, la página oculta la lista: no frena el deploy.
   try {
@@ -125,6 +135,38 @@ async function writeFacts(matches, live, crestIds) {
   }
   await writeFile(new URL('facts.json', OUT), JSON.stringify({ updatedAt: new Date().toISOString(), recent, rivals, days }));
   console.log(`previa: ${Object.keys(rivals).length} rivales, efemérides ${Object.entries(days).map(([d, l]) => `${d}: ${l.length}`).join(', ')}`);
+}
+
+// El scoreboard no trae las asistencias: salen del detalle de cada partido terminado de la fase (~15 por fecha). Lo ya
+// leído se guarda por partido; un partido cuyo detalle todavía no tiene todos los goles no se guarda y se vuelve a pedir.
+async function writeAssists(standings) {
+  const now = new Date();
+  const from = standings.phaseStart ? new Date(standings.phaseStart) : new Date(now.getFullYear(), now.getMonth() - 5, 1);
+  const events = (await withRetry(() => fetchPhaseEvents(standings, from, now))).filter((ev) => ev.competitions?.[0]?.status?.type?.completed);
+  const cacheFile = new URL('cache/asistencias.json', OUT);
+  let cache = {};
+  try {
+    cache = JSON.parse(await readFile(cacheFile, 'utf8'));
+  } catch {
+    // primera corrida o caché vencido: se lee todo
+  }
+  const goalsOf = (list) => list.filter((x) => x.scoringPlay && !x.shootout).length;
+  const byEvent = {};
+  const missing = events.filter((ev) => !cache[ev.id]);
+  for (let i = 0; i < missing.length; i += 8) {
+    await Promise.all(missing.slice(i, i + 8).map(async (ev) => {
+      const summary = await withRetry(() => fetchSummary({ id: ev.id, compSlug: 'arg.1' }));
+      const list = summaryAssists(summary, ev);
+      byEvent[ev.id] = list;
+      if (goalsOf(summary.keyEvents ?? []) >= goalsOf(ev.competitions[0].details ?? [])) cache[ev.id] = list;
+    }));
+  }
+  const ids = new Set(events.map((ev) => ev.id));
+  await mkdir(new URL('cache/', OUT), { recursive: true });
+  await writeFile(cacheFile, JSON.stringify(Object.fromEntries(Object.entries(cache).filter(([id]) => ids.has(id)))));
+  const players = leaderboard(events.flatMap((ev) => cache[ev.id] ?? byEvent[ev.id] ?? [])).slice(0, 20).map(({ pen, ...p }) => p);
+  await writeFile(new URL('asistencias.json', OUT), JSON.stringify({ updatedAt: now.toISOString(), phaseKey: standings.phaseKey, players }));
+  return { read: missing.length, cached: events.length - missing.length, top: players[0] && `${players[0].name} (${players[0].n})` };
 }
 
 async function writePlayers(live) {

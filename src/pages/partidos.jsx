@@ -57,7 +57,6 @@ function Copas({ fixture, results }) {
 function Partidos() {
   const state = useLiveData();
   const promedios = useJson(`${DATA}promedios.json`);
-  const players = useJson(`${DATA}players.json`);
   const games = useJson(`${DATA}games.json`);
   const data = state.data;
   const results = data ? mergeResults([], data.results) : undefined;
@@ -92,7 +91,7 @@ function Partidos() {
       </div>
       <Cifras games={games?.games} />
       <Tablas tables={data && promedios !== undefined ? buildTables(standingsNow(state), promedios) : failed ? [] : undefined} source={source} />
-      <Goleadores standings={data?.standings} players={players} refresh={data?.updatedAt} />
+      <Goleadores standings={data?.standings} refresh={data?.updatedAt} />
       {/* Con la tabla oficial: un partido en juego todavía cuenta como pendiente y se sumaría dos veces. */}
       <Playoffs standings={data?.standings} refresh={data?.updatedAt} />
       {data && <Copas fixture={data.fixture} results={results} />}

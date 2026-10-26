@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { aggregateStats, annualTable, averagesTable, discipline, gamesLog, goalEvents, headToHead, lineupFromSummary, keeperRecord, matchFigure, teamStats, keyEvents, completedResults, normalizeEvent, playingNow, normalizeScorers, normalizeStandings, playersFromSummary, playoffTeams, relegation, velezView } from '../src/lib/espn.js';
+import { aggregateStats, annualTable, averagesTable, discipline, gamesLog, goalEvents, headToHead, lineupFromSummary, keeperRecord, matchFigure, teamStats, keyEvents, completedResults, normalizeEvent, playingNow, leaderboard, phaseGoals, summaryAssists, normalizeStandings, playersFromSummary, playoffTeams, relegation, velezView } from '../src/lib/espn.js';
 
 const side = (id, name, homeAway, score, extra = {}) => ({
   homeAway,
@@ -188,16 +188,39 @@ test('relegation: último de promedios y último de la anual; si coinciden, el a
   assert.deepEqual(relegation(ids('a', 'b', 'c'), ids('x', 'y', 'c')), { promedios: 'c', anual: 'y' });
 });
 
-test('normalizeScorers: nombre, goles, partidos y equipo actual', () => {
-  const json = { leaders: { categories: [{ name: 'goalsLeaders', leaders: [
-    { value: 9, displayValue: 'Matches: 11, Goals: 9', athlete: { id: 1, displayName: 'Agustín Módica' }, team: { id: 11972, displayName: 'Gimnasia (Mendoza)', logos: [{ href: 'logo' }] } },
-    { value: 6, displayValue: 'raro', athlete: { id: 2, displayName: 'Ronaldo Martínez' }, team: { id: 21, displayName: 'Vélez Sarsfield' } },
-  ] }] } };
-  const out = normalizeScorers(json);
-  assert.deepEqual(out[0], { id: '1', name: 'Agustín Módica', goals: 9, pj: 11, team: { id: '11972', name: 'Gimnasia (Mendoza)', logo: 'logo' } });
-  assert.equal(out[1].pj, null);
-  assert.equal(out[1].team.name, 'Vélez');
-  assert.deepEqual(normalizeScorers({}), []);
+const scoreEv = (date, details) => ({
+  date,
+  competitions: [{ competitors: [{ team: { id: '21', displayName: 'Vélez Sarsfield', logo: 'v' } }, { team: { id: '19', displayName: 'Talleres (Córdoba)', logo: 't' } }], details }],
+});
+const goal = (id, name, team, extra = {}) => ({ scoringPlay: true, team: { id: team }, athletesInvolved: [{ id, displayName: name }], ...extra });
+
+test('phaseGoals: goles con equipo y penal, sin goles en contra ni definiciones por penales', () => {
+  const out = phaseGoals([scoreEv('2026-07-30T20:00Z', [
+    goal('9', 'Ronaldo Martínez', '19'), goal('5', 'Rival', '21', { ownGoal: true }), goal('7', 'Otro', '21', { penaltyKick: true }),
+    goal('8', 'Pateador', '21', { shootout: true }), { scoringPlay: false, team: { id: '21' }, athletesInvolved: [{ id: '3' }] },
+  ])]);
+  assert.deepEqual(out.map((g) => [g.id, g.team.name, g.pen]), [['9', 'Talleres', false], ['7', 'Vélez', true]]);
+});
+
+test('leaderboard: suma los goles con todos los clubes y muestra el último equipo', () => {
+  const goals = phaseGoals([
+    scoreEv('2026-10-26T00:30Z', [goal('9', 'Ronaldo Martínez', '21', { penaltyKick: true }), goal('9', 'Ronaldo Martínez', '21')]),
+    scoreEv('2026-07-30T20:00Z', [goal('9', 'Ronaldo Martínez', '19'), goal('1', 'Ana', '21'), goal('1', 'Ana', '21'), goal('2', 'Beto', '21')]),
+  ]);
+  const out = leaderboard(goals);
+  assert.deepEqual(out.map((r) => [r.name, r.n, r.pen, r.team.name]), [['Ronaldo Martínez', 3, 1, 'Vélez'], ['Ana', 2, 0, 'Vélez'], ['Beto', 1, 0, 'Vélez']]);
+});
+
+test('summaryAssists: el segundo participante de cada gol, sin goles en contra ni definiciones', () => {
+  const p = (...names) => names.map((n, i) => ({ athlete: { id: String(i + 1) + n, displayName: n } }));
+  const summary = { keyEvents: [
+    { scoringPlay: true, type: { type: 'goal' }, team: { id: '21' }, participants: p('Martínez', 'Gómez') },
+    { scoringPlay: true, type: { type: 'goal' }, team: { id: '21' }, participants: p('Robertone') },
+    { scoringPlay: true, type: { type: 'own-goal' }, team: { id: '21' }, participants: p('Rival', 'Nadie') },
+    { scoringPlay: true, shootout: true, type: { type: 'goal' }, team: { id: '19' }, participants: p('X', 'Y') },
+    { scoringPlay: false, type: { type: 'yellow-card' }, participants: p('A', 'B') },
+  ] };
+  assert.deepEqual(summaryAssists(summary, scoreEv('2026-10-26T00:30Z', [])).map((x) => [x.name, x.team.name]), [['Gómez', 'Vélez']]);
 });
 
 test('playoffTeams: cuántos juegan los playoffs según las fases que siguen a la regular', () => {
