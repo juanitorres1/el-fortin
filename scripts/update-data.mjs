@@ -60,7 +60,7 @@ async function main() {
   // Asistidores del torneo. Si falla, la sección muestra solo los goleadores: no frena el deploy.
   try {
     const assists = await writeAssists(live.standings);
-    console.log(`asistencias: ${assists.read} partidos leídos ahora, ${assists.cached} del caché; líder: ${assists.top ?? '—'}`);
+    console.log(`asistencias: ${assists.read} partidos leídos ahora (${assists.recent} de la última semana, por si ESPN corrigió algo), ${assists.cached} del caché; líder: ${assists.top ?? '—'}`);
   } catch (err) {
     console.warn('No se pudieron armar las asistencias:', err.message);
   }
@@ -139,6 +139,9 @@ async function writeFacts(matches, live, crestIds) {
 
 // El scoreboard no trae las asistencias: salen del detalle de cada partido terminado de la fase (~15 por fecha). Lo ya
 // leído se guarda por partido; un partido cuyo detalle todavía no tiene todos los goles no se guarda y se vuelve a pedir.
+// Los de la última semana se piden siempre aunque estén guardados: ESPN a veces corrige después una asistencia (o la
+// carga tarde) y, si no, la corrección no entraría nunca.
+const RECHECK_DAYS = 7;
 async function writeAssists(standings) {
   const now = new Date();
   const from = standings.phaseStart ? new Date(standings.phaseStart) : new Date(now.getFullYear(), now.getMonth() - 5, 1);
@@ -152,7 +155,9 @@ async function writeAssists(standings) {
   }
   const goalsOf = (list) => list.filter((x) => x.scoringPlay && !x.shootout).length;
   const byEvent = {};
-  const missing = events.filter((ev) => !cache[ev.id]);
+  const recent = (ev) => now - Date.parse(ev.date) < RECHECK_DAYS * 864e5;
+  const missing = events.filter((ev) => !cache[ev.id] || recent(ev));
+  const rechecked = missing.filter((ev) => cache[ev.id]).length;
   for (let i = 0; i < missing.length; i += 8) {
     await Promise.all(missing.slice(i, i + 8).map(async (ev) => {
       const summary = await withRetry(() => fetchSummary({ id: ev.id, compSlug: 'arg.1' }));
@@ -167,7 +172,7 @@ async function writeAssists(standings) {
   // Todos los que dieron alguna (la página muestra los 10 primeros, la lista completa y los de Vélez).
   const players = leaderboard(events.flatMap((ev) => cache[ev.id] ?? byEvent[ev.id] ?? [])).map(({ pen, ...p }) => p);
   await writeFile(new URL('asistencias.json', OUT), JSON.stringify({ updatedAt: now.toISOString(), phaseKey: standings.phaseKey, players }));
-  return { read: missing.length, cached: events.length - missing.length, top: players[0] && `${players[0].name} (${players[0].n})` };
+  return { read: missing.length, recent: rechecked, cached: events.length - missing.length, top: players[0] && `${players[0].name} (${players[0].n})` };
 }
 
 async function writePlayers(live) {

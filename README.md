@@ -70,7 +70,7 @@ datos (no lo redibuja) y enseguida pide lo nuevo a ESPN.
 | Próximo partido, fixture, resultados, tablas, plantel | ESPN (API no oficial, sin key) | En cada visita; cada 1 min si Vélez juega |
 | Minuto a minuto y alerta de gol en la pestaña | ESPN, detalle del partido | Cada 1 min mientras se juega |
 | Goleadores del torneo (contados desde los goles de cada partido del scoreboard, también en vivo; suman los goles con todos los clubes) y camino a los playoffs | ESPN | Cada 15 min |
-| Asistidores del torneo (`asistencias.json`, desde el detalle de cada partido; el deploy guarda lo leído en `cache/` y solo pide los partidos nuevos) | ESPN | Cada deploy |
+| Asistidores del torneo (`asistencias.json`, desde el detalle de cada partido; el deploy guarda lo leído en `cache/` y pide solo los partidos nuevos y los de la última semana, por si ESPN corrigió algo) | ESPN | Cada deploy |
 | Promedios | `promedios.json` (temporadas cerradas) + la fase en curso en vivo | Cada deploy / en cada visita |
 | Estadísticas del plantel y sanciones estimadas | `players.json`, sumando el detalle de cada partido; arqueros: vallas invictas y atajadas desde `games.json` | Cada deploy |
 | La previa: rachas, historial con el rival, un día como hoy | `facts.json` + resultados en vivo | Cada deploy |
