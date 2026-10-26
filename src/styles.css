@@ -180,6 +180,8 @@ a:hover { text-decoration-thickness: 2px; }
 
 /* Goleadores del torneo */
 .scorers-list { list-style: none; margin: 0 0 0.75rem; padding: 0; display: grid; gap: 0.4rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr)); }
+.scorers-own { margin: 0 0 0.75rem; }
+.scorers-more { margin-bottom: 0.75rem; }
 .scorer { display: grid; grid-template-columns: 2rem 1fr auto; gap: 0.75rem; align-items: center; padding: 0.6rem 0.8rem; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-sm); }
 .scorer.is-velez { background: var(--accent-soft); border-color: var(--accent); }
 .scorer-pos { font-size: 1.25rem; color: var(--text-2); text-align: center; }
@@ -391,6 +393,13 @@ tbody tr:last-child td { border-bottom: 0; }
 th { font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: var(--on-velez); background: var(--velez); }
 th.team, td.team { text-align: left; }
 td.team { font-weight: 600; padding-right: 1rem; }
+/* Escudo + nombre: los nombres largos (Estudiantes de Río Cuarto) pasan a dos renglones en vez de ensanchar la columna
+   y dejar los puntos fuera de la pantalla en el celular. */
+td.team:has(.team-in) { white-space: normal; }
+/* El mínimo va acá: en una celda de tabla los navegadores ignoran min-width. Con 11,5rem entran en un renglón los
+   nombres de dos palabras y la columna de puntos sigue a la vista en 375 px. */
+.team-in { display: flex; align-items: center; gap: 0.5rem; line-height: 1.25; min-width: 11.5rem; }
+td.team .team-in .crest { margin: 0; flex: none; }
 /* max-width: none anula el `img { max-width: 100% }`: en una tabla, una imagen con max-width en % no suma al ancho
    mínimo de la columna y los nombres largos se pisaban con la columna de al lado. */
 td.team .crest { width: 22px; height: 22px; max-width: none; object-fit: contain; vertical-align: middle; margin: -2px 0.5rem 0 0; }

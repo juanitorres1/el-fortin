@@ -4,7 +4,10 @@ on:
   push:
     branches: [main]
   schedule:
-    - cron: '17 * * * *' # cada 1 h: estadísticas de jugadores, sanciones, titulares, snapshot e historial
+    # Estadísticas de jugadores, Vélez en cifras, asistidores, sanciones, titulares, snapshot e historial. Se pide cada
+    # 15 min porque GitHub demora y saltea corridas programadas: con «cada 1 h» corría cada 3 a 5 h (oct-2026).
+    # Son ~1,5 min por corrida, gratis en un repo público.
+    - cron: '7,22,37,52 * * * *'
   workflow_dispatch:
 
 permissions:

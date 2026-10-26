@@ -210,7 +210,7 @@ function Historial() {
               <tbody>
                 {rows.slice(0, 12).map((x) => (
                   <tr key={x.id}>
-                    <td className="team"><Crest url={x.logo} size={22} /><button type="button" className="link-btn" onClick={() => pickFromTable(x.id)}>{x.name}</button></td>
+                    <td className="team"><span className="team-in"><Crest url={x.logo} size={22} /><button type="button" className="link-btn" onClick={() => pickFromTable(x.id)}>{x.name}</button></span></td>
                     <td>{x.pj}</td><td>{x.g}</td><td>{x.e}</td><td>{x.p}</td><td>{x.gf}</td><td>{x.gc}</td><td>{Math.round((x.g / x.pj) * 100)}%</td>
                   </tr>
                 ))}

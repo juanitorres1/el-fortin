@@ -3,7 +3,7 @@
 Sitio de hinchas (no oficial) de Vélez: https://juanitorres1.github.io/el-fortin/
 
 **React 19 + Vite 6**, multipágina, publicado en GitHub Pages. Three.js solo para el estadio en 3D (Club › Estadio), cargado aparte. Los datos salen de ESPN (en vivo desde el navegador) y
-de archivos que genera el deploy cada hora. No hay servidor propio ni API keys. Cada página se **prerenderiza** en el
+de archivos que genera el deploy (pedido cada 15 min; GitHub suele demorarlo). No hay servidor propio ni API keys. Cada página se **prerenderiza** en el
 deploy: el HTML ya trae el contenido y React lo actualiza en vivo.
 
 ## Uso
@@ -70,29 +70,29 @@ datos (no lo redibuja) y enseguida pide lo nuevo a ESPN.
 | Próximo partido, fixture, resultados, tablas, plantel | ESPN (API no oficial, sin key) | En cada visita; cada 1 min si Vélez juega |
 | Minuto a minuto y alerta de gol en la pestaña | ESPN, detalle del partido | Cada 1 min mientras se juega |
 | Goleadores del torneo (contados desde los goles de cada partido del scoreboard, también en vivo; suman los goles con todos los clubes) y camino a los playoffs | ESPN | Cada 15 min |
-| Asistidores del torneo (`asistencias.json`, desde el detalle de cada partido; el deploy guarda lo leído en `cache/` y solo pide los partidos nuevos) | ESPN | Cada deploy (1 h) |
-| Promedios | `promedios.json` (temporadas cerradas) + la fase en curso en vivo | Cada 1 h / en cada visita |
-| Estadísticas del plantel y sanciones estimadas | `players.json`, sumando el detalle de cada partido; arqueros: vallas invictas y atajadas desde `games.json` | Cada 1 h |
-| La previa: rachas, historial con el rival, un día como hoy | `facts.json` + resultados en vivo | Cada 1 h |
+| Asistidores del torneo (`asistencias.json`, desde el detalle de cada partido; el deploy guarda lo leído en `cache/` y solo pide los partidos nuevos) | ESPN | Cada deploy |
+| Promedios | `promedios.json` (temporadas cerradas) + la fase en curso en vivo | Cada deploy / en cada visita |
+| Estadísticas del plantel y sanciones estimadas | `players.json`, sumando el detalle de cada partido; arqueros: vallas invictas y atajadas desde `games.json` | Cada deploy |
+| La previa: rachas, historial con el rival, un día como hoy | `facts.json` + resultados en vivo | Cada deploy |
 | Cómo llega el rival (previa): últimos 5, posición, local/visitante, goles y su goleador | ESPN, calendario del rival (`teams/{id}/schedule`) + tabla y goleadores | Cada 30 min |
 | «Así terminó» (Inicio, hasta 4 días después): goles, rojas, cambios, estadísticas y figura por los números | ESPN, detalle del partido (`summary`) | Al entrar |
 | Probables formaciones (previa): último once de Vélez y del rival en una cancha | ESPN, detalle del último partido de cada uno (`summary`) | Al entrar |
-| Vélez en cifras (Partidos): local/visitante, goles por cuarto de hora, cómo llegan, primer gol, remontadas | `games.json` (goles con minuto de cada partido oficial del año) | Cada 1 h |
-| Mejores y peores rivales (Historial), por efectividad | `historico.json` + `matches.json` | Cada 1 h |
-| Historial por rival | `historico.json` (1931–2000, dominio público) + `matches.json` (ESPN, desde 2001); los equipos viejos se unen con ESPN por nombre (`escudos.json`) para tener escudo | Cada 1 h |
-| Noticias | velez.com.ar (no tiene RSS: se leen las secciones) | Cada 1 h |
+| Vélez en cifras (Partidos): local/visitante, goles por cuarto de hora, cómo llegan, primer gol, remontadas | `games.json` (goles con minuto de cada partido oficial del año) | Cada deploy |
+| Mejores y peores rivales (Historial), por efectividad | `historico.json` + `matches.json` | Cada deploy |
+| Historial por rival | `historico.json` (1931–2000, dominio público) + `matches.json` (ESPN, desde 2001); los equipos viejos se unen con ESPN por nombre (`escudos.json`) para tener escudo | Cada deploy |
+| Noticias | velez.com.ar (no tiene RSS: se leen las secciones) | Cada deploy |
 | Resumen de los últimos 7 días con IA | Qwen3-8B con llama.cpp en GitHub Actions | Todos los días 20:30, si hay notas nuevas |
-| Calendario para suscribirse | `velez.ics` | Cada 1 h |
+| Calendario para suscribirse | `velez.ics` | Cada deploy |
 | Pronóstico a la hora del partido | Open-Meteo (sin key) | Si el partido es dentro de 7 días |
 | Historia, estadio, cómo llegar, palmarés, ídolos, récords | `public/data/club.json` (a mano; récords de Wikipedia) | Cuando se edita |
 | Estadio en 3D (Club › Estadio): tribunas, capacidad, puertas y accesos, y línea de tiempo (1924 → hoy) | Three.js (se baja solo en esa sección) + `club.json › estadio.tribunas`; modelo hecho a partir de fotos aéreas | Cuando se edita |
 | Imagen para compartir el resultado y la previa (Inicio) | Se dibuja en el navegador con `<canvas>` (1080×1350) | Al tocar el botón |
 | Simulador «¿Qué necesita Vélez?» (Partidos) | Tabla en vivo + partidos que quedan (los mismos de los playoffs) | Cada 15 min |
 | Contador de visitas (solo el sitio publicado) | GoatCounter, sin cookies ni datos personales: panel en `juanignaciotorres.goatcounter.com` | En cada visita |
-| Récords del historial y efemérides (Historial) | `historico.json` + `matches.json` + `club.json`, calculados en el navegador | Cada 1 h |
+| Récords del historial y efemérides (Historial) | `historico.json` + `matches.json` + `club.json`, calculados en el navegador | Cada deploy |
 | Juegos: trivia diaria | Preguntas armadas solas con `club.json` (sin preguntas a mano) | Una nueva por día |
-| Juegos: prode y «Adiviná el once» | Fixture en vivo + `games.json`; lo elegido queda en el navegador | Cada 1 h |
-| Ficha de cada jugador | `players.json` + `games.json` (partido por partido del año) | Cada 1 h |
+| Juegos: prode y «Adiviná el once» | Fixture en vivo + `games.json`; lo elegido queda en el navegador | Cada deploy |
+| Ficha de cada jugador | `players.json` + `games.json` (partido por partido del año) | Cada deploy |
 | Modo cancha | ESPN: el partido, el scoreboard de la fecha y la tabla de la zona, la anual y los promedios «si terminara así» | Cada 1 min en vivo |
 
 Si ESPN no responde, la página usa el último `snapshot.json` y lo indica.
@@ -115,7 +115,7 @@ Si ESPN no responde, la página usa el último `snapshot.json` y lo indica.
 
 ## Deploy y mantenimiento
 
-- `deploy.yml`: en cada push a `main`, cada 1 h y a mano. Corre `npm ci`, tests, `npm run data`, el chequeo de datos,
+- `deploy.yml`: en cada push a `main`, cada 15 min (GitHub demora y saltea corridas programadas: con «cada 1 h» corría cada 3 a 5 h) y a mano. Corre `npm ci`, tests, `npm run data`, el chequeo de datos,
   `npm run build` (con prerender) y publica `dist/`. Las miniaturas de noticias se cachean entre corridas (ImageMagick).
 - `news-summary.yml`: todos los días a las 20:30, si velez.com.ar publicó notas que el último resumen no tuvo en
   cuenta, genera uno nuevo con IA (5-8 min) y lanza el deploy; si no hay nada nuevo, termina en segundos.

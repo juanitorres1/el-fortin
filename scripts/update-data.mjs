@@ -164,7 +164,8 @@ async function writeAssists(standings) {
   const ids = new Set(events.map((ev) => ev.id));
   await mkdir(new URL('cache/', OUT), { recursive: true });
   await writeFile(cacheFile, JSON.stringify(Object.fromEntries(Object.entries(cache).filter(([id]) => ids.has(id)))));
-  const players = leaderboard(events.flatMap((ev) => cache[ev.id] ?? byEvent[ev.id] ?? [])).slice(0, 20).map(({ pen, ...p }) => p);
+  // Todos los que dieron alguna (la página muestra los 10 primeros, la lista completa y los de Vélez).
+  const players = leaderboard(events.flatMap((ev) => cache[ev.id] ?? byEvent[ev.id] ?? [])).map(({ pen, ...p }) => p);
   await writeFile(new URL('asistencias.json', OUT), JSON.stringify({ updatedAt: now.toISOString(), phaseKey: standings.phaseKey, players }));
   return { read: missing.length, cached: events.length - missing.length, top: players[0] && `${players[0].name} (${players[0].n})` };
 }

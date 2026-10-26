@@ -78,7 +78,7 @@ export function StandingsTable({ table }) {
           return (
             <tr key={r.id} className={isVelez ? 'is-velez' : r.mark ? 'is-desc' : undefined} aria-current={isVelez ? 'true' : undefined}>
               <td className="pos">{r.pos}</td>
-              <td className="team"><Crest url={r.logo} size={22} />{r.name}{r.live && <LiveDot live={r.live} />}{r.mark && <span className="tag tag-desc">{r.mark}</span>}</td>
+              <td className="team"><span className="team-in"><Crest url={r.logo} size={22} /><span>{r.name}{r.live && <LiveDot live={r.live} />}</span></span>{r.mark && <span className="tag tag-desc">{r.mark}</span>}</td>
               {table.columns.map((c) => <td key={c.key} className={c.bold ? 'pts' : undefined}>{cell(c, r.values[c.key])}</td>)}
             </tr>
           );

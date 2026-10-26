@@ -31,6 +31,7 @@ function Leaders({ rows, unit }) {
 /** `standings` = tabla en vivo (fase en curso); `refresh` = hora de los datos (para volver a contar los goles). */
 export function Goleadores({ standings, refresh }) {
   const [pick, setPick] = useState('goles');
+  const [all, setAll] = useState(false);
   const scorers = useCached(standings?.phaseKey ?? null, () => fetchScorers(standings), { ttl: TTL_MS, refresh });
   const assistsFile = useJson(`${DATA}asistencias.json`);
   // Las asistencias guardadas son de una fase: si el torneo ya cambió (y el deploy todavía no corrió), no se muestran.
@@ -42,19 +43,27 @@ export function Goleadores({ standings, refresh }) {
   const key = available.includes(pick) ? pick : available[0];
   const rows = lists[key];
   const phase = (standings.phase ?? '').replace('Torneo ', '');
-  const shown = rows.slice(0, TOP);
-  const own = !shown.some((s) => s.team?.id === VELEZ_ID) && rows.find((s) => s.team?.id === VELEZ_ID);
+  // Hay muchos empatados (26 jugadores con 3 asistencias o más): se muestran los 10 primeros y, a pedido, todos.
+  const shown = all ? rows : rows.slice(0, TOP);
+  const own = rows.filter((s) => s.team?.id === VELEZ_ID);
   const unit = LISTS[key].unit;
   return (
     <section className="block" id="goleadores" aria-labelledby="t-goleadores">
       <h2 className="h2" id="t-goleadores">{phase ? `Goleadores y asistidores del ${phase}` : 'Goleadores y asistidores'}</h2>
       {available.length > 1 && <Segmented label="Elegir lista" options={available.map((k) => ({ value: k, label: LISTS[k].label }))} value={key} onChange={setPick} />}
+      {own.length > 0 && (
+        <p className="scorers-own"><b>De Vélez:</b> {own.map((s) => `${s.name} ${s.n}`).join(' · ')}</p>
+      )}
       <Leaders rows={shown} unit={unit} />
+      {rows.length > TOP && (
+        <button type="button" className="btn btn-outline scorers-more" aria-expanded={all} onClick={() => setAll(!all)}>
+          {all ? `Ver los ${TOP} primeros` : `Ver todos (${rows.length})`}
+        </button>
+      )}
       <p className="muted small">
-        {own && `El de Vélez es ${own.name}, con ${plural(own.n, unit[0], unit[1])}. `}
         {key === 'goles'
           ? 'Contados desde los partidos de ESPN, también los que se están jugando. Cuentan todos los goles del torneo aunque el jugador haya cambiado de club; el equipo es con el que hizo el último.'
-          : `Desde el detalle de cada partido en ESPN; se actualizan con cada deploy (cada hora). El equipo es con el que dio la última.`}
+          : `Desde el detalle de cada partido en ESPN; se actualizan con cada deploy (varias veces por hora). El equipo es con el que dio la última.`}
       </p>
     </section>
   );

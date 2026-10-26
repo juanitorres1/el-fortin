@@ -42,7 +42,7 @@ un servidor en Render/Railway/Vercel). Node ≥ 20. Detalle en `README.md`.
   (lo genera el deploy; no va al repo).
 - `scripts/` (Node): `update-data.mjs` (genera `public/data/generated/`), `news.mjs` (titulares y resumen IA),
   `ics.mjs`, `check-data.mjs` (issue «Revisar datos del sitio»), `import-historico.mjs` (uso único, ya corrido).
-- Workflows: `deploy.yml` (push a `main`, cada 1 h y manual: `npm ci`, tests, datos, chequeo, `vite build`, publica
+- Workflows: `deploy.yml` (push a `main`, cada 15 min —GitHub lo demora: con «cada 1 h» corría cada 3 a 5 h— y manual: `npm ci`, tests, datos, chequeo, `vite build`, publica
   `dist/`), `news-summary.yml` (todos los días 20:30 AR, solo si hay notas nuevas: resumen de 7 días con Qwen3-8B
   como artifact; el deploy baja el artifact más nuevo) y `keepalive.yml` (commit mínimo si
   hace 45 días que no hay commits).
