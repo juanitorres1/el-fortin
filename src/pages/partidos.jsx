@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { mount } from '../main.jsx';
 import { velezView } from '../lib/espn.js';
-import { DATA, mergeResults, sourceNote } from '../lib/core.js';
+import { DATA, mergeResults, sourceNote, standingsNow } from '../lib/core.js';
 import { useJson, useLiveData, useNow } from '../hooks/data.js';
 import { useLiveTitle, useScrollToHash } from '../hooks/page.js';
 import { Layout, PageBand } from '../components/Layout.jsx';
@@ -91,8 +91,9 @@ function Partidos() {
         </section>
       </div>
       <Cifras games={games?.games} />
-      <Tablas tables={data && promedios !== undefined ? buildTables(data.standings, promedios) : failed ? [] : undefined} source={source} />
+      <Tablas tables={data && promedios !== undefined ? buildTables(standingsNow(state), promedios) : failed ? [] : undefined} source={source} />
       <Goleadores standings={data?.standings} players={players} refresh={data?.updatedAt} />
+      {/* Con la tabla oficial: un partido en juego todavía cuenta como pendiente y se sumaría dos veces. */}
       <Playoffs standings={data?.standings} refresh={data?.updatedAt} />
       {data && <Copas fixture={data.fixture} results={results} />}
     </Layout>

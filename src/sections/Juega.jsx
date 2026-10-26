@@ -2,7 +2,7 @@
 // último resultado y posición. Va en la banda azul del Inicio.
 import { VELEZ_ID, fetchSummary, keyEvents, velezView } from '../lib/espn.js';
 import { fetchForecast, wantsForecast } from '../lib/weather.js';
-import { capitalize, fmt, withTimeout } from '../lib/core.js';
+import { capitalize, fmt, standingsNow, withTimeout } from '../lib/core.js';
 import { streakLines } from '../lib/facts.js';
 import { previaCard, resultCard, scorersLine } from '../lib/card.js';
 import { useCached, useNow } from '../hooks/data.js';
@@ -67,7 +67,7 @@ function Facts({ last, zone, row, children }) {
   return (
     <dl className="juega-facts">
       {lastFact}
-      {row && <div><dt>Posición</dt><dd><b className="num">{row.rank}°</b> en la {zone.name} · {row.pts} pts</dd></div>}
+      {row && <div><dt>Posición</dt><dd><b className="num">{row.rank}°</b> en la {zone.name} · {row.pts} pts{row.live && ' (en vivo)'}</dd></div>}
       {children}
     </dl>
   );
@@ -109,7 +109,7 @@ export function Juega({ state, results, facts }) {
   }
   const { data } = state;
   const next = data.fixture.find((m) => m.status === 'in') ?? data.fixture.find((m) => !m.completed);
-  const zone = data.standings.groups.find((g) => g.rows.some((r) => r.id === VELEZ_ID));
+  const zone = standingsNow(state).groups.find((g) => g.rows.some((r) => r.id === VELEZ_ID));
   const row = zone?.rows.find((r) => r.id === VELEZ_ID);
   const info = { last: results.at(-1), zone, row };
 

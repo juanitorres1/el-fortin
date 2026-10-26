@@ -2,7 +2,7 @@
 // Si la página viene renderizada del deploy, arrancan con los mismos datos que el HTML (src/initial.js): así React
 // hidrata sin redibujar y después actualiza en vivo.
 import { useEffect, useRef, useState } from 'react';
-import { DATA, REFRESH_LIVE_MS, REFRESH_MS, getJson, loadLive, withTimeout } from '../lib/core.js';
+import { DATA, REFRESH_LIVE_MS, REFRESH_MS, getJson, isLive, loadLive, withTimeout } from '../lib/core.js';
 import { fetchRoster } from '../lib/espn.js';
 import { getInitial } from '../initial.js';
 
@@ -28,7 +28,8 @@ export function useJson(url) {
 }
 
 /**
- * Datos en vivo de ESPN (o el snapshot si no responde), refrescados cada 5 min y cada 1 min si Vélez está jugando.
+ * Datos en vivo de ESPN (o el snapshot si no responde), refrescados cada 5 min y cada 1 min si Vélez u otro partido
+ * de la liga se está jugando (la tabla en vivo).
  * Devuelve { status: 'loading' | 'ok' | 'error', data, live }.
  */
 export function useLiveData() {
@@ -42,7 +43,7 @@ export function useLiveData() {
         const r = await loadLive();
         if (!on) return;
         setState({ status: 'ok', ...r });
-        timer = setTimeout(tick, r.data.fixture.some((m) => m.status === 'in') ? REFRESH_LIVE_MS : REFRESH_MS);
+        timer = setTimeout(tick, isLive(r.data) ? REFRESH_LIVE_MS : REFRESH_MS);
       } catch (err) {
         console.error(err);
         if (!on) return;

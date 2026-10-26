@@ -48,6 +48,15 @@ export async function loadLive() {
   }
 }
 
+/**
+ * La tabla para mostrar (`state` = useLiveData()): con los partidos que se están jugando si los datos son en vivo.
+ * Con la copia guardada, no: esos partidos pueden haber terminado hace rato.
+ */
+export const standingsNow = ({ data, live }) => (live && data.playing?.length ? liveTables(data.standings, data.playing) : data.standings);
+
+/** ¿Hay que refrescar cada minuto? Si juega Vélez o hay partidos de la liga en juego (la tabla en vivo). */
+export const isLive = (data) => data.fixture.some((m) => m.status === 'in') || Boolean(data.playing?.length);
+
 export function mergeResults(history, recent) {
   const byId = new Map(history.map((m) => [m.id, m]));
   for (const m of recent) byId.set(m.id, m);
@@ -78,23 +87,26 @@ export function goalBy(prev, m) {
 /**
  * Tabla «en vivo»: las filas de una zona con los partidos que se están jugando sumados como si terminaran así.
  * `rows` = filas ({ id, pts, pj, gf, gc, dg, rank }); `events` = partidos del día (solo cuentan los que están en juego).
- * Devuelve las filas reordenadas (puntos, diferencia, goles) con `rank`, `before` (puesto antes) y `live` (juega ahora).
+ * Devuelve las filas reordenadas (puntos, diferencia, goles) con `rank`, `before` (puesto antes) y `live`: null si no
+ * juega ahora o { result: 'G' | 'E' | 'P', score: '2-1' (el suyo primero), rival }.
  */
 export function liveStandings(rows, events) {
-  const byId = new Map(rows.map((r) => [r.id, { ...r, before: r.rank, live: false }]));
+  const byId = new Map(rows.map((r) => [r.id, { ...r, before: r.rank, live: null }]));
   for (const m of events) {
     if (m.status !== 'in') continue;
     const h = m.home.score ?? 0;
     const a = m.away.score ?? 0;
-    for (const [id, gf, gc] of [[m.home.id, h, a], [m.away.id, a, h]]) {
+    for (const [id, gf, gc, rival] of [[m.home.id, h, a, m.away.name], [m.away.id, a, h, m.home.name]]) {
       const r = byId.get(id);
       if (!r) continue;
-      r.live = true;
+      const result = gf > gc ? 'G' : gf < gc ? 'P' : 'E';
+      r.live = { result, score: `${gf}-${gc}`, rival };
       r.pj += 1;
+      if (r.g != null) r[result.toLowerCase()] += 1; // g, e o p, si la fila los trae
       r.gf = (r.gf ?? 0) + gf;
       r.gc = (r.gc ?? 0) + gc;
       r.dg = (r.dg ?? 0) + gf - gc;
-      r.pts += gf > gc ? 3 : gf === gc ? 1 : 0;
+      r.pts += result === 'G' ? 3 : result === 'E' ? 1 : 0;
     }
   }
   return [...byId.values()]

@@ -19,9 +19,13 @@ function averagesFrom(promedios, standings) {
   return currentIds.size ? averagesTable(parts, currentIds) : null;
 }
 
-/** Todas las tablas para mostrar: [{ name, columns, rows: [{ pos, id, name, logo, mark, values }], note }]. */
+/**
+ * Todas las tablas para mostrar: [{ name, columns, rows: [{ pos, id, name, logo, mark, live, values }], note }].
+ * `standings` puede venir con los partidos en juego (liveStandings): esas filas traen `live`.
+ */
 export function buildTables(standings, promedios) {
-  const toRow = (r) => ({ pos: r.rank, id: r.id, name: r.name, logo: r.logo, values: { ...r, goles: `${r.gf}:${r.gc}` } });
+  const toRow = (r) => ({ pos: r.rank, id: r.id, name: r.name, logo: r.logo, live: r.live, values: { ...r, goles: `${r.gf}:${r.gc}` } });
+  const liveById = new Map(standings.groups.flatMap((g) => g.rows).filter((r) => r.live).map((r) => [r.id, r.live]));
   const phase = (standings.phase ?? '').replace('Torneo ', '');
   const tables = standings.groups
     .filter((g) => g.rows.length)
@@ -41,7 +45,7 @@ export function buildTables(standings, promedios) {
       name: 'Promedios',
       columns: [{ key: 'prom', title: 'Prom', bold: true }, ...avg.seasons.map((y) => ({ key: `t${y}`, title: String(y) })), { key: 'pts', title: 'Pts' }, { key: 'pj', title: 'PJ' }],
       rows: avg.rows.map((r) => ({
-        pos: r.rank, id: r.id, name: r.name, logo: r.logo, mark: r.id === rel.promedios ? DESC : null,
+        pos: r.rank, id: r.id, name: r.name, logo: r.logo, mark: r.id === rel.promedios ? DESC : null, live: liveById.get(r.id),
         values: { prom: r.prom.toFixed(3), pts: r.pts, pj: r.pj, ...Object.fromEntries(avg.seasons.map((y) => [`t${y}`, r.bySeason[y] ?? '–'])) },
       })),
       note: `Puntos ÷ partidos de las temporadas ${avg.seasons.join(', ')}, sin playoffs; los ascendidos cuentan desde que llegaron a Primera. ${rulesApply(standings.year) ? RELEGATION_NOTE : `Reglamento de descensos de ${standings.year} todavía sin revisar: no se marca quién desciende.`}`,
@@ -51,6 +55,14 @@ export function buildTables(standings, promedios) {
 }
 
 const cell = (c, v) => (c.key === 'dg' ? `${Number(v) > 0 ? '+' : ''}${v ?? ''}` : v ?? '');
+
+const LIVE_TEXT = { G: (l) => `gana ${l.score} a ${l.rival}`, E: (l) => `empata ${l.score} con ${l.rival}`, P: (l) => `pierde ${l.score} con ${l.rival}` };
+
+/** Puntito del partido en juego: verde gana, gris empata, rojo pierde (con el marcador para lectores de pantalla). */
+function LiveDot({ live }) {
+  const text = `En juego: ${LIVE_TEXT[live.result](live)}`;
+  return <span className={`live-dot live-${live.result}`} title={text}><span className="sr-only">{text}</span></span>;
+}
 
 /** Una tabla de posiciones con Vélez resaltado. */
 export function StandingsTable({ table }) {
@@ -66,7 +78,7 @@ export function StandingsTable({ table }) {
           return (
             <tr key={r.id} className={isVelez ? 'is-velez' : r.mark ? 'is-desc' : undefined} aria-current={isVelez ? 'true' : undefined}>
               <td className="pos">{r.pos}</td>
-              <td className="team"><Crest url={r.logo} size={22} />{r.name}{r.mark && <span className="tag tag-desc">{r.mark}</span>}</td>
+              <td className="team"><Crest url={r.logo} size={22} />{r.name}{r.live && <LiveDot live={r.live} />}{r.mark && <span className="tag tag-desc">{r.mark}</span>}</td>
               {table.columns.map((c) => <td key={c.key} className={c.bold ? 'pts' : undefined}>{cell(c, r.values[c.key])}</td>)}
             </tr>
           );
@@ -88,6 +100,16 @@ export function Tablas({ tables, source }) {
         : (
           <>
             <Segmented label="Elegir tabla" options={tables.map((t) => ({ value: t.name, label: t.name }))} value={table.name} onChange={setSelected} />
+            {table.rows.some((r) => r.live) && (
+              <p className="live-legend small">
+                <b>Tabla en vivo:</b> cuenta los partidos que se están jugando como si terminaran así.{' '}
+                <span className="live-keys">
+                  <span><span className="live-dot live-G" aria-hidden="true" /> gana</span>
+                  <span><span className="live-dot live-E" aria-hidden="true" /> empata</span>
+                  <span><span className="live-dot live-P" aria-hidden="true" /> pierde</span>
+                </span>
+              </p>
+            )}
             <div className="table-scroll"><StandingsTable table={table} /></div>
             <p className="muted small">{[table.note, source].filter(Boolean).join(' · ')}</p>
           </>

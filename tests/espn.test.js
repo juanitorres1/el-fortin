@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { aggregateStats, annualTable, averagesTable, discipline, gamesLog, goalEvents, headToHead, lineupFromSummary, keeperRecord, matchFigure, teamStats, keyEvents, normalizeEvent, normalizeScorers, normalizeStandings, playersFromSummary, playoffTeams, relegation, velezView } from '../src/lib/espn.js';
+import { aggregateStats, annualTable, averagesTable, discipline, gamesLog, goalEvents, headToHead, lineupFromSummary, keeperRecord, matchFigure, teamStats, keyEvents, normalizeEvent, playingNow, normalizeScorers, normalizeStandings, playersFromSummary, playoffTeams, relegation, velezView } from '../src/lib/espn.js';
 
 const side = (id, name, homeAway, score, extra = {}) => ({
   homeAway,
@@ -278,4 +278,11 @@ test('goalEvents: goles con minuto y tipo, en orden, sin la definición por pena
     { min: 12, add: 0, velez: true, kind: 'ec' }, { min: 45, add: 1, velez: true, kind: 'tl' },
     { min: 55, add: 0, velez: false, kind: 'p' }, { min: 90, add: 3, velez: true, kind: 'c' },
   ]);
+});
+
+test('playingNow: solo los partidos en juego de la fase en curso', () => {
+  const ev = (id, state, slug) => ({ ...event({ id, state, home: side('21', 'Vélez Sarsfield', 'home', 1), away: side('5', 'Boca Juniors', 'away', 0) }), season: { slug } });
+  const sb = { events: [ev('1', 'in', 'torneo-clausura'), ev('2', 'post', 'torneo-clausura'), ev('3', 'in', 'clausura-round-of-16')] };
+  assert.deepEqual(playingNow(sb, { phase: 'Torneo Clausura' }).map((m) => m.id), ['1']);
+  assert.deepEqual(playingNow(null, { phase: 'Torneo Clausura' }), []);
 });

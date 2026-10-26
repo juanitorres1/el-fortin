@@ -399,6 +399,14 @@ td.pts { font: 700 1.3rem/1 var(--display); }
 tr.is-velez td { background: var(--accent-soft); font-weight: 800; }
 tr.is-velez td.pos { box-shadow: inset 5px 0 0 var(--accent); color: var(--text); }
 tr.is-desc td.pos { box-shadow: inset 5px 0 0 var(--loss); }
+/* Partido en juego: verde gana, gris empata, rojo pierde. El empate va hueco para no depender solo del color. */
+.live-dot { display: inline-block; width: 0.625rem; height: 0.625rem; border-radius: 50%; margin-left: 0.45rem; vertical-align: 0.05rem; background: var(--live-c); border: 2px solid var(--live-c); }
+.live-G { --live-c: var(--win); }
+.live-E { --live-c: var(--draw); background: transparent; }
+.live-P { --live-c: var(--loss); }
+.live-legend { margin-bottom: 0.75rem; }
+.live-keys { display: inline-flex; flex-wrap: wrap; gap: 0 1rem; }
+.live-keys .live-dot { margin: 0 0.15rem 0 0; }
 .tag-desc { display: table; background: var(--loss); color: var(--on-signal); margin: 0.25rem 0 0 calc(22px + 0.5rem); white-space: nowrap; }
 
 /* ---------- Plantel ---------- */

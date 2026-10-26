@@ -192,6 +192,16 @@ export async function fetchStandings(fetchImpl) {
 // ---------- Promedios ----------
 
 const phaseKey = (league, season, type) => `${league}-${season}${type ? `-${type}` : ''}`;
+// «Torneo Clausura» → «torneo-clausura», como el `season.slug` de los partidos del scoreboard.
+const phaseSlug = (phase) => (phase ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, '-');
+
+/** Partidos de la fase regular en curso que se están jugando ahora, del scoreboard de la liga (para la tabla en vivo). */
+export function playingNow(scoreboard, standings) {
+  return (scoreboard?.events ?? [])
+    .filter((ev) => ev.season?.slug === phaseSlug(standings?.phase))
+    .map(normalizeEvent)
+    .filter((m) => m.status === 'in');
+}
 
 /**
  * Tablas de cada fase regular de las últimas 3 temporadas (la actual y las 2 anteriores), que es lo que cuenta para
@@ -256,7 +266,7 @@ export function relegation(averageRows, annualRows) {
  * El scoreboard de ESPN no acepta rangos de fechas largos: se pide mes por mes hasta el fin de la fase.
  */
 export async function fetchPhaseRemaining(standings, fetchImpl, now = new Date()) {
-  const slug = (standings.phase ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, '-');
+  const slug = phaseSlug(standings.phase);
   const end = standings.phaseEnd ? new Date(standings.phaseEnd) : new Date(now.getFullYear(), now.getMonth() + 1, 28);
   const months = [];
   for (let d = new Date(now.getFullYear(), now.getMonth(), 1); d <= end && months.length < 6; d.setMonth(d.getMonth() + 1)) {
@@ -298,14 +308,18 @@ export async function fetchScoreboard(day, league = 'arg.1', fetchImpl) {
   return (json.events ?? []).map(normalizeEvent).sort(byDate);
 }
 
-/** Lo que cambia día a día: próximos partidos, resultados de la temporada y la tabla. */
+/**
+ * Lo que cambia día a día: próximos partidos, resultados de la temporada, la tabla y los partidos de la liga que se
+ * están jugando (`playing`, para la tabla en vivo; si el scoreboard falla, ninguno: la tabla de ESPN alcanza).
+ */
 export async function fetchLive(fetchImpl) {
-  const [fixture, results, standings] = await Promise.all([
+  const [fixture, results, standings, scoreboard] = await Promise.all([
     fetchSchedule({ fixture: true }, fetchImpl),
     fetchSchedule({}, fetchImpl),
     fetchStandings(fetchImpl),
+    getJson(`${SITE}/arg.1/scoreboard`, fetchImpl).catch(() => null),
   ]);
-  return { updatedAt: new Date().toISOString(), fixture, results: results.filter((m) => m.completed), standings };
+  return { updatedAt: new Date().toISOString(), fixture, results: results.filter((m) => m.completed), standings, playing: playingNow(scoreboard, standings) };
 }
 
 // ---------- Cálculos desde la óptica de Vélez ----------

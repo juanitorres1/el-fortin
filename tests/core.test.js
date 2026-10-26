@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { espnDay, goalBy, liveStandings, liveTables, scoreTitle } from '../src/lib/core.js';
+import { espnDay, goalBy, isLive, liveStandings, liveTables, scoreTitle, standingsNow } from '../src/lib/core.js';
 
 const live = (home, away, { velezHome = true, id = '1' } = {}) => ({
   id, clock: "67'",
@@ -53,4 +53,31 @@ test('liveTables: el partido en juego suma en su zona y en la anual', () => {
   assert.deepEqual(out.annual.rows.map((r) => [r.id, r.pts, r.rank]), [['21', 41, 1], ['B', 40, 2], ['X', 39, 3]]);
   assert.equal(out.annual.phases.length, 2);
   assert.equal(standings.annual.rows[2].pts, 38); // no toca el original
+});
+
+test('liveTables: G/E/P y el resultado en juego de cada equipo (para los puntitos de las tablas)', () => {
+  const row = (id, rank, pts) => ({ id, name: `E${id}`, rank, pj: 10, g: 0, e: 0, p: 0, gf: 10, gc: 10, dg: 0, pts });
+  const playing = (h, a, hs, as) => ({ status: 'in', home: { id: h, name: `E${h}`, score: hs }, away: { id: a, name: `E${a}`, score: as } });
+  const s = liveTables({ groups: [{ rows: [row('1', 1, 20), row('2', 2, 19), row('3', 3, 18)] }], annual: null }, [playing('3', '1', 2, 1)]);
+  const [a, b, c] = s.groups[0].rows;
+  assert.deepEqual([a.id, a.rank, a.pts, a.g, a.p, a.live], ['3', 1, 21, 1, 0, { result: 'G', score: '2-1', rival: 'E1' }]);
+  assert.deepEqual([b.id, b.pts, b.p, b.live], ['1', 20, 1, { result: 'P', score: '1-2', rival: 'E3' }]);
+  assert.deepEqual([c.id, c.live], ['2', null]);
+  const d = liveTables({ groups: [{ rows: [row('1', 1, 10), row('2', 2, 10)] }] }, [playing('2', '1', 0, 0)]).groups[0].rows;
+  assert.deepEqual(d.map((r) => [r.id, r.pts, r.e, r.live.result]), [['1', 11, 1, 'E'], ['2', 11, 1, 'E']]);
+});
+
+test('standingsNow: tabla en vivo solo con datos en vivo, no con la copia guardada', () => {
+  const data = {
+    standings: { groups: [{ rows: [{ id: '1', rank: 1, pj: 1, g: 0, e: 0, p: 1, gf: 0, gc: 1, dg: -1, pts: 0 }] }] },
+    playing: [{ status: 'in', home: { id: '1', name: 'A', score: 1 }, away: { id: '2', name: 'B', score: 0 } }],
+  };
+  assert.equal(standingsNow({ data, live: true }).groups[0].rows[0].pts, 3);
+  assert.equal(standingsNow({ data, live: false }), data.standings);
+});
+
+test('isLive: refresca rápido si juega Vélez o hay partidos de la liga en juego', () => {
+  assert.equal(isLive({ fixture: [{ status: 'pre' }], playing: [] }), false);
+  assert.equal(isLive({ fixture: [{ status: 'in' }] }), true);
+  assert.equal(isLive({ fixture: [], playing: [{ status: 'in' }] }), true);
 });
