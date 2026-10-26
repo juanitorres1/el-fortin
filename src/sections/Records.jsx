@@ -47,7 +47,7 @@ export function HistoryRecords({ matches }) {
             {r.wins.map((w) => (
               <li key={`${w.when}-${w.rival}-${w.score}`}>
                 <b className="num">{w.score}</b>
-                <span><strong>{w.rival}</strong><small className="muted">{w.when} · {w.comp}, {WHERE[w.where]}</small></span>
+                <span><strong>{w.rival}</strong><small className="muted">{w.when} · {w.comp}{WHERE[w.where] ? `, ${WHERE[w.where]}` : ''}</small></span>
               </li>
             ))}
           </ol>

@@ -9,7 +9,7 @@ export const SITE = {
   ogImage: 'assets/og.png',
   ogImageAlt: 'El Fortín, sitio de hinchas de Vélez Sarsfield',
   sources:
-    'Partidos, tablas, plantel y estadísticas: ESPN. Noticias: velez.com.ar. Pronóstico: Open-Meteo (CC BY 4.0). Historial 1931–2000: dataset «Liga Argentina 1931–2023» (dominio público). Récords: Wikipedia (CC BY-SA).',
+    'Partidos, tablas, plantel y estadísticas: ESPN. Noticias: velez.com.ar. Pronóstico: Open-Meteo (CC BY 4.0). Historial 1931–2000: dataset «Liga Argentina 1931–2023» (dominio público); copas 1970–2000: RSSSF (rsssf.org, J. P. Andrés, P. Ciullini, K. Stokkermans y otros). Récords: Wikipedia (CC BY-SA).',
 };
 
 // Íconos del menú inferior en celular (trazos SVG de 24×24).

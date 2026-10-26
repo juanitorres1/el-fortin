@@ -41,7 +41,7 @@ un servidor en Render/Railway/Vercel). Node ≥ 20. Detalle en `README.md`.
 - `public/`: `assets/` (escudo, `og.png`, `icons/`), `data/club.json` (a mano), `data/historico.json`, `data/generated/`
   (lo genera el deploy; no va al repo).
 - `scripts/` (Node): `update-data.mjs` (genera `public/data/generated/`), `news.mjs` (titulares y resumen IA),
-  `ics.mjs`, `check-data.mjs` (issue «Revisar datos del sitio»), `import-historico.mjs` (uso único, ya corrido).
+  `ics.mjs`, `check-data.mjs` (issue «Revisar datos del sitio»), `import-historico.mjs` (uso único, ya corrido), `import-copas.mjs` (`copas-historicas.txt` → `public/data/copas-historicas.json`; correrlo si se corrige el .txt: un test avisa si quedaron distintos).
 - Workflows: `deploy.yml` (push a `main`, cada 15 min —GitHub lo demora: con «cada 1 h» corría cada 3 a 5 h— y manual: `npm ci`, tests, datos, chequeo, `vite build`, publica
   `dist/`), `news-summary.yml` (todos los días 20:30 AR, solo si hay notas nuevas: resumen de 7 días con Qwen3-8B
   como artifact; el deploy baja el artifact más nuevo) y `keepalive.yml` (commit mínimo si
@@ -66,7 +66,8 @@ npm run preview # sirve dist/
   ImageMagick (`public/data/generated/img/news/`, cacheadas entre corridas).
 - **Resumen con IA (diario, si hay notas nuevas):** Qwen3-8B con llama.cpp en la CPU del runner (gratis, sin keys). Se descartan los puntos
   con números o fechas que no estén en su nota; aviso visible de que lo escribe una IA; se oculta a los 10 días.
-- **Historial:** 1931–2000 del dataset de Kaggle (dominio público) y desde 2001 de ESPN.
+- **Historial:** 1931–2000 del dataset de Kaggle (dominio público, solo Primera y sin fechas), copas 1970–2000 de RSSSF
+  (transcriptas a mano, con crédito en el pie; cancha explícita: `neutral` y `venueUnknown`) y desde 2001 de ESPN.
 - **Récords:** Wikipedia (CC BY-SA).
 - **Promedios:** calculados con ESPN (últimas 3 temporadas, sin playoffs). Validados una vez contra Promiedos (oct-2026,
   coinciden los 30 equipos); Promiedos no se usa en el sitio.
@@ -142,6 +143,6 @@ npm run preview # sirve dist/
   sumarlas iterando con él.
 - Push de gol con la app cerrada: necesita un servicio que mande las notificaciones (cambia la infraestructura).
 - Votaciones o ranking entre hinchas (figura del partido, prode compartido): necesitan backend.
-- Historial de la era amateur (1919–1930) y copas anteriores a 2001 (fuente posible: RSSSF, formato irregular).
+- Historial de la era amateur (1919–1930) (fuente posible: RSSSF, formato irregular). Las copas 1970–2000 ya están.
 - Página por rival: el historial ya tiene `?rival=` para compartir; una página propia sería con `src/site.js` + un
   HTML + `src/pages/<clave>.jsx` (ver README).

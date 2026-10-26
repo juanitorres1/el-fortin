@@ -1,0 +1,149 @@
+# Partidos de Vélez en copas anteriores a 2001 (desde 2001 los da ESPN), transcriptos a mano desde RSSSF
+# (Rec.Sport.Soccer Statistics Foundation): «You are free to copy this document in whole or part provided that proper
+# acknowledgement is given to the authors». Cada edición lleva el link a su página. Lo convierte a JSON
+# scripts/import-copas.mjs (uso único; el resultado va al repo porque el pasado no cambia).
+#
+# Formato:  fecha | ronda | local goles-goles visitante | notas
+#   fecha   AAAA-MM-DD. Con «~» delante es aproximada: RSSSF solo da el rango de la ronda (sirve para ordenar; no se muestra).
+#   local   el primero es el local. RSSSF a veces ordena por llave y no por localía: ahí va la nota «sin cancha».
+#   notas   separadas por «;»: neutral [ciudad] · sin cancha (no se sabe quién fue local) · pen L-V (penales, en el orden
+#           local-visitante) · prórroga · nota: texto libre
+
+== Copa Libertadores 1980 | https://www.rsssf.org/sacups/copa80.html
+1980-02-27 | Primera fase · Grupo 1 | River Plate 0-0 Vélez
+1980-03-01 | Primera fase · Grupo 1 | Atlético Chalaco 0-2 Vélez
+1980-03-14 | Primera fase · Grupo 1 | Vélez 2-0 Sporting Cristal
+1980-03-27 | Primera fase · Grupo 1 | Vélez 5-2 Atlético Chalaco
+1980-04-09 | Primera fase · Grupo 1 | Sporting Cristal 0-1 Vélez
+1980-04-25 | Primera fase · Grupo 1 | Vélez 0-0 River Plate
+1980-05-08 | Desempate del grupo | Vélez 1-1 River Plate | neutral Avellaneda; nota: Vélez pasó por diferencia de gol
+1980-06-13 | Semifinal · Grupo 1 | Vélez 0-1 Internacional
+1980-06-18 | Semifinal · Grupo 1 | América de Cali 0-0 Vélez
+1980-06-25 | Semifinal · Grupo 1 | Internacional 3-1 Vélez
+1980-07-16 | Semifinal · Grupo 1 | Vélez 0-0 América de Cali
+
+== Copa Libertadores 1994 | https://www.rsssf.org/sacups/copa94.html
+1994-02-13 | Primera fase · Grupo 2 | Vélez 1-1 Boca Juniors
+1994-03-09 | Primera fase · Grupo 2 | Cruzeiro 1-1 Vélez
+1994-03-17 | Primera fase · Grupo 2 | Vélez 1-0 Palmeiras
+1994-03-23 | Primera fase · Grupo 2 | Boca Juniors 1-2 Vélez
+1994-03-31 | Primera fase · Grupo 2 | Vélez 2-0 Cruzeiro
+1994-04-07 | Primera fase · Grupo 2 | Palmeiras 4-1 Vélez
+1994-04-21 | Octavos de final | Defensor Sporting 1-1 Vélez
+1994-04-27 | Octavos de final | Vélez 0-0 Defensor Sporting | pen 4-2
+1994-07-27 | Cuartos de final | Minervén 0-0 Vélez
+1994-08-03 | Cuartos de final | Vélez 2-0 Minervén
+1994-08-10 | Semifinal | Junior 2-1 Vélez
+1994-08-17 | Semifinal | Vélez 2-1 Junior | pen 5-4
+1994-08-24 | Final | Vélez 1-0 São Paulo
+1994-08-31 | Final | São Paulo 1-0 Vélez | pen 3-5; nota: Vélez campeón de América
+
+== Copa Libertadores 1995 | https://www.rsssf.org/sacups/copa95.html
+1995-04-26 | Octavos de final | Independiente 0-3 Vélez
+1995-05-03 | Octavos de final | Vélez 2-2 Independiente
+1995-07-26 | Cuartos de final | River Plate 1-1 Vélez
+1995-08-02 | Cuartos de final | Vélez 0-0 River Plate | pen 3-5
+
+== Copa Libertadores 1997 | https://www.rsssf.org/sacups/copa97.html
+1997-02-19 | Primera fase · Grupo 2 | Racing Club 1-2 Vélez
+1997-02-26 | Primera fase · Grupo 2 | El Nacional 1-0 Vélez
+1997-03-02 | Primera fase · Grupo 2 | Emelec 2-3 Vélez
+1997-03-12 | Primera fase · Grupo 2 | Vélez 1-0 Racing Club
+1997-03-18 | Primera fase · Grupo 2 | Vélez 3-0 El Nacional
+1997-04-05 | Primera fase · Grupo 2 | Vélez 1-1 Emelec
+1997-04-23 | Octavos de final | Sporting Cristal 0-0 Vélez
+1997-05-08 | Octavos de final | Vélez 0-1 Sporting Cristal
+
+== Copa Libertadores 1999 | https://www.rsssf.org/sacups/copa99.html
+1999-02-24 | Primera fase · Grupo 2 | Vélez 1-1 River Plate
+1999-03-09 | Primera fase · Grupo 2 | Once Caldas 0-0 Vélez
+1999-03-11 | Primera fase · Grupo 2 | Deportivo Cali 1-0 Vélez
+1999-03-17 | Primera fase · Grupo 2 | River Plate 1-1 Vélez
+1999-03-23 | Primera fase · Grupo 2 | Vélez 1-0 Once Caldas
+1999-04-08 | Primera fase · Grupo 2 | Vélez 3-0 Deportivo Cali
+1999-04-14 | Octavos de final | Universitario 0-0 Vélez
+1999-04-21 | Octavos de final | Vélez 4-0 Universitario
+1999-05-05 | Cuartos de final | River Plate 2-0 Vélez
+1999-05-12 | Cuartos de final | Vélez 1-0 River Plate
+
+== Copa Intercontinental 1994 | https://www.rsssf.org/tablest/toyota94.html
+1994-12-01 | Final | Milan 0-2 Vélez | neutral Tokio; nota: Vélez campeón del mundo
+
+== Recopa Sudamericana 1994 | https://www.rsssf.org/sacups/recopa94.html
+1995-04-09 | Final | Independiente 1-0 Vélez | neutral Tokio
+
+== Copa Interamericana 1994 | https://www.rsssf.org/tablesi/intam94.html
+1996-02-17 | Final | Cartaginés 0-0 Vélez | nota: la edición 1994 se jugó en 1996
+1996-02-24 | Final | Vélez 2-0 Cartaginés | nota: Vélez campeón
+
+== Supercopa Libertadores 1995 | https://www.rsssf.org/sacups/supcopa95.html
+~1995-09-14 | Octavos de final | Vélez 2-3 Flamengo
+~1995-10-03 | Octavos de final | Flamengo 3-0 Vélez | nota: en Uberlândia
+
+== Supercopa Libertadores 1996 | https://www.rsssf.org/sacups/supcopa96.html
+1996-09-18 | Octavos de final | Grêmio 3-3 Vélez
+1996-10-02 | Octavos de final | Vélez 1-0 Grêmio
+1996-10-16 | Cuartos de final | Vélez 3-0 Olimpia
+1996-10-23 | Cuartos de final | Olimpia 0-1 Vélez
+1996-10-30 | Semifinal | Santos 1-2 Vélez
+1996-11-14 | Semifinal | Vélez 1-1 Santos
+1996-11-20 | Final | Cruzeiro 0-1 Vélez
+1996-12-04 | Final | Vélez 2-0 Cruzeiro | nota: Vélez campeón
+
+== Recopa Sudamericana 1996 | https://www.rsssf.org/sacups/recopa96.html
+1997-04-13 | Final | Vélez 1-1 River Plate | neutral Kobe; pen 4-2; nota: Vélez campeón
+
+== Supercopa Libertadores 1997 | https://www.rsssf.org/sacups/supcopa97.html
+1997-08-27 | Grupo 2 | Olimpia 1-0 Vélez
+1997-09-03 | Grupo 2 | São Paulo 5-1 Vélez
+1997-09-23 | Grupo 2 | Flamengo 0-1 Vélez | neutral Florianópolis
+1997-10-14 | Grupo 2 | Vélez 1-1 Olimpia
+1997-10-23 | Grupo 2 | Vélez 3-3 São Paulo
+1997-10-28 | Grupo 2 | Vélez 0-3 Flamengo
+
+== Copa CONMEBOL 1992 | https://www.rsssf.org/sacups/conmebol92.html
+~1992-08-05 | Primera ronda | Vélez 0-0 Deportivo Español
+~1992-08-12 | Primera ronda | Deportivo Español 2-0 Vélez
+
+== Copa Mercosur 1998 | https://www.rsssf.org/sacups/mercosur98.html
+1998-08-05 | Grupo D | Boca Juniors 0-1 Vélez
+1998-08-19 | Grupo D | Vélez 1-0 Flamengo
+1998-09-03 | Grupo D | Cerro Porteño 2-2 Vélez
+1998-09-17 | Grupo D | Vélez 2-1 Boca Juniors
+1998-09-30 | Grupo D | Flamengo 2-0 Vélez
+1998-10-13 | Grupo D | Vélez 1-1 Cerro Porteño
+1998-10-27 | Cuartos de final | Vélez 3-4 Olimpia
+1998-11-04 | Cuartos de final | Olimpia 2-1 Vélez
+
+== Copa Mercosur 1999 | https://www.rsssf.org/sacups/mercosur99.html
+1999-07-28 | Grupo B | Vélez 1-1 Grêmio
+1999-08-05 | Grupo B | Independiente 1-1 Vélez
+1999-08-10 | Grupo B | Vélez 0-3 Corinthians
+1999-08-24 | Grupo B | Grêmio 1-0 Vélez
+1999-09-21 | Grupo B | Vélez 1-1 Independiente | nota: suspendido el 1 de septiembre en el minuto 44 (0-0), el 21 se jugó el segundo tiempo
+1999-10-05 | Grupo B | Corinthians 2-0 Vélez
+
+== Copa Mercosur 2000 | https://www.rsssf.org/sacups/mercosur00.html
+2000-08-01 | Grupo A | River Plate 2-1 Vélez
+2000-08-29 | Grupo A | Vélez 3-1 Universidad de Chile
+2000-09-12 | Grupo A | Vélez 1-1 Flamengo
+2000-09-20 | Grupo A | Vélez 1-1 River Plate
+2000-09-26 | Grupo A | Universidad de Chile 1-1 Vélez
+2000-10-24 | Grupo A | Flamengo 2-0 Vélez
+
+== Copa Argentina 1970 | https://www.rsssf.org/tablesa/argcup70.html
+1970-03-04 | Primera ronda | Argentinos del Norte 1-0 Vélez | nota: en Tucumán
+1970-03-06 | Primera ronda | Argentinos del Norte 1-2 Vélez | sin cancha; pen 3-4
+1970-03-11 | Segunda ronda | Instituto 0-0 Vélez | sin cancha
+1970-03-14 | Segunda ronda | Instituto 0-2 Vélez | sin cancha
+1970-09-10 | Cuartos de final | Chacarita Juniors 0-1 Vélez | sin cancha
+1970-09-23 | Cuartos de final | Vélez 2-1 Chacarita Juniors | sin cancha
+1971-02-16 | Semifinal | Vélez 3-2 Racing Club | neutral Atlanta
+1971-02-18 | Semifinal | Racing Club 2-3 Vélez | neutral Atlanta; prórroga
+1971-03-03 | Final | San Lorenzo 2-2 Vélez | neutral Atlanta; nota: la vuelta nunca se jugó y la copa quedó sin campeón
+
+== Copa Centenario 1993 | https://www.rsssf.org/tablesa/arg-centenario93.html
+1993-06-26 | Primera ronda | Vélez 1-1 Ferro Carril Oeste | sin cancha
+1993-07-04 | Primera ronda | Vélez 1-0 Ferro Carril Oeste | sin cancha
+1993-07-11 | Ronda de ganadores | Racing Club 3-2 Vélez | sin cancha
+1993-07-25 | Ronda de perdedores | Boca Juniors 1-0 Vélez | sin cancha

@@ -88,20 +88,23 @@ export function rivalFacts(matches, rivalId) {
 // ESPN marca un «local» aunque se juegue en cancha neutral (y su campo neutralSite viene en false): se deduce por
 // competencia. Copas nacionales y supercopas van en cancha neutral; también las finales y, en la Copa de la Liga, las
 // semifinales. Los playoffs de la Liga se juegan en la cancha del mejor ubicado (local de verdad).
+// Las copas anteriores a 2001 (copas-historicas.json) traen la cancha explícita: `neutral` manda sobre la deducción.
 const NEUTRAL_COMPS = new Set(['Copa Argentina', 'Supercopa Argentina', 'Supercopa Internacional', 'Trofeo de Campeones']);
 export const isNeutral = (m) =>
-  NEUTRAL_COMPS.has(m.comp) || /Final$/.test(m.round ?? '') || (m.comp === 'Copa de la Liga' && /Semifinal/.test(m.round ?? ''));
+  m.neutral ?? (NEUTRAL_COMPS.has(m.comp) || /Final$/.test(m.round ?? '') || (m.comp === 'Copa de la Liga' && /Semifinal/.test(m.round ?? '')));
+/** Dónde jugó Vélez: 'local' | 'visitante' | 'neutral' | 'sin-dato' (copas viejas en las que no se sabe quién fue local). */
+export const whereOf = (m) => (m.venueUnknown ? 'sin-dato' : isNeutral(m) ? 'neutral' : m.home.id === VELEZ_ID ? 'local' : 'visitante');
 
 /**
  * Detalle del historial con un rival (para su página): de local y de visitante, mayor goleada y peor derrota,
  * últimos triunfos de local y de visitante. `list` = partidos contra ese rival, en cualquier orden.
- * Cada partido devuelto es { year, score, comp, where: 'local' | 'visitante' | 'neutral' }.
+ * Cada partido devuelto es { year, score, comp, where: 'local' | 'visitante' | 'neutral' | 'sin-dato' }.
  */
 export function rivalDetail(list) {
   const played = list.filter(official);
   // Del más viejo al más nuevo: los históricos (sin fecha) por año y antes que los de ESPN del mismo año.
   const ordered = [...played].sort((a, b) => (a.date ? Date.parse(a.date) : Date.UTC(a.year, 0, 1)) - (b.date ? Date.parse(b.date) : Date.UTC(b.year, 0, 1)));
-  const where = (m) => (isNeutral(m) ? 'neutral' : m.home.id === VELEZ_ID ? 'local' : 'visitante');
+  const where = whereOf;
   const info = (m) => (m ? { year: when(m), score: scoreline(m), comp: m.comp, where: where(m) } : null);
   const split = (w) => {
     const rs = ordered.filter((m) => where(m) === w).map(scoreResult);
@@ -196,7 +199,7 @@ export function historyRecords(matches) {
   const view = (m) => {
     const velezHome = m.home.id === VELEZ_ID;
     const [v, r] = velezHome ? [m.home.score, m.away.score] : [m.away.score, m.home.score];
-    return { m, v, r, rival: velezHome ? m.away.name : m.home.name, where: isNeutral(m) ? 'neutral' : velezHome ? 'local' : 'visitante' };
+    return { m, v, r, rival: velezHome ? m.away.name : m.home.name, where: whereOf(m) };
   };
   const all = ordered.map(view);
   const info = (x) => ({ score: `${x.v}-${x.r}`, rival: x.rival, when: dayLabel(x.m), year: Number(when(x.m)), comp: x.m.comp, where: x.where });

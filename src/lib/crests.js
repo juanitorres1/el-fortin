@@ -3,6 +3,8 @@
 // guarda data/generated/escudos.json; el historial y la previa cambian el id del dataset por el de ESPN, así el rival
 // queda unido con sus partidos desde 2001 y con su escudo. Si no aparece, queda el escudo gris.
 
+import { teamLogo } from './espn.js';
+
 /** Siglas del dataset, escritas completas como las pone ESPN. */
 const EXPAND = { mdp: 'mar del plata', rde: 'remedios de escalada', sde: 'santiago del estero', sj: 'san juan' };
 
@@ -50,4 +52,15 @@ export function relinkMatch(m, ids) {
   if (!ids) return m;
   const fix = (t) => (ids[t.id] ? { ...t, id: ids[t.id] } : t);
   return { ...m, home: fix(m.home), away: fix(m.away) };
+}
+
+/**
+ * Un partido de copas-historicas.json (copas anteriores a 2001, ver scripts/import-copas.mjs) con la forma de los de
+ * ESPN: escudo, penales en cada equipo (`pen`) y la cancha explícita (`neutral` siempre true o false, para que no se
+ * deduzca por competencia; `venueUnknown` cuando RSSSF no dice quién fue local).
+ */
+export function hydrateCup(m, ids) {
+  const r = relinkMatch(m, ids);
+  const side = (t, i) => ({ ...t, logo: /^\d+$/.test(t.id) ? teamLogo(t.id) : null, pen: m.pen ? m.pen[i] : null });
+  return { ...r, status: 'post', completed: true, neutral: Boolean(m.neutral), home: side(r.home, 0), away: side(r.away, 1) };
 }

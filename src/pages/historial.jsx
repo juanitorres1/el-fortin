@@ -1,26 +1,32 @@
-// Historial contra cada rival: Primera División 1931–2000 (dataset público) + todas las competiciones desde 2001 (ESPN).
+// Historial contra cada rival: Primera División 1931–2000 (dataset público), copas 1970–2000 (RSSSF) y todas las
+// competiciones desde 2001 (ESPN).
 // La URL lleva el rival (?rival=id): se puede compartir y abre directo en ese rival.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { mount } from '../main.jsx';
 import { headToHead, teamLogo } from '../lib/espn.js';
 import { rivalDetail, rivalFacts, rivalRanking } from '../lib/facts.js';
 import { DATA, mergeResults } from '../lib/core.js';
-import { relinkMatch } from '../lib/crests.js';
+import { hydrateCup, relinkMatch } from '../lib/crests.js';
 import { useJson } from '../hooks/data.js';
 import { Layout, PageBand } from '../components/Layout.jsx';
 import { MatchList } from '../components/Match.jsx';
 import { Crest, Empty, Skeletons } from '../components/ui.jsx';
 import { Efemerides, HistoryRecords } from '../sections/Records.jsx';
 
-const COPAS = new Set(['Copa Argentina', 'Supercopa Argentina', 'Supercopa Internacional', 'Trofeo de Campeones']);
-const INTERNACIONAL = new Set(['Copa Libertadores', 'Copa Sudamericana', 'Recopa Sudamericana']);
+const COPAS = new Set(['Copa Argentina', 'Copa Centenario', 'Supercopa Argentina', 'Supercopa Internacional', 'Trofeo de Campeones']);
+const INTERNACIONAL = new Set([
+  'Copa Libertadores', 'Copa Sudamericana', 'Recopa Sudamericana', 'Supercopa Libertadores', 'Copa CONMEBOL', 'Copa Mercosur',
+  'Copa Intercontinental', 'Copa Interamericana',
+]);
 const COMP_FILTERS = {
   todas: ['Todas', () => true],
   liga: ['Torneos locales', (m) => !COPAS.has(m.comp) && !INTERNACIONAL.has(m.comp)],
   copas: ['Copas', (m) => COPAS.has(m.comp)],
   internacional: ['Internacional', (m) => INTERNACIONAL.has(m.comp)],
 };
-const ERA_FILTERS = { todas: ['Desde 1931', () => true], historico: ['1931–2000', (m) => !m.date], espn: ['Desde 2001', (m) => Boolean(m.date)] };
+// Por año y no por si tiene fecha: las copas anteriores a 2001 sí la tienen.
+const yearOf = (m) => m.year ?? new Date(m.date).getFullYear();
+const ERA_FILTERS = { todas: ['Desde 1931', () => true], historico: ['1931–2000', (m) => yearOf(m) <= 2000], espn: ['Desde 2001', (m) => yearOf(m) > 2000] };
 const WHERE = { local: 'de local', visitante: 'de visitante', neutral: 'en cancha neutral' };
 
 // historico.json viene en formato compacto (ver scripts/import-historico.mjs). `ids` = escudos.json › ids: los equipos
@@ -63,7 +69,7 @@ function Detail({ row, filtered }) {
   const d = rivalDetail(row.matches);
   const streak = rivalFacts(filtered, row.id)?.streak;
   const rec = (x) => `${x.g} G · ${x.e} E · ${x.p} P`;
-  const match = (x) => (x ? <><b className="num">{x.score}</b> en {x.year}<small> · {x.comp}, {WHERE[x.where]}</small></> : <span className="muted">No hay</span>);
+  const match = (x) => (x ? <><b className="num">{x.score}</b> en {x.year}<small> · {x.comp}{WHERE[x.where] ? `, ${WHERE[x.where]}` : ''}</small></> : <span className="muted">No hay</span>);
   const items = [
     ['De local', rec(d.home)],
     ['De visitante', rec(d.away)],
@@ -137,12 +143,17 @@ function RivalRanking({ rows, onPick }) {
 function Historial() {
   const espn = useJson(`${DATA}matches.json`);
   const old = useJson('data/historico.json');
+  const cups = useJson('data/copas-historicas.json');
   const club = useJson('data/club.json');
   const crests = useJson(`${DATA}escudos.json`);
   const matches = useMemo(
-    () => (espn === undefined || old === undefined || crests === undefined ? undefined
-      : [...(old?.matches ?? []).map((m) => hydrateHistoric(m, crests?.ids)), ...mergeResults(espn?.matches ?? [], [])]),
-    [espn, old, crests],
+    () => (espn === undefined || old === undefined || cups === undefined || crests === undefined ? undefined
+      : [
+        ...(old?.matches ?? []).map((m) => hydrateHistoric(m, crests?.ids)),
+        ...(cups?.matches ?? []).map((m) => hydrateCup(m, crests?.ids)),
+        ...mergeResults(espn?.matches ?? [], []),
+      ]),
+    [espn, old, cups, crests],
   );
   const [rival, setRival] = useState(null);
   // El rival de la URL se lee al montar (el HTML prerenderizado es el mismo para todos los ?rival=).
@@ -175,7 +186,7 @@ function Historial() {
   };
   const note = !matches ? 'Cargando historial…'
     : matches.some((m) => !m.date)
-      ? `${matches.length.toLocaleString('es-AR')} partidos oficiales: Primera División 1931–2000 (dataset público) y todas las competiciones desde 2001 (ESPN).`
+      ? `${matches.length.toLocaleString('es-AR')} partidos oficiales: Primera División 1931–2000 (dataset público), copas 1970–2000 (RSSSF) y todas las competiciones desde 2001 (ESPN).`
       : `${matches.length.toLocaleString('es-AR')} partidos oficiales registrados por ESPN desde 2001.`;
 
   return (

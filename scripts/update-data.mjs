@@ -18,7 +18,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { buildCalendar } from './ics.mjs';
 import { writeHeadlines } from './news.mjs';
 import { monthDay, onThisDay, rivalFacts } from '../src/lib/facts.js';
-import { linkTeams, relinkMatch } from '../src/lib/crests.js';
+import { hydrateCup, linkTeams, relinkMatch } from '../src/lib/crests.js';
 import { VELEZ_ID, aggregateStats, discipline, gamesLog, fetchAverageParts, fetchLive, fetchPhaseEvents, fetchRoster, fetchSchedule, fetchSummary, fetchTeams, goalEvents, leaderboard, playersFromSummary, summaryAssists, tournamentOf } from '../src/lib/espn.js';
 
 const OUT = new URL('../public/data/generated/', import.meta.url);
@@ -93,10 +93,13 @@ async function main() {
 
 // Ligas de ESPN donde buscar a los equipos del historial viejo (de Primera a la Primera C y la Copa Argentina).
 const TEAM_LEAGUES = ['arg.1', 'arg.2', 'arg.3', 'arg.4', 'arg.5', 'arg.copa'];
+// Copas de Vélez anteriores a 2001 (RSSSF, ver scripts/import-copas.mjs): ya vienen con los ids de ESPN que se encontraron.
+const readCups = async () => JSON.parse(await readFile(new URL('../public/data/copas-historicas.json', import.meta.url), 'utf8')).matches;
+
 async function writeCrests(matches) {
   const historic = JSON.parse(await readFile(new URL('../public/data/historico.json', import.meta.url), 'utf8')).matches;
   const unlinked = new Map();
-  for (const m of historic) for (const t of [m.home, m.away]) if (!/^\d+$/.test(t.id)) unlinked.set(t.id, t.name);
+  for (const m of [...historic, ...(await readCups())]) for (const t of [m.home, m.away]) if (!/^\d+$/.test(t.id)) unlinked.set(t.id, t.name);
   const espn = matches.flatMap((m) => [m.home, m.away]).map((t) => ({ id: t.id, names: [t.name] }));
   for (const league of TEAM_LEAGUES) {
     try {
@@ -118,8 +121,9 @@ async function writeFacts(matches, live, crestIds) {
   const historic = JSON.parse(await readFile(new URL('../public/data/historico.json', import.meta.url), 'utf8')).matches.map((m) => ({
     ...relinkMatch(m, crestIds), date: null, comp: 'Primera División', completed: true,
   }));
+  const cups = (await readCups()).map((m) => hydrateCup(m, crestIds));
   const club = JSON.parse(await readFile(new URL('../public/data/club.json', import.meta.url), 'utf8'));
-  const all = [...historic, ...matches];
+  const all = [...historic, ...cups, ...matches];
   const slim = (t) => ({ id: t.id, name: t.name, score: t.score });
   const recent = matches.filter((m) => m.comp !== 'Amistoso').slice(-RECENT_FOR_STREAKS)
     .map((m) => ({ id: m.id, date: m.date, comp: m.comp, completed: m.completed, home: slim(m.home), away: slim(m.away) }));
@@ -131,7 +135,7 @@ async function writeFacts(matches, live, crestIds) {
   const days = {};
   for (let i = 0; i < FACT_DAYS; i++) {
     const md = monthDay(new Date(Date.now() + i * 864e5));
-    days[md] = onThisDay(md, { matches, club });
+    days[md] = onThisDay(md, { matches: [...cups, ...matches], club }); // los históricos no tienen fecha
   }
   await writeFile(new URL('facts.json', OUT), JSON.stringify({ updatedAt: new Date().toISOString(), recent, rivals, days }));
   console.log(`previa: ${Object.keys(rivals).length} rivales, efemérides ${Object.entries(days).map(([d, l]) => `${d}: ${l.length}`).join(', ')}`);

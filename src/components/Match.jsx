@@ -3,6 +3,14 @@ import { velezView } from '../lib/espn.js';
 import { fmt } from '../lib/core.js';
 import { Crest, Empty, ResultBadge, Skeletons } from './ui.jsx';
 
+// Las copas anteriores a 2001 (copas-historicas.json) traen la ronda, la cancha neutral explícita y a veces no se
+// sabe quién fue local; el resto dice local o visitante, como siempre.
+const where = (m, velezHome, velez, rival) => [
+  m.season && m.round,
+  m.venueUnknown ? null : m.neutral === true ? 'Cancha neutral' : velezHome ? 'Local' : 'Visitante',
+  velez.pen != null && rival.pen != null && `Penales ${velez.pen}-${rival.pen}`,
+].filter(Boolean).join(' · ');
+
 export function MatchRow({ m, showYear = false }) {
   const d = new Date(m.date);
   const { velezHome, velez, rival, result } = velezView(m);
@@ -19,7 +27,7 @@ export function MatchRow({ m, showYear = false }) {
       <div className="match-main">
         <div className="match-rival"><Crest url={rival.logo} size={24} /><span>{rival.name}</span></div>
         <div className="match-sub">
-          <span className="tag">{m.season ?? m.comp}</span>{velezHome ? 'Local' : 'Visitante'}{m.venue ? ` · ${m.venue}` : ''}
+          <span className="tag">{m.season ?? m.comp}</span>{where(m, velezHome, velez, rival)}{m.venue ? ` · ${m.venue}` : ''}
         </div>
       </div>
       <div className="match-score">
