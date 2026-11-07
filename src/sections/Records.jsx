@@ -31,7 +31,7 @@ export function HistoryRecords({ matches }) {
     <section className="block" id="rachas" aria-labelledby="t-rachas">
       <div className="section-head">
         <h2 className="h2" id="t-rachas">Récords del historial</h2>
-        <p className="muted small">Se actualizan solos con cada partido. Rachas desde 2001.</p>
+        <p className="muted small">Se actualizan solos con cada partido. Rachas de 1919–1930 y desde 2001 (los años con todos los partidos fechados).</p>
       </div>
       <dl className="rec-totals">
         <div><dt>Partidos oficiales desde {t.since}</dt><dd className="num">{t.pj.toLocaleString('es-AR')}</dd></div>
@@ -120,7 +120,7 @@ export function Efemerides({ matches, club }) {
               {items.map((x) => <li key={`${x.year}-${x.text}`}><b className="num">{x.year}</b><span>{x.text}</span></li>)}
             </ul>
           ) : <Empty>No hay triunfos ni hitos registrados para esa fecha. Probá con otra.</Empty>}
-          <p className="muted small">Triunfos con fecha (desde 2001) y momentos del club.</p>
+          <p className="muted small">Triunfos con fecha (1919–1930, copas 1970–2000 y desde 2001) y momentos del club.</p>
         </div>
         {upcoming.length > 0 && (
           <div className="card efe-next">

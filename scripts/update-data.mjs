@@ -5,7 +5,7 @@
 //   .github/workflows/news-summary.yml y el deploy lo baja como artifact.
 // - promedios.json: tablas de las fases que cuentan para los promedios (últimas 3 temporadas).
 // - facts.json: datos para la previa del Inicio (rachas, historial con el próximo rival, un día como hoy).
-// - escudos.json: ids de ESPN para los equipos del historial 1931–2000 que no los tienen (escudo y unión con sus
+// - escudos.json: ids de ESPN para los equipos del historial 1919–2000 que no los tienen (escudo y unión con sus
 //   partidos desde 2001; ver src/lib/crests.js).
 // - velez.ics: calendario de partidos para suscribirse (Google, Apple, Outlook).
 // - players.json: estadísticas de jugadores por torneo del año y sanciones probables (desde el detalle de cada partido).
@@ -93,8 +93,10 @@ async function main() {
 
 // Ligas de ESPN donde buscar a los equipos del historial viejo (de Primera a la Primera C y la Copa Argentina).
 const TEAM_LEAGUES = ['arg.1', 'arg.2', 'arg.3', 'arg.4', 'arg.5', 'arg.copa'];
-// Copas de Vélez anteriores a 2001 (RSSSF, ver scripts/import-copas.mjs): ya vienen con los ids de ESPN que se encontraron.
-const readCups = async () => JSON.parse(await readFile(new URL('../public/data/copas-historicas.json', import.meta.url), 'utf8')).matches;
+// Copas de Vélez anteriores a 2001 y Primera División de la era amateur, 1919–1930 (RSSSF, ver scripts/import-copas.mjs):
+// ya vienen con los ids de ESPN que se encontraron y con fecha, así que se tratan igual.
+const readRsssf = async (file) => JSON.parse(await readFile(new URL(`../public/data/${file}`, import.meta.url), 'utf8')).matches;
+const readCups = async () => [...(await readRsssf('amateur-historico.json')), ...(await readRsssf('copas-historicas.json'))];
 
 async function writeCrests(matches) {
   const historic = JSON.parse(await readFile(new URL('../public/data/historico.json', import.meta.url), 'utf8')).matches;

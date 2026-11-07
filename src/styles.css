@@ -367,6 +367,9 @@ a:hover { text-decoration-thickness: 2px; }
 .match-rival span { line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .match-sub { font-size: 0.8125rem; color: var(--text-2); margin-top: 0.2rem; }
 .tag { display: inline-block; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; padding: 0.15rem 0.45rem; background: var(--bg-2); color: var(--text); margin-right: 0.4rem; }
+/* Partido que le dio una copa a Vélez (copas anteriores a 2001): bloque azul, igual en los dos modos (blanco 6,4:1). */
+.tag-title { background: var(--velez); color: var(--on-velez); }
+.match-note { margin: 0.2rem 0 0; font-size: 0.75rem; line-height: 1.4; color: var(--text-2); overflow-wrap: anywhere; }
 .match-score { display: flex; align-items: center; gap: 0.5rem; }
 .score { font: 700 1.6rem/1 var(--display); font-variant-numeric: tabular-nums; }
 .match-time { font: 700 1.4rem/1 var(--display); color: var(--accent); }

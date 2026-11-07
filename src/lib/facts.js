@@ -190,7 +190,7 @@ const dayLabel = (m) => (m.date ? DAY_FMT.format(new Date(m.date)).replace('.', 
 
 /**
  * Récords con todos los partidos oficiales (históricos sin fecha + ESPN). Las rachas se cuentan solo con los partidos
- * con fecha (desde 2001): en el dataset histórico el orden dentro de un año no es seguro.
+ * de 1919–1930 y desde 2001 (los tramos con todos los partidos fechados).
  * Devuelve { totals, wins: [top 5 goleadas], goals: partido con más goles de Vélez, streaks, favorite, bestYear }.
  */
 export function historyRecords(matches) {
@@ -220,9 +220,12 @@ export function historyRecords(matches) {
     .map(({ x }) => info(x));
   const goals = [...all].map((x, i) => ({ x, i })).sort((a, b) => b.x.v - a.x.v || b.i - a.i)[0];
 
-  // Rachas (desde 2001): la más larga de cada tipo, con desde y hasta.
-  const dated = all.filter((x) => x.m.date);
-  const longest = (list, ok) => {
+  // Rachas: la más larga de cada tipo, con desde y hasta. Solo en los tramos con todos los partidos fechados (era
+  // amateur 1919–1930 y desde 2001), cada uno por separado: entre 1931 y 2000 la liga no tiene fecha y las copas de esos
+  // años solas armarían rachas salteando los partidos de liga del medio.
+  const yearOf = (x) => Number(when(x.m));
+  const eras = [all.filter((x) => x.m.date && yearOf(x) <= 1930), all.filter((x) => x.m.date && yearOf(x) >= 2001)];
+  const longestIn = (list, ok) => {
     let best = null;
     let start = -1;
     list.forEach((x, i) => {
@@ -234,13 +237,16 @@ export function historyRecords(matches) {
     });
     return best;
   };
-  const home = dated.filter((x) => x.where === 'local');
+  // Si empatan, la más reciente (como antes). `current` solo puede ser de la era actual.
+  const longest = (ok, filter = () => true) => eras
+    .map((list, i) => { const b = longestIn(list.filter(filter), ok); return b && { ...b, current: i === 1 && b.current }; })
+    .reduce((a, b) => (b && (!a || b.n >= a.n) ? b : a), null);
   const streaks = {
-    ganando: longest(dated, (x) => x.v > x.r),
-    invicto: longest(dated, (x) => x.v >= x.r),
-    invictoLocal: longest(home, (x) => x.v >= x.r),
-    vallaInvicta: longest(dated, (x) => x.r === 0),
-    convirtiendo: longest(dated, (x) => x.v > 0),
+    ganando: longest((x) => x.v > x.r),
+    invicto: longest((x) => x.v >= x.r),
+    invictoLocal: longest((x) => x.v >= x.r, (x) => x.where === 'local'),
+    vallaInvicta: longest((x) => x.r === 0),
+    convirtiendo: longest((x) => x.v > 0),
   };
 
   // El rival al que más veces le ganó y el mejor año (porcentaje de puntos, con al menos 15 partidos).

@@ -42,6 +42,44 @@ test('copas-historicas.txt: se lee entero, cada partido con su copa y en orden p
   assert.deepEqual(finals94.map((m) => `${m.home.name} ${m.home.score}-${m.away.score} ${m.away.name}`), ['Vélez 1-0 São Paulo', 'São Paulo 1-0 Vélez']);
 });
 
+test('parseLine: «título» marca el partido que le dio la copa a Vélez; sin la marca no hay title', () => {
+  const t = parseLine('1996-12-04 | Final | Vélez 2-0 Cruzeiro | título', ED, 1);
+  assert.equal(t.title, true);
+  assert.equal(t.note, undefined, 'la marca no es una nota');
+  assert.equal(parseLine('1996-11-20 | Final | Cruzeiro 0-1 Vélez', ED, 1).title, undefined);
+  assert.equal(parseLine('1994-08-31 | Final | São Paulo 1-0 Vélez | pen 3-5; título; nota: x', ED, 1).title, true);
+  assert.throws(() => parseLine('1996-12-04 | Final | Vélez 2-0 Cruzeiro | titulo', ED, 7), /nota desconocida/);
+});
+
+test('copas-historicas: los 5 títulos internacionales anteriores a 2001 están marcados y no hay otros', async () => {
+  const txt = parseFile(await readFile(new URL('../scripts/copas-historicas.txt', import.meta.url), 'utf8'));
+  const json = JSON.parse(await readFile(new URL('../public/data/copas-historicas.json', import.meta.url), 'utf8')).matches;
+  const titles = (list) => list.filter((m) => m.title).map((m) => `${m.date.slice(0, 10)} ${m.season}`);
+  const expected = [
+    '1994-08-31 Copa Libertadores 1994',
+    '1994-12-01 Copa Intercontinental 1994',
+    '1996-02-24 Copa Interamericana 1994',
+    '1996-12-04 Supercopa Libertadores 1996',
+    '1997-04-13 Recopa Sudamericana 1996',
+  ];
+  assert.deepEqual(titles(txt), expected);
+  assert.deepEqual(titles(json), expected, 'correr node scripts/import-copas.mjs');
+  // Un título es un partido que Vélez no perdió (en los 90 minutos o en los penales).
+  for (const m of txt.filter((x) => x.title)) {
+    const v = m.home.name === 'Vélez' ? 0 : 1;
+    const goals = [m.home.score, m.away.score];
+    assert.ok(goals[v] > goals[1 - v] || (m.pen && m.pen[v] > m.pen[1 - v]), `${m.season}: Vélez no ganó`);
+  }
+});
+
+test('hydrateCup deja pasar title y note a MatchRow', () => {
+  const m = hydrateCup({
+    id: 'c61', year: 1996, date: '1996-12-04T15:00Z', comp: 'Supercopa Libertadores', round: 'Final', title: true, note: 'x',
+    home: { id: '21', name: 'Vélez', score: 2 }, away: { id: '2022', name: 'Cruzeiro', score: 0 },
+  });
+  assert.deepEqual([m.title, m.note], [true, 'x']);
+});
+
 test('copas-historicas.json está al día con el .txt (correr node scripts/import-copas.mjs al cambiarlo)', async () => {
   const txt = parseFile(await readFile(new URL('../scripts/copas-historicas.txt', import.meta.url), 'utf8'));
   const json = JSON.parse(await readFile(new URL('../public/data/copas-historicas.json', import.meta.url), 'utf8')).matches;
@@ -72,4 +110,10 @@ test('whereOf y rivalDetail: un partido sin dato de cancha no cuenta como local 
   assert.deepEqual([d.home, d.away], [{ g: 0, e: 0, p: 0 }, { g: 0, e: 0, p: 1 }]);
   assert.equal(d.worstLoss.where, 'visitante');
   assert.equal(historyRecords([unknown]).totals.pj, 1);
+});
+
+test('historyRecords: las rachas no cruzan 1931–2000 ni se arman solo con copas de esos años', () => {
+  const g = (date, vs) => ({ date, comp: 'Copa Libertadores', completed: true, home: { id: '21', name: 'Vélez', score: 2 }, away: { id: vs, name: vs, score: 0 } });
+  const r = historyRecords([g('1930-11-01T15:00Z', 'a'), g('1994-03-01T15:00Z', 'b'), g('1994-03-08T15:00Z', 'c'), g('1994-03-15T15:00Z', 'd'), g('2001-02-11T15:00Z', 'e')]);
+  assert.equal(r.streaks.ganando.n, 1);
 });

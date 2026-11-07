@@ -40,7 +40,7 @@ src/
 public/
   assets/        escudo, imagen para compartir (og.png) e íconos de la app (icons/: SVG fuente y PNG)
   manifest.webmanifest, sw.js   app instalable (nombre «El Fortín», ícono) y modo sin conexión
-  data/          club.json (a mano), historico.json (1931–2000), copas-historicas.json (copas 1970–2000), generated/ (lo genera el deploy, no va al repo)
+  data/          club.json (a mano), amateur-historico.json (1919–1930), historico.json (1931–2000), copas-historicas.json (copas 1970–2000), generated/ (lo genera el deploy, no va al repo)
 scripts/         update-data, news, ics, check-data, prerender, import-historico, import-copas (Node)
 tests/           lógica de src/lib y scripts, y consistencia de las páginas
 ```
@@ -79,7 +79,7 @@ datos (no lo redibuja) y enseguida pide lo nuevo a ESPN.
 | Probables formaciones (previa): último once de Vélez y del rival en una cancha | ESPN, detalle del último partido de cada uno (`summary`) | Al entrar |
 | Vélez en cifras (Partidos): local/visitante, goles por cuarto de hora, cómo llegan, primer gol, remontadas | `games.json` (goles con minuto de cada partido oficial del año) | Cada deploy |
 | Mejores y peores rivales (Historial), por efectividad | `historico.json` + `matches.json` | Cada deploy |
-| Historial por rival | `historico.json` (1931–2000, dominio público) + `copas-historicas.json` (copas 1970–2000, RSSSF) + `matches.json` (ESPN, desde 2001); los equipos viejos se unen con ESPN por nombre (`escudos.json`) para tener escudo | Cada deploy |
+| Historial por rival | `amateur-historico.json` (1919–1930, RSSSF) + `historico.json` (1931–2000, dominio público) + `copas-historicas.json` (copas 1970–2000, RSSSF) + `matches.json` (ESPN, desde 2001); los equipos viejos se unen con ESPN por nombre (`escudos.json`) para tener escudo | Cada deploy |
 | Noticias | velez.com.ar (no tiene RSS: se leen las secciones) | Cada deploy |
 | Resumen de los últimos 7 días con IA | Qwen3-8B con llama.cpp en GitHub Actions | Todos los días 20:30, si hay notas nuevas |
 | Calendario para suscribirse | `velez.ics` | Cada deploy |
@@ -137,7 +137,12 @@ Si ESPN no responde, la página usa el último `snapshot.json` y lo indica.
 - No muestra lesionados ni DT: ESPN no los informa bien y las alternativas (Promiedos, API-Football) no sirven o no
   son públicas.
 - No muestra el árbitro: ESPN lo publica recién cuando empieza el partido.
-- El historial no tiene la era amateur (1919–1930).
+- **Era amateur 1919–1930 (RSSSF):** 330 partidos de Vélez en Primera (1919–1926 en la Asociación Amateurs, la liga
+  disidente; 1927–1930 en la liga unificada), en `scripts/amateur-historico.txt` con el mismo formato que las copas y
+  `node scripts/import-copas.mjs --amateur`. Revisados contra la tabla de cada temporada. Los partidos ganados por no
+  presentación quedan como comentario (no se jugaron); los suspendidos y terminados otro día van una vez, con nota.
+- **Rachas:** solo en 1919–1930 y desde 2001, cada tramo por separado (1931–2000 no tiene fechas).
+- **Títulos:** en las copas, la nota `título` marca el partido que dio la copa (fila con «★ Campeón»).
 - **Copas 1970–2000 (RSSSF):** 103 partidos de Vélez (Libertadores, Supercopa, Recopa, CONMEBOL, Mercosur, Intercontinental,
   Interamericana, Copa Argentina 1970 y Centenario 1993) transcriptos a mano en `scripts/copas-historicas.txt` (un
   renglón por partido, con el link de RSSSF de cada edición) y pasados a JSON con `node scripts/import-copas.mjs`. RSSSF

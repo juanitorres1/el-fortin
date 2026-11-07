@@ -9,7 +9,7 @@ export const SITE = {
   ogImage: 'assets/og.png',
   ogImageAlt: 'El Fortín, sitio de hinchas de Vélez Sarsfield',
   sources:
-    'Partidos, tablas, plantel y estadísticas: ESPN. Noticias: velez.com.ar. Pronóstico: Open-Meteo (CC BY 4.0). Historial 1931–2000: dataset «Liga Argentina 1931–2023» (dominio público); copas 1970–2000: RSSSF (rsssf.org, J. P. Andrés, P. Ciullini, K. Stokkermans y otros). Récords: Wikipedia (CC BY-SA).',
+    'Partidos, tablas, plantel y estadísticas: ESPN. Noticias: velez.com.ar. Pronóstico: Open-Meteo (CC BY 4.0). Historial 1931–2000: dataset «Liga Argentina 1931–2023» (dominio público); Primera División 1919–1930 (era amateur) y copas 1970–2000: RSSSF (rsssf.org, P. Ciullini, P. Wally, O. J. Gorgazzi, J. P. Andrés, K. Stokkermans y otros). Récords: Wikipedia (CC BY-SA).',
 };
 
 // Íconos del menú inferior en celular (trazos SVG de 24×24).
@@ -26,7 +26,7 @@ export const PAGES = [
   { key: 'inicio', file: 'index.html', href: './', label: 'Inicio', title: 'El Fortín · Vélez Sarsfield', description: 'Noticias, próximo partido y resultados de Vélez Sarsfield. Sitio de hinchas.' },
   { key: 'partidos', file: 'partidos.html', href: 'partidos.html', label: 'Partidos', title: 'Partidos · El Fortín', description: 'Fixture, resultados, tablas y copas de Vélez Sarsfield.' },
   { key: 'plantel', file: 'plantel.html', href: 'plantel.html', label: 'Plantel', title: 'Plantel · El Fortín', description: 'Plantel de Vélez Sarsfield, sanciones y estadísticas por torneo.' },
-  { key: 'historial', file: 'historial.html', href: 'historial.html', label: 'Historial', title: 'Historial · El Fortín', description: 'Historial de Vélez Sarsfield contra cada rival desde 1931.' },
+  { key: 'historial', file: 'historial.html', href: 'historial.html', label: 'Historial', title: 'Historial · El Fortín', description: 'Historial de Vélez Sarsfield contra cada rival desde 1919.' },
   { key: 'juegos', file: 'juegos.html', href: 'juegos.html', label: 'Juegos', title: 'Juegos · El Fortín', description: 'Trivia diaria de Vélez, prode del próximo partido y adiviná el once titular.' },
   { key: 'club', file: 'club.html', href: 'club.html', label: 'Club', title: 'El club · El Fortín', description: 'Historia, estadio, Don Pepe Amalfitani, momentos, palmarés, ídolos y récords de Vélez Sarsfield.' },
   // Páginas fuera del menú (`parent` = la sección que queda marcada).

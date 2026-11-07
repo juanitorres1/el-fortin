@@ -1,4 +1,4 @@
-// Escudos para el historial 1931–2000: los equipos del dataset que no tienen id de ESPN (Atlanta, Ferro…) se buscan
+// Escudos para el historial 1919–2000: los equipos del dataset que no tienen id de ESPN (Atlanta, Ferro…) se buscan
 // por nombre en las listas de equipos de ESPN de todas las categorías. Lo corre el deploy (scripts/update-data.mjs) y
 // guarda data/generated/escudos.json; el historial y la previa cambian el id del dataset por el de ESPN, así el rival
 // queda unido con sus partidos desde 2001 y con su escudo. Si no aparece, queda el escudo gris.
@@ -55,7 +55,7 @@ export function relinkMatch(m, ids) {
 }
 
 /**
- * Un partido de copas-historicas.json (copas anteriores a 2001, ver scripts/import-copas.mjs) con la forma de los de
+ * Un partido de copas-historicas.json o amateur-historico.json (RSSSF, ver scripts/import-copas.mjs) con la forma de los de
  * ESPN: escudo, penales en cada equipo (`pen`) y la cancha explícita (`neutral` siempre true o false, para que no se
  * deduzca por competencia; `venueUnknown` cuando RSSSF no dice quién fue local).
  */

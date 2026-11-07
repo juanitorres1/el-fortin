@@ -7,7 +7,8 @@
 #   fecha   AAAA-MM-DD. Con «~» delante es aproximada: RSSSF solo da el rango de la ronda (sirve para ordenar; no se muestra).
 #   local   el primero es el local. RSSSF a veces ordena por llave y no por localía: ahí va la nota «sin cancha».
 #   notas   separadas por «;»: neutral [ciudad] · sin cancha (no se sabe quién fue local) · pen L-V (penales, en el orden
-#           local-visitante) · prórroga · nota: texto libre
+#           local-visitante) · prórroga · título (el partido que le dio la copa a Vélez) ·
+#           nota: texto libre
 
 == Copa Libertadores 1980 | https://www.rsssf.org/sacups/copa80.html
 1980-02-27 | Primera fase · Grupo 1 | River Plate 0-0 Vélez
@@ -36,7 +37,7 @@
 1994-08-10 | Semifinal | Junior 2-1 Vélez
 1994-08-17 | Semifinal | Vélez 2-1 Junior | pen 5-4
 1994-08-24 | Final | Vélez 1-0 São Paulo
-1994-08-31 | Final | São Paulo 1-0 Vélez | pen 3-5; nota: Vélez campeón de América
+1994-08-31 | Final | São Paulo 1-0 Vélez | pen 3-5; título; nota: Vélez campeón de América
 
 == Copa Libertadores 1995 | https://www.rsssf.org/sacups/copa95.html
 1995-04-26 | Octavos de final | Independiente 0-3 Vélez
@@ -67,14 +68,14 @@
 1999-05-12 | Cuartos de final | Vélez 1-0 River Plate
 
 == Copa Intercontinental 1994 | https://www.rsssf.org/tablest/toyota94.html
-1994-12-01 | Final | Milan 0-2 Vélez | neutral Tokio; nota: Vélez campeón del mundo
+1994-12-01 | Final | Milan 0-2 Vélez | neutral Tokio; título; nota: Vélez campeón del mundo
 
 == Recopa Sudamericana 1994 | https://www.rsssf.org/sacups/recopa94.html
 1995-04-09 | Final | Independiente 1-0 Vélez | neutral Tokio
 
 == Copa Interamericana 1994 | https://www.rsssf.org/tablesi/intam94.html
 1996-02-17 | Final | Cartaginés 0-0 Vélez | nota: la edición 1994 se jugó en 1996
-1996-02-24 | Final | Vélez 2-0 Cartaginés | nota: Vélez campeón
+1996-02-24 | Final | Vélez 2-0 Cartaginés | título
 
 == Supercopa Libertadores 1995 | https://www.rsssf.org/sacups/supcopa95.html
 ~1995-09-14 | Octavos de final | Vélez 2-3 Flamengo
@@ -88,10 +89,10 @@
 1996-10-30 | Semifinal | Santos 1-2 Vélez
 1996-11-14 | Semifinal | Vélez 1-1 Santos
 1996-11-20 | Final | Cruzeiro 0-1 Vélez
-1996-12-04 | Final | Vélez 2-0 Cruzeiro | nota: Vélez campeón
+1996-12-04 | Final | Vélez 2-0 Cruzeiro | título
 
 == Recopa Sudamericana 1996 | https://www.rsssf.org/sacups/recopa96.html
-1997-04-13 | Final | Vélez 1-1 River Plate | neutral Kobe; pen 4-2; nota: Vélez campeón
+1997-04-13 | Final | Vélez 1-1 River Plate | neutral Kobe; pen 4-2; título
 
 == Supercopa Libertadores 1997 | https://www.rsssf.org/sacups/supcopa97.html
 1997-08-27 | Grupo 2 | Olimpia 1-0 Vélez

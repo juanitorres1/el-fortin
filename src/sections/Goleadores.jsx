@@ -2,7 +2,7 @@
 // (lib/espn.js › fetchScorers); las asistencias las arma el deploy desde el detalle de cada partido (asistencias.json).
 import { useState } from 'react';
 import { VELEZ_ID, fetchScorers } from '../lib/espn.js';
-import { DATA, plural } from '../lib/core.js';
+import { DATA, fmt, plural } from '../lib/core.js';
 import { useCached, useJson } from '../hooks/data.js';
 import { Crest, Segmented } from '../components/ui.jsx';
 
@@ -63,7 +63,7 @@ export function Goleadores({ standings, refresh }) {
       <p className="muted small">
         {key === 'goles'
           ? 'Contados desde los partidos de ESPN, también los que se están jugando. Cuentan todos los goles del torneo aunque el jugador haya cambiado de club; el equipo es con el que hizo el último.'
-          : `Desde el detalle de cada partido en ESPN; se actualizan con cada deploy (varias veces por hora). El equipo es con el que dio la última.`}
+          : `Desde el detalle de cada partido en ESPN${assistsFile.updatedAt ? `, actualizados el ${fmt.stamp.format(new Date(assistsFile.updatedAt))}` : ''}. El equipo es con el que dio la última.`}
       </p>
     </section>
   );

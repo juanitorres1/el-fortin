@@ -3,7 +3,7 @@
 // partido oficial del año); las cuentas están en lib/facts.js (seasonNumbers).
 import { useState } from 'react';
 import { seasonNumbers } from '../lib/facts.js';
-import { plural } from '../lib/core.js';
+import { fmt, plural } from '../lib/core.js';
 import { Segmented } from '../components/ui.jsx';
 
 const ALL = 'año';
@@ -40,8 +40,8 @@ function Bands({ bands }) {
   );
 }
 
-/** `games` = games.json › games (partidos oficiales del año, en orden). */
-export function Cifras({ games }) {
+/** `games` = games.json › games (partidos oficiales del año, en orden); `updatedAt` = games.json › updatedAt. */
+export function Cifras({ games, updatedAt }) {
   // Primero los torneos de liga (el más reciente arriba), después todo el año y las copas.
   const labels = [...new Set((games ?? []).map((g) => g.label))].reverse();
   const league = labels.filter((l) => /^(Apertura|Clausura|Liga) /.test(l));
@@ -89,7 +89,7 @@ export function Cifras({ games }) {
         )}
       </div>
       <p className="muted small">
-        Partidos oficiales de {label === ALL ? 'este año' : label}, según ESPN.
+        Partidos oficiales de {label === ALL ? 'este año' : label}, según ESPN{updatedAt ? `, actualizados el ${fmt.stamp.format(new Date(updatedAt))}` : ''}.
         {s.known < s.pj && ` Los minutos y cómo llegaron los goles salen de ${s.known} de los ${s.pj} partidos (en el resto ESPN no informó los goles).`}
       </p>
     </section>

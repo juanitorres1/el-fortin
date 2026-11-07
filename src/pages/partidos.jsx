@@ -89,7 +89,7 @@ function Partidos() {
           <MatchList matches={failed ? [] : results?.slice(-8).reverse()} showYear empty="Sin resultados." />
         </section>
       </div>
-      <Cifras games={games?.games} />
+      <Cifras games={games?.games} updatedAt={games?.updatedAt} />
       <Tablas tables={data && promedios !== undefined ? buildTables(standingsNow(state), promedios) : failed ? [] : undefined} source={source} />
       <Goleadores standings={data?.standings} refresh={data?.updatedAt} />
       {/* Con la tabla oficial: un partido en juego todavía cuenta como pendiente y se sumaría dos veces. */}

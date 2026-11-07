@@ -1,5 +1,5 @@
-// Historial contra cada rival: Primera División 1931–2000 (dataset público), copas 1970–2000 (RSSSF) y todas las
-// competiciones desde 2001 (ESPN).
+// Historial contra cada rival: Primera División de la era amateur 1919–1930 (RSSSF), Primera División 1931–2000
+// (dataset público), copas 1970–2000 (RSSSF) y todas las competiciones desde 2001 (ESPN).
 // La URL lleva el rival (?rival=id): se puede compartir y abre directo en ese rival.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { mount } from '../main.jsx';
@@ -24,9 +24,9 @@ const COMP_FILTERS = {
   copas: ['Copas', (m) => COPAS.has(m.comp)],
   internacional: ['Internacional', (m) => INTERNACIONAL.has(m.comp)],
 };
-// Por año y no por si tiene fecha: las copas anteriores a 2001 sí la tienen.
+// Por año y no por si tiene fecha: la era amateur y las copas anteriores a 2001 sí la tienen.
 const yearOf = (m) => m.year ?? new Date(m.date).getFullYear();
-const ERA_FILTERS = { todas: ['Desde 1931', () => true], historico: ['1931–2000', (m) => yearOf(m) <= 2000], espn: ['Desde 2001', (m) => yearOf(m) > 2000] };
+const ERA_FILTERS = { todas: ['Desde 1919', () => true], historico: ['1919–2000', (m) => yearOf(m) <= 2000], espn: ['Desde 2001', (m) => yearOf(m) > 2000] };
 const WHERE = { local: 'de local', visitante: 'de visitante', neutral: 'en cancha neutral' };
 
 // historico.json viene en formato compacto (ver scripts/import-historico.mjs). `ids` = escudos.json › ids: los equipos
@@ -144,16 +144,19 @@ function Historial() {
   const espn = useJson(`${DATA}matches.json`);
   const old = useJson('data/historico.json');
   const cups = useJson('data/copas-historicas.json');
+  const amateur = useJson('data/amateur-historico.json');
   const club = useJson('data/club.json');
   const crests = useJson(`${DATA}escudos.json`);
   const matches = useMemo(
-    () => (espn === undefined || old === undefined || cups === undefined || crests === undefined ? undefined
+    () => (espn === undefined || old === undefined || cups === undefined || amateur === undefined || crests === undefined ? undefined
       : [
+        // La era amateur viene con el mismo formato que las copas (fecha, ronda y cancha explícita).
+        ...(amateur?.matches ?? []).map((m) => hydrateCup(m, crests?.ids)),
         ...(old?.matches ?? []).map((m) => hydrateHistoric(m, crests?.ids)),
         ...(cups?.matches ?? []).map((m) => hydrateCup(m, crests?.ids)),
         ...mergeResults(espn?.matches ?? [], []),
       ]),
-    [espn, old, cups, crests],
+    [espn, old, cups, amateur, crests],
   );
   const [rival, setRival] = useState(null);
   // El rival de la URL se lee al montar (el HTML prerenderizado es el mismo para todos los ?rival=).
@@ -186,7 +189,7 @@ function Historial() {
   };
   const note = !matches ? 'Cargando historial…'
     : matches.some((m) => !m.date)
-      ? `${matches.length.toLocaleString('es-AR')} partidos oficiales: Primera División 1931–2000 (dataset público), copas 1970–2000 (RSSSF) y todas las competiciones desde 2001 (ESPN).`
+      ? `${matches.length.toLocaleString('es-AR')} partidos oficiales: Primera División 1919–1930 (era amateur, RSSSF) y 1931–2000 (dataset público), copas 1970–2000 (RSSSF) y todas las competiciones desde 2001 (ESPN).`
       : `${matches.length.toLocaleString('es-AR')} partidos oficiales registrados por ESPN desde 2001.`;
 
   return (

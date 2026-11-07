@@ -1,13 +1,18 @@
-// Convierte scripts/copas-historicas.txt (partidos de Vélez en copas anteriores a 2001, transcriptos desde RSSSF) en
-// public/data/copas-historicas.json, con el mismo formato compacto que historico.json más fecha, copa y ronda.
-// Desde 2001 las copas salen de ESPN (scripts/update-data.mjs), así que no se superponen.
+// Convierte las transcripciones a mano de RSSSF en JSON, con el mismo formato compacto que historico.json más fecha,
+// competición y ronda (las dos con el mismo formato de renglón, ver los encabezados de cada .txt):
+// - scripts/copas-historicas.txt → public/data/copas-historicas.json: copas anteriores a 2001 (desde 2001 salen de ESPN,
+//   scripts/update-data.mjs, así que no se superponen).
+// - scripts/amateur-historico.txt → public/data/amateur-historico.json: Primera División de la era amateur, 1919–1930
+//   (desde 1931 está historico.json).
 //
 // Uso (una sola vez, o al corregir el .txt; el resultado se commitea porque el pasado no cambia):
-//   node scripts/import-copas.mjs
+//   node scripts/import-copas.mjs              (copas)
+//   node scripts/import-copas.mjs --amateur    (era amateur)
 //
 // Ids de los equipos, para que se junten con sus otros partidos y tengan escudo: primero los del historial 1931–2000
 // (historico.json), después los de ESPN desde 2001 (data/generated/matches.json, si está) y por último las listas de
-// equipos de ESPN de Sudamérica (por nombre, como lib/crests.js). Los que no aparecen llevan id propio `c-…`.
+// equipos de ESPN (de Sudamérica para las copas, de la Argentina para la era amateur; por nombre, como lib/crests.js).
+// Los que no aparecen llevan id propio: `c-…` en las copas, `a-…` en la era amateur.
 import { readFile, writeFile } from 'node:fs/promises';
 import { VELEZ_ID, fetchTeams } from '../src/lib/espn.js';
 import { linkTeams, normName } from '../src/lib/crests.js';
@@ -15,14 +20,29 @@ import { linkTeams, normName } from '../src/lib/crests.js';
 const ROOT = new URL('../', import.meta.url);
 const LEAGUES = ['arg.1', 'arg.2', 'arg.3', 'bra.1', 'bra.2', 'uru.1', 'par.1', 'col.1', 'per.1', 'ecu.1', 'ven.1', 'chi.1',
   'bol.1', 'crc.1', 'ita.1', 'conmebol.libertadores', 'conmebol.sudamericana'];
+const RSSSF = 'RSSSF (Rec.Sport.Soccer Statistics Foundation), rsssf.org';
+/** Cada transcripción: de dónde lee, adónde escribe, prefijo de los ids y en qué listas de ESPN busca a los equipos. */
+export const DATASETS = {
+  copas: {
+    txt: 'scripts/copas-historicas.txt', json: 'public/data/copas-historicas.json', prefix: 'c', leagues: LEAGUES,
+    source: `${RSSSF}: transcripto a mano en scripts/copas-historicas.txt`,
+    note: 'Copas de Vélez anteriores a 2001. date = null cuando RSSSF solo da el rango de la ronda.',
+  },
+  amateur: {
+    txt: 'scripts/amateur-historico.txt', json: 'public/data/amateur-historico.json', prefix: 'a',
+    leagues: ['arg.1', 'arg.2', 'arg.3', 'arg.4', 'arg.5'],
+    source: `${RSSSF}: transcripto a mano en scripts/amateur-historico.txt`,
+    note: 'Primera División de la era amateur (1919–1930), sin los partidos ganados por no presentación del rival (no se jugaron).',
+  },
+};
 // Cómo figuran en ESPN o en el historial los que acá van con su nombre de uso.
 const ALIASES = { Milan: 'AC Milan', Junior: 'Atlético Junior', 'Chacarita Juniors': 'Chacarita', Cartaginés: 'Cartaginés' };
 
 /** Un renglón del .txt → partido (sin ids). Tira error con el número de línea si algo no cierra. */
-export function parseLine(line, edition, n) {
+export function parseLine(line, edition, n, file = 'copas-historicas.txt') {
   const [fecha, ronda, partido, notas = ''] = line.split('|').map((s) => s.trim());
   const fail = (msg) => {
-    throw new Error(`copas-historicas.txt:${n}: ${msg}\n  ${line}`);
+    throw new Error(`${file}:${n}: ${msg}\n  ${line}`);
   };
   const d = fecha.match(/^(~?)(\d{4})-(\d{2})-(\d{2})$/);
   if (!d) fail('fecha inválida');
@@ -49,6 +69,8 @@ export function parseLine(line, edition, n) {
       if (city) out.venue = city;
     } else if (raw === 'sin cancha') out.venueUnknown = true;
     else if (raw === 'prórroga') out.aet = true;
+    // Marca explícita del partido que le dio la copa a Vélez (no se adivina por el texto de la nota).
+    else if (raw === 'título') out.title = true;
     else if (/^pen \d+-\d+$/.test(raw)) out.pen = raw.slice(4).split('-').map(Number);
     else if (/^nota: /.test(raw)) out.note = raw.slice(6);
     else fail(`nota desconocida «${raw}»`);
@@ -59,7 +81,7 @@ export function parseLine(line, edition, n) {
 }
 
 /** El .txt entero → partidos en orden, con su edición. */
-export function parseFile(text) {
+export function parseFile(text, file = 'copas-historicas.txt') {
   const matches = [];
   let edition = null;
   text.split('\n').forEach((line, i) => {
@@ -70,8 +92,8 @@ export function parseFile(text) {
       edition = { comp: head[1], season: `${head[1]} ${head[2]}`, url: head[3] };
       return;
     }
-    if (!edition) throw new Error(`copas-historicas.txt:${i + 1}: partido antes de la primera edición`);
-    matches.push(parseLine(t, edition, i + 1));
+    if (!edition) throw new Error(`${file}:${i + 1}: partido antes de la primera edición`);
+    matches.push(parseLine(t, edition, i + 1, file));
   });
   return matches;
 }
@@ -84,8 +106,9 @@ async function readJson(path) {
   }
 }
 
-async function main() {
-  const matches = parseFile(await readFile(new URL('scripts/copas-historicas.txt', ROOT), 'utf8'));
+async function main(set) {
+  const file = set.txt.split('/').at(-1);
+  const matches = parseFile(await readFile(new URL(set.txt, ROOT), 'utf8'), file);
   const known = new Map([[normName('Vélez'), VELEZ_ID]]);
   const remember = (t) => {
     const k = normName(t.name);
@@ -100,7 +123,7 @@ async function main() {
   const lookup = (name) => known.get(normName(ALIASES[name] ?? name)) ?? known.get(normName(name));
   const pending = names.filter((n) => !lookup(n)).map((n) => ({ id: n, name: ALIASES[n] ?? n }));
   const espnTeams = [];
-  for (const league of LEAGUES) {
+  for (const league of set.leagues) {
     try {
       espnTeams.push(...(await fetchTeams(league)));
     } catch (err) {
@@ -108,26 +131,22 @@ async function main() {
     }
   }
   const { ids } = linkTeams(pending, espnTeams);
-  const slug = (n) => `c-${normName(n).replace(/[^a-z0-9]+/g, '-')}`;
+  const slug = (n) => `${set.prefix}-${normName(n).replace(/[^a-z0-9]+/g, '-')}`;
   const idOf = (n) => lookup(n) ?? ids[n] ?? slug(n);
 
   const out = matches.map((m, i) => ({
-    id: `c${i + 1}`,
+    id: `${set.prefix}${i + 1}`,
     ...m,
     home: { id: idOf(m.home.name), ...m.home },
     away: { id: idOf(m.away.name), ...m.away },
   }));
-  const missing = names.filter((n) => idOf(n).startsWith('c-'));
-  await writeFile(new URL('public/data/copas-historicas.json', ROOT), `${JSON.stringify({
-    source: 'RSSSF (Rec.Sport.Soccer Statistics Foundation), rsssf.org: transcripto a mano en scripts/copas-historicas.txt',
-    note: 'Copas de Vélez anteriores a 2001. date = null cuando RSSSF solo da el rango de la ronda.',
-    matches: out,
-  })}\n`);
-  console.log(`copas-historicas.json: ${out.length} partidos, ${names.length} equipos; sin id de ESPN: ${missing.join(', ') || 'ninguno'}`);
+  const missing = names.filter((n) => idOf(n).startsWith(`${set.prefix}-`));
+  await writeFile(new URL(set.json, ROOT), `${JSON.stringify({ source: set.source, note: set.note, matches: out })}\n`);
+  console.log(`${set.json.split('/').at(-1)}: ${out.length} partidos, ${names.length} equipos; sin id de ESPN: ${missing.join(', ') || 'ninguno'}`);
 }
 
 if (import.meta.url === `file:///${process.argv[1].replace(/\\/g, '/')}` || process.argv[1]?.endsWith('import-copas.mjs')) {
-  main().catch((err) => {
+  main(DATASETS[process.argv.includes('--amateur') ? 'amateur' : 'copas']).catch((err) => {
     console.error(err.message);
     process.exit(1);
   });

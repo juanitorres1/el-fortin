@@ -4,7 +4,8 @@ import { fmt } from '../lib/core.js';
 import { Crest, Empty, ResultBadge, Skeletons } from './ui.jsx';
 
 // Las copas anteriores a 2001 (copas-historicas.json) traen la ronda, la cancha neutral explícita y a veces no se
-// sabe quién fue local; el resto dice local o visitante, como siempre.
+// sabe quién fue local; el resto dice local o visitante, como siempre. También pueden traer `title` (el partido que le
+// dio la copa a Vélez: etiqueta «Campeón») y `note` (aclaración breve, abajo). Los de ESPN no tienen ninguno de los dos.
 const where = (m, velezHome, velez, rival) => [
   m.season && m.round,
   m.venueUnknown ? null : m.neutral === true ? 'Cancha neutral' : velezHome ? 'Local' : 'Visitante',
@@ -27,8 +28,10 @@ export function MatchRow({ m, showYear = false }) {
       <div className="match-main">
         <div className="match-rival"><Crest url={rival.logo} size={24} /><span>{rival.name}</span></div>
         <div className="match-sub">
+          {m.title && <span className="tag tag-title"><span aria-hidden="true">★ </span>Campeón</span>}
           <span className="tag">{m.season ?? m.comp}</span>{where(m, velezHome, velez, rival)}{m.venue ? ` · ${m.venue}` : ''}
         </div>
+        {m.note && <p className="match-note">{m.note}</p>}
       </div>
       <div className="match-score">
         {m.completed ? (
