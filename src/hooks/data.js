@@ -2,9 +2,11 @@
 // Si la página viene renderizada del deploy, arrancan con los mismos datos que el HTML (src/initial.js): así React
 // hidrata sin redibujar y después actualiza en vivo.
 import { useEffect, useRef, useState } from 'react';
-import { DATA, REFRESH_LIVE_MS, REFRESH_MS, getJson, isLive, loadLive, withTimeout } from '../lib/core.js';
+import { DATA, REFRESH_LIVE_MS, REFRESH_MS, getJson, isLive, keepNewest, loadLive, loadLiveFast, withTimeout } from '../lib/core.js';
 import { fetchRoster } from '../lib/espn.js';
 import { getInitial } from '../initial.js';
+
+const WAKE_MIN_MS = 15_000; // al volver a la pestaña no se vuelve a pedir si el último pedido fue hace menos que esto
 
 // Un mismo JSON se pide una sola vez por página aunque lo usen varios componentes (players.json, por ejemplo).
 const jsonCache = new Map();
@@ -38,23 +40,62 @@ export function useLiveData() {
   useEffect(() => {
     let on = true;
     let timer;
+    let running = false;
+    let last = getInitial().live ?? null; // lo último bueno en pantalla
+    let fullAt = 0; // cuándo llegó el último refresco completo en vivo
+    let tickedAt = 0;
+    // Con la página oculta no se pide nada (datos y batería en la cancha): al volver se refresca enseguida.
+    const schedule = (ms) => {
+      clearTimeout(timer);
+      if (document.visibilityState === 'visible') timer = setTimeout(tick, ms);
+    };
     const tick = async () => {
+      if (running) return;
+      running = true;
+      tickedAt = Date.now();
       try {
-        const r = await loadLive();
+        // Mientras se juega, entre un refresco completo y el siguiente (5 min) alcanza con el scoreboard.
+        let r = last && fullAt && isLive(last) && Date.now() - fullAt < REFRESH_MS ? await loadLiveFast(last) : null;
+        if (!r) {
+          r = await loadLive(last);
+          if (r.live) fullAt = Date.now();
+        }
         if (!on) return;
+        r = keepNewest(last, r);
+        last = r.data;
         setState({ status: 'ok', ...r });
-        timer = setTimeout(tick, isLive(r.data) ? REFRESH_LIVE_MS : REFRESH_MS);
+        schedule(isLive(r.data) ? REFRESH_LIVE_MS : REFRESH_MS);
       } catch (err) {
         console.error(err);
         if (!on) return;
         setState((s) => (s.status === 'ok' ? s : { status: 'error' })); // si ya había datos, se quedan
-        timer = setTimeout(tick, REFRESH_MS);
+        schedule(REFRESH_MS);
+      } finally {
+        running = false;
       }
     };
+    // Al volver a la pestaña o a la app (el celular congela los timers con la pantalla apagada) y al recuperar la
+    // conexión: refrescar ya, salvo que se haya pedido hace instantes.
+    const wake = () => {
+      if (document.visibilityState !== 'visible') {
+        clearTimeout(timer);
+        return;
+      }
+      const wait = WAKE_MIN_MS - (Date.now() - tickedAt);
+      if (wait > 0) schedule(wait);
+      else {
+        clearTimeout(timer);
+        tick();
+      }
+    };
+    document.addEventListener('visibilitychange', wake);
+    addEventListener('online', wake);
     tick();
     return () => {
       on = false;
       clearTimeout(timer);
+      document.removeEventListener('visibilitychange', wake);
+      removeEventListener('online', wake);
     };
   }, []);
   return state;
@@ -64,8 +105,9 @@ export function useLiveData() {
  * Resultado de `fn` (una promesa) para `key`, guardado `ttl` ms: el pronóstico, el minuto a minuto, los goleadores…
  * Se vuelve a pedir si cambia `key` o si venció y cambió `refresh` (por ejemplo, la hora de los datos en vivo).
  * Con `key` null no pide nada. Si falla o tarda más de 8 s, devuelve null. `initial` = valor mientras tanto.
+ * Con `keep`, si un pedido falla queda el último valor bueno (lo que se refresca seguido: minuto a minuto, la fecha).
  */
-export function useCached(key, fn, { ttl = Infinity, refresh, initial } = {}) {
+export function useCached(key, fn, { ttl = Infinity, refresh, initial, keep = false } = {}) {
   const [value, setValue] = useState(initial);
   const cache = useRef(null);
   useEffect(() => {
@@ -78,7 +120,7 @@ export function useCached(key, fn, { ttl = Infinity, refresh, initial } = {}) {
       cache.current = { key, at: Date.now(), promise: withTimeout(fn()).catch(() => null) };
     }
     let on = true;
-    cache.current.promise.then((v) => on && setValue(v));
+    cache.current.promise.then((v) => on && setValue((prev) => (keep && v == null && prev != null ? prev : v)));
     return () => {
       on = false;
     };

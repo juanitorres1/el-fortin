@@ -21,7 +21,7 @@ un servidor en Render/Railway/Vercel). Node ≥ 20. Detalle en `README.md`.
   `RULES_YEAR`), `core.js` (formato, carga con respaldo, marcador y tabla en vivo), `card.js` (textos de las imágenes
   para compartir), `trivia.js` (trivia diaria desde `club.json`), `games.js` (prode y once), `crests.js` (une por nombre los equipos del historial 1919–2000 con su id de ESPN → `escudos.json`), `storage.js`
   (`localStorage` con prefijo `fortin:`). Testear acá, no en los componentes.
-- `src/hooks/`: `useLiveData` (ESPN con refresco 5 min / 1 min en vivo), `useJson` (JSON compartido entre
+- `src/hooks/`: `useLiveData` (ESPN con refresco 5 min / 1 min en vivo; mientras se juega, el refresco de cada minuto es solo el scoreboard —`fetchLiveFast`— y el completo va cada 5 min; con la página oculta no pide y al volver refresca; la copia del deploy nunca pisa datos más nuevos —`keepNewest`—; próximo partido = `nextMatch`, que saltea postergados), `useJson` (JSON compartido entre
   componentes), `useCached` (promesa con vencimiento), `useRoster`, `useNow`, `useLiveTitle`, `useScrollToHash`,
   `useCurrentSection`. Convención: `undefined` = cargando, `null` = falló o no hay.
 - `src/components/`: `Layout`/`PageBand`, `MatchRow`/`MatchList`, `Crest`, `ResultBadge`, `Segmented`,
@@ -34,8 +34,9 @@ un servidor en Render/Railway/Vercel). Node ≥ 20. Detalle en `README.md`.
   `src/main.jsx` hidrata si la página viene prerenderizada. Qué datos lleva cada página: `PAGE_DATA` en el script.
 - `src/styles.css`: sistema de diseño (tokens claro y noche). Se siguen usando las mismas clases CSS de antes.
 - **App instalable (PWA):** `public/manifest.webmanifest` («El Fortín», ícono fortín blanco con la V sobre la V de la
-  camiseta: `public/assets/icons/`) y `public/sw.js` (red primero para páginas y datos, guardado para JS/CSS/íconos;
-  ESPN no pasa por él). Se registra en `src/main.jsx` solo en producción. Cambiar `VERSION` para borrar lo guardado.
+  camiseta: `public/assets/icons/`) y `public/sw.js` (red primero para páginas y datos con límite de 3 s y después lo guardado; guardado
+  para JS/CSS/íconos/miniaturas; la lista de precarga la escribe `scripts/prerender.mjs` en `dist/sw.js` entre los
+  marcadores `/*precarga:*/`; las páginas se guardan sin query; ESPN no pasa por él; tests en `tests/sw.test.js`). Se registra en `src/main.jsx` solo en producción. Cambiar `VERSION` para borrar lo guardado.
 - **Visitas:** GoatCounter (sin cookies, cifras agregadas), cargado desde `src/main.jsx` solo en `*.github.io`. Panel:
   `juanignaciotorres.goatcounter.com` (cuenta del usuario).
 - `public/`: `assets/` (escudo, `og.png`, `icons/`), `data/club.json` (a mano), `data/historico.json`, `data/generated/`

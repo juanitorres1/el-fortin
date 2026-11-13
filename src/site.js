@@ -67,8 +67,10 @@ export function headTags(page) {
     '<meta name="apple-mobile-web-app-capable" content="yes">',
     '<meta name="mobile-web-app-capable" content="yes">',
     '<meta name="apple-mobile-web-app-status-bar-style" content="default">',
-    '<link rel="preconnect" href="https://fonts.googleapis.com">',
+    // Con crossorigin la hoja de Google Fonts llega como respuesta CORS: el service worker la guarda con su tamaño real
+    // (una respuesta opaca le cuesta a Chrome varios MB de cuota).
+    '<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>',
     '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>',
-    '<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">',
+    '<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet" crossorigin>',
   ].join('\n    ');
 }

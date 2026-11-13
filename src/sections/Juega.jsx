@@ -2,10 +2,12 @@
 // último resultado y posición. Va en la banda azul del Inicio.
 import { VELEZ_ID, fetchSummary, keyEvents, velezView } from '../lib/espn.js';
 import { fetchForecast, wantsForecast } from '../lib/weather.js';
-import { capitalize, fmt, standingsNow, withTimeout } from '../lib/core.js';
+import { capitalize, fmt, nextMatch, standingsNow, withTimeout } from '../lib/core.js';
+import { goalText, kickoffChange, kickoffChangeText } from '../lib/alerts.js';
 import { streakLines } from '../lib/facts.js';
 import { previaCard, resultCard, scorersLine } from '../lib/card.js';
 import { useCached, useNow } from '../hooks/data.js';
+import { useGoalAlert, useKickoffs } from '../hooks/page.js';
 import { Crest, ResultBadge, Skeletons } from '../components/ui.jsx';
 import { ShareCardButton } from '../components/ShareCard.jsx';
 
@@ -24,9 +26,33 @@ export function Countdown({ date }) {
   );
 }
 
-/** Minuto a minuto: el detalle del partido se pide en cada refresco (cada 1 min mientras se juega). */
+/**
+ * Aviso de gol en pantalla (`alert` = useGoalAlert(), null si no hay). Los lectores de pantalla lo escuchan por dos
+ * regiones que están siempre en la página (si aparecieran junto con el texto, no se anuncian): la de Vélez interrumpe,
+ * la del rival espera su turno. El cartel visible es aparte y no se lee dos veces.
+ */
+export function GoalAlert({ alert }) {
+  const text = alert ? goalText(alert) : '';
+  const velez = alert?.who === 'velez';
+  return (
+    <>
+      <p className="sr-only" aria-live="assertive" aria-atomic="true">{velez ? text : ''}</p>
+      <p className="sr-only" aria-live="polite" aria-atomic="true">{alert && !velez ? text : ''}</p>
+      {alert && (
+        <p key={text} className={`goal-alert${velez ? ' is-velez' : ''}`} aria-hidden="true">
+          {velez && <span className="goal-alert-ball">⚽</span>}{text}
+        </p>
+      )}
+    </>
+  );
+}
+
+/**
+ * Minuto a minuto: el detalle del partido se pide en cada refresco (cada 1 min mientras se juega). Si un refresco
+ * falla, queda el último que llegó (`keep`): que la lista no desaparezca un minuto.
+ */
 export function LiveEvents({ match, refresh }) {
-  const events = useCached(`${match.id}-${refresh}`, async () => keyEvents(await fetchSummary(match)));
+  const events = useCached(`${match.id}-${refresh}`, async () => keyEvents(await fetchSummary(match)), { keep: true });
   if (!events?.length) return null;
   return (
     <div className="live-events">
@@ -103,27 +129,34 @@ function Share({ last, next, results, facts, zone, row }) {
 /** `state` = useLiveData(); `results` = resultados oficiales en orden; `facts` = facts.json (para la previa). */
 export function Juega({ state, results, facts }) {
   const now = useNow(60_000);
+  // Los hooks van antes de las salidas tempranas: mientras no hay datos, no hacen nada.
+  const goal = useGoalAlert(state.data?.fixture);
+  const kickoffs = useKickoffs(state.data?.fixture, state.live);
   if (state.status === 'loading') return <Skeletons className="sk-juega" />;
   if (state.status === 'error') {
     return <><h2 className="juega-title">Juega Vélez</h2><p className="juega-empty">No pudimos cargar los partidos. Probá en un rato.</p></>;
   }
   const { data } = state;
-  const next = data.fixture.find((m) => m.status === 'in') ?? data.fixture.find((m) => !m.completed);
+  // Un postergado no es «el próximo»: nextMatch lo saltea (sigue listado en Partidos, con su cartel).
+  const next = nextMatch(data.fixture);
   const zone = standingsNow(state).groups.find((g) => g.rows.some((r) => r.id === VELEZ_ID));
   const row = zone?.rows.find((r) => r.id === VELEZ_ID);
   const info = { last: results.at(-1), zone, row };
 
   if (!next) {
-    return <><h2 className="juega-title">Juega Vélez</h2><p className="juega-empty">Todavía no hay partidos programados.</p><Facts {...info} /><Share {...info} results={results} facts={facts} /></>;
+    return <><GoalAlert alert={goal} /><h2 className="juega-title">Juega Vélez</h2><p className="juega-empty">Todavía no hay partidos programados.</p><Facts {...info} /><Share {...info} results={results} facts={facts} /></>;
   }
   const d = new Date(next.date);
   const isLive = next.status === 'in';
+  // «Cambió el horario»: solo si este navegador había visto otra fecha para este partido en los últimos 3 días.
+  const was = !isLive && kickoffs ? kickoffChange(kickoffs, next, now) : null;
   // Dos columnas en escritorio (el partido | cuenta regresiva y datos); una en celular.
   return (
     <>
       <div className="juega-main">
         <h2 className="juega-title">{isLive ? <span className="live-pill">En vivo</span> : 'Juega Vélez'}</h2>
         <p className="juega-comp">{next.comp}{next.round && ` · ${next.round.replace('Torneo ', '')}`}</p>
+        <GoalAlert alert={goal} />
         <div className="juega-teams">
           <Team t={next.home} />
           {isLive ? <span className="juega-score num">{next.home.score ?? 0}-{next.away.score ?? 0}</span> : <span className="juega-vs">vs</span>}
@@ -132,6 +165,7 @@ export function Juega({ state, results, facts }) {
         <p className="juega-when">
           {capitalize(fmt.long.format(d))}{next.timeValid ? ` · ${fmt.time.format(d)} h` : ' · hora a confirmar'}{next.venue && ` · ${next.venue}`}
         </p>
+        {was && <p className="juega-changed">{kickoffChangeText(was, next.date)}</p>}
       </div>
       <div className="juega-side">
         {isLive ? <LiveEvents match={next} refresh={data.updatedAt} /> : <Countdown date={d} />}

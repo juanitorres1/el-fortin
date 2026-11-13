@@ -1,6 +1,6 @@
 // Lo que comparten todas las páginas sin tocar el DOM: constantes, formato, carga de datos y el marcador en vivo.
 // Lo de React (componentes, hooks) está en src/components y src/hooks.
-import { VELEZ_ID, fetchLive } from './espn.js';
+import { VELEZ_ID, fetchLive, fetchLiveFast } from './espn.js';
 
 export const TZ = 'America/Argentina/Buenos_Aires';
 export const LIVE_TIMEOUT_MS = 8000;
@@ -38,15 +38,58 @@ export function withTimeout(promise, ms = LIVE_TIMEOUT_MS) {
   return Promise.race([promise, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
 }
 
-/** Datos en vivo de ESPN; si no responde, la copia que guarda el deploy cada hora. */
-export async function loadLive() {
+/**
+ * Corre `fn(fetchImpl)` con un límite de tiempo que además corta los pedidos (con `withTimeout` seguían bajando
+ * aunque ya nadie esperara la respuesta, y en la cancha cada KB cuenta).
+ */
+export async function liveCall(fn, ms = LIVE_TIMEOUT_MS) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(new Error('timeout')), ms);
   try {
-    return { data: await withTimeout(fetchLive()), live: true };
+    return await fn((url) => fetch(url, { signal: ctrl.signal }));
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Datos en vivo de ESPN; si no responde, la copia que guarda el deploy. `prev` = los últimos datos buenos: si ESPN
+ * entrega los partidos pero no la tabla, se sigue con la tabla anterior en vez de perder el marcador.
+ */
+export async function loadLive(prev) {
+  try {
+    return { data: await liveCall((f) => fetchLive(f, { fallbackStandings: prev?.standings })), live: true };
   } catch (err) {
     console.warn('ESPN no respondió, uso la copia guardada:', err);
     return { data: await getJson(`${DATA}snapshot.json`), live: false };
   }
 }
+
+/** Refresco liviano mientras se juega (solo el scoreboard). null = hace falta el refresco completo (loadLive). */
+export async function loadLiveFast(prev) {
+  try {
+    const data = await liveCall((f) => fetchLiveFast(prev, f));
+    return data ? { data, live: true } : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Lo que queda en pantalla después de un refresco: la copia del deploy nunca pisa datos más nuevos que ya se estaban
+ * mostrando (el marcador no puede retroceder porque un pedido a ESPN tardó de más). `last` = los datos en pantalla.
+ */
+export function keepNewest(last, r) {
+  const older = !r.live && last && Date.parse(last.updatedAt) >= Date.parse(r.data.updatedAt);
+  return older ? { data: last, live: false } : r;
+}
+
+/** ¿Está por jugarse? Un postergado o cancelado (ESPN: estado «post» sin terminar) no cuenta como próximo. */
+export const isUpcoming = (m) => !m.completed && m.status !== 'post';
+/** ¿Postergado, suspendido o cancelado? (sin terminar pero ya fuera de programación). */
+export const isOff = (m) => !m.completed && m.status === 'post';
+/** El partido para mostrar arriba de todo: el que se está jugando o, si no, el próximo que sigue en pie. */
+export const nextMatch = (fixture) => fixture.find((m) => m.status === 'in') ?? fixture.find(isUpcoming);
 
 /**
  * La tabla para mostrar (`state` = useLiveData()): con los partidos que se están jugando si los datos son en vivo.

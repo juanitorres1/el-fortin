@@ -46,8 +46,8 @@ tests/           lógica de src/lib y scripts, y consistencia de las páginas
 ```
 
 **Sumar una página:** agregarla en `src/site.js`, copiar un HTML de la raíz cambiando el script, crear
-`src/pages/<clave>.jsx` con `<Layout page="<clave>">` y sumarla en `src/prerender.jsx` (y en `PAGES` de `public/sw.js`
-si va en el menú). Con `nav: false` no aparece en el menú; `parent` marca qué sección queda resaltada. El test de
+`src/pages/<clave>.jsx` con `<Layout page="<clave>">` y sumarla en `src/prerender.jsx` (la lista de
+precarga del service worker la arma el build sola). Con `nav: false` no aparece en el menú; `parent` marca qué sección queda resaltada. El test de
 páginas avisa si falta algo.
 
 ## Cómo se dibuja (prerender)
@@ -125,7 +125,10 @@ Si ESPN no responde, la página usa el último `snapshot.json` y lo indica.
   que revisar `src/lib/rules.js` (mientras tanto no se marca quién desciende).
 - **A mano:** títulos nuevos, ídolos y récords en `public/data/club.json` (la trivia los toma sola).
 - **App instalable:** `public/manifest.webmanifest` + `public/sw.js`. El service worker trae primero de la red las
-  páginas y los datos (si no hay señal, lo último guardado) y guarda JS, CSS, íconos y tipografías. ESPN no pasa por
+  páginas y los datos, con un límite de 3 s (si la red no contestó o no hay señal, lo último guardado), y guarda JS,
+  CSS, íconos, tipografías y las últimas 40 miniaturas de noticias. Al instalarse precarga las 8 páginas con su JS y
+  CSS: la lista la escribe `scripts/prerender.mjs` en `dist/sw.js` (el 3D del estadio queda afuera y se guarda al
+  visitarlo), y al activarse borra el JS/CSS con hash viejo. Las páginas se guardan sin la query. ESPN no pasa por
   él. Para que todos borren lo guardado, cambiar `VERSION` en `sw.js`. El ícono sale de
   `public/assets/icons/icon.svg` e `icon-maskable.svg` (PNG renderizados con Chromium).
 - **Lo que guarda cada hincha** (prode, once, trivia, aviso de instalar) va en `localStorage` con el prefijo

@@ -4,13 +4,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { mount } from '../main.jsx';
 import { VELEZ_ID, fetchScoreboard } from '../lib/espn.js';
-import { DATA, capitalize, espnDay, fmt, liveStandings, liveTables, sourceNote } from '../lib/core.js';
+import { DATA, capitalize, espnDay, fmt, liveStandings, liveTables, nextMatch, sourceNote } from '../lib/core.js';
+import { offLabel } from '../lib/alerts.js';
 import { useCached, useJson, useLiveData } from '../hooks/data.js';
-import { useLiveTitle } from '../hooks/page.js';
+import { useGoalAlert, useLiveTitle } from '../hooks/page.js';
 import { Layout } from '../components/Layout.jsx';
 import { Crest, Empty, Segmented, Skeletons } from '../components/ui.jsx';
 import { StandingsTable, buildTables } from '../sections/Tablas.jsx';
-import { Countdown, LiveEvents } from '../sections/Juega.jsx';
+import { Countdown, GoalAlert, LiveEvents } from '../sections/Juega.jsx';
 
 /** «Mantener la pantalla prendida» (Wake Lock): solo si el navegador lo permite. */
 function WakeLock() {
@@ -45,14 +46,15 @@ function WakeLock() {
 
 function Other({ m }) {
   const live = m.status === 'in';
+  const off = offLabel(m); // postergado, suspendido o cancelado: sin marcador y con el cartel abajo
   return (
     <li className={m.home.id === VELEZ_ID || m.away.id === VELEZ_ID ? 'is-velez' : undefined}>
       <span className="vivo-o-team"><Crest url={m.home.logo} size={20} />{m.home.name}</span>
       <span className="vivo-o-score num">
-        {m.status === 'pre' ? (m.timeValid ? fmt.time.format(new Date(m.date)) : '—') : `${m.home.score ?? 0}-${m.away.score ?? 0}`}
+        {off ? '—' : m.status === 'pre' ? (m.timeValid ? fmt.time.format(new Date(m.date)) : '—') : `${m.home.score ?? 0}-${m.away.score ?? 0}`}
       </span>
       <span className="vivo-o-team is-away">{m.away.name}<Crest url={m.away.logo} size={20} /></span>
-      <span className={`vivo-o-state${live ? ' is-live' : ''}`}>{live ? m.clock ?? 'En vivo' : m.completed ? 'Final' : ''}</span>
+      <span className={`vivo-o-state${live ? ' is-live' : ''}`}>{live ? m.clock ?? 'En vivo' : m.completed ? 'Final' : off ?? ''}</span>
     </li>
   );
 }
@@ -78,11 +80,13 @@ function Vivo() {
   const promedios = useJson(`${DATA}promedios.json`);
   const data = state.data;
   useLiveTitle(data?.fixture);
-  const match = data && (data.fixture.find((m) => m.status === 'in') ?? data.fixture.find((m) => !m.completed));
+  const goal = useGoalAlert(data?.fixture);
+  const match = data && nextMatch(data.fixture); // un postergado no cuenta como próximo
   const day = match ? espnDay(new Date(match.date)) : null;
   const leagueMatch = match?.compSlug === 'arg.1';
-  // Los otros partidos de la fecha: se piden con cada refresco de los datos en vivo.
-  const others = useCached(leagueMatch ? `${day}-${data.updatedAt}` : null, () => fetchScoreboard(day));
+  // Los otros partidos de la fecha: se piden con cada refresco de los datos en vivo. Si un refresco falla, quedan los
+  // últimos (`keep`): «La fecha» y la tabla en vivo no desaparecen un minuto.
+  const others = useCached(leagueMatch ? `${day}-${data.updatedAt}` : null, () => fetchScoreboard(day), { keep: true });
   const zone = data?.standings.groups.find((g) => g.rows.some((r) => r.id === VELEZ_ID));
   const table = zone && others ? liveStandings(zone.rows, others) : null;
   const anyLive = others?.some((m) => m.status === 'in');
@@ -93,6 +97,7 @@ function Vivo() {
     <Layout page="vivo" mainClass="vivo">
       <section className="vivo-band" aria-label="El partido de Vélez">
         <div className="wrap">
+          <GoalAlert alert={goal} />
           {state.status === 'loading' ? <Skeletons className="sk-juega" />
             : !match ? <p className="juega-empty">No hay partidos de Vélez programados.</p>
             : (

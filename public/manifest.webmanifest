@@ -7,7 +7,6 @@
   "start_url": "./?app=1",
   "scope": "./",
   "display": "standalone",
-  "orientation": "portrait",
   "background_color": "#0061A8",
   "theme_color": "#0061A8",
   "categories": ["sports", "news"],
@@ -18,6 +17,7 @@
     { "src": "assets/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
   ],
   "shortcuts": [
+    { "name": "Modo cancha", "short_name": "Cancha", "url": "vivo.html", "icons": [{ "src": "assets/icons/icon-192.png", "sizes": "192x192" }] },
     { "name": "Partidos y tablas", "short_name": "Partidos", "url": "partidos.html", "icons": [{ "src": "assets/icons/icon-192.png", "sizes": "192x192" }] },
     { "name": "Plantel", "url": "plantel.html", "icons": [{ "src": "assets/icons/icon-192.png", "sizes": "192x192" }] },
     { "name": "Juegos", "url": "juegos.html", "icons": [{ "src": "assets/icons/icon-192.png", "sizes": "192x192" }] }

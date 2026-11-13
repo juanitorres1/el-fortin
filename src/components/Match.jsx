@@ -1,6 +1,7 @@
 // Fila de partido (fixture, resultados, copas, historial) y lista de partidos.
 import { velezView } from '../lib/espn.js';
 import { fmt } from '../lib/core.js';
+import { offLabel } from '../lib/alerts.js';
 import { Crest, Empty, ResultBadge, Skeletons } from './ui.jsx';
 
 // Las copas anteriores a 2001 (copas-historicas.json) traen la ronda, la cancha neutral explícita y a veces no se
@@ -15,6 +16,7 @@ const where = (m, velezHome, velez, rival) => [
 export function MatchRow({ m, showYear = false }) {
   const d = new Date(m.date);
   const { velezHome, velez, rival, result } = velezView(m);
+  const off = offLabel(m); // «Postergado», «Suspendido» o «Cancelado»: va en lugar de la hora, que ya no vale
   return (
     <li className="match">
       <div className="match-date">
@@ -38,6 +40,8 @@ export function MatchRow({ m, showYear = false }) {
           <><span className="score">{velez.score}-{rival.score}</span><ResultBadge result={result} /></>
         ) : m.status === 'in' ? (
           <><span className="live-pill">{m.clock ?? 'En vivo'}</span><span className="score">{velez.score ?? 0}-{rival.score ?? 0}</span></>
+        ) : off ? (
+          <span className="tag tag-off">{off}</span>
         ) : (
           <span className="match-time">{m.timeValid ? fmt.time.format(d) : 'A conf.'}</span>
         )}

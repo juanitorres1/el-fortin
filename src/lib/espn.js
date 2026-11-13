@@ -40,7 +40,7 @@ function compName(league) {
   if (/supercopa internacional/i.test(league.name)) return 'Supercopa Internacional';
   if (/supercopa/i.test(league.name)) return 'Supercopa Argentina';
   if (/friendly/i.test(league.name)) return 'Amistoso';
-  return league.name.replace(/^Argentine /, '');
+  return (league.name ?? 'Otro').replace(/^Argentine /, '');
 }
 
 function normalizeSide(c) {
@@ -68,6 +68,7 @@ export function normalizeEvent(e) {
     compSlug: e.league?.slug ?? null,
     round: e.seasonType?.name ?? null,
     status: st.state ?? 'pre', // pre | in | post
+    statusName: st.name ?? null, // STATUS_SCHEDULED, STATUS_POSTPONED, STATUS_CANCELED… (para «Postergado»)
     completed: Boolean(st.completed),
     detail: st.shortDetail ?? '',
     clock: c.status?.displayClock ?? null,
@@ -77,6 +78,21 @@ export function normalizeEvent(e) {
     home: normalizeSide(home),
     away: normalizeSide(away),
   };
+}
+
+/**
+ * Normaliza una lista de eventos de ESPN salteando los ilegibles (un cruce sin rival definido, un partido sin
+ * `competitions`): un solo evento raro no puede dejar al sitio sin fixture ni frenar el deploy.
+ */
+export function safeEvents(events) {
+  return (events ?? []).flatMap((e) => {
+    try {
+      return [normalizeEvent(e)];
+    } catch (err) {
+      console.warn(`ESPN: partido ilegible (${e?.id ?? 'sin id'}):`, err.message);
+      return [];
+    }
+  });
 }
 
 export function normalizeStandings(json) {
@@ -121,7 +137,7 @@ export async function fetchTeams(league, fetchImpl) {
 
 export async function fetchTeamSchedule(teamId, fetchImpl) {
   const json = await getJson(`${SITE}/all/teams/${teamId}/schedule`, fetchImpl);
-  return (json.events ?? []).map(normalizeEvent).sort(byDate);
+  return safeEvents(json.events).sort(byDate);
 }
 
 export async function fetchSchedule({ season, fixture = false } = {}, fetchImpl) {
@@ -129,7 +145,7 @@ export async function fetchSchedule({ season, fixture = false } = {}, fetchImpl)
   if (season) qs.set('season', season);
   if (fixture) qs.set('fixture', 'true');
   const json = await getJson(`${SITE}/all/teams/${VELEZ_ID}/schedule?${qs}`, fetchImpl);
-  return (json.events ?? []).map(normalizeEvent).sort(byDate);
+  return safeEvents(json.events).sort(byDate);
 }
 
 /**
@@ -198,9 +214,7 @@ const phaseSlug = (phase) => (phase ?? '').toLowerCase().normalize('NFD').replac
 
 /** Partidos de la fase regular en curso que se están jugando ahora, del scoreboard de la liga (para la tabla en vivo). */
 export function playingNow(scoreboard, standings) {
-  return (scoreboard?.events ?? [])
-    .filter((ev) => ev.season?.slug === phaseSlug(standings?.phase))
-    .map(normalizeEvent)
+  return safeEvents((scoreboard?.events ?? []).filter((ev) => ev.season?.slug === phaseSlug(standings?.phase)))
     .filter((m) => m.status === 'in');
 }
 
@@ -268,7 +282,7 @@ export function relegation(averageRows, annualRows) {
  */
 export async function fetchPhaseRemaining(standings, fetchImpl, now = new Date()) {
   const end = standings.phaseEnd ? new Date(standings.phaseEnd) : new Date(now.getFullYear(), now.getMonth() + 1, 28);
-  return (await fetchPhaseEvents(standings, now, end, fetchImpl)).map(normalizeEvent).filter((m) => !m.completed);
+  return safeEvents(await fetchPhaseEvents(standings, now, end, fetchImpl)).filter((m) => !m.completed);
 }
 
 /**
@@ -353,21 +367,53 @@ export async function fetchScorers(standings, fetchImpl, now = new Date()) {
 /** Partidos de la liga en un día («20261019», hora de la Argentina en ESPN): para los otros resultados de la fecha. */
 export async function fetchScoreboard(day, league = 'arg.1', fetchImpl) {
   const json = await getJson(`${SITE}/${league}/scoreboard?dates=${day}`, fetchImpl);
-  return (json.events ?? []).map(normalizeEvent).sort(byDate);
+  return safeEvents(json.events).sort(byDate);
 }
 
 /**
  * Lo que cambia día a día: próximos partidos, resultados de la temporada, la tabla y los partidos de la liga que se
  * están jugando (`playing`, para la tabla en vivo; si el scoreboard falla, ninguno: la tabla de ESPN alcanza).
  */
-export async function fetchLive(fetchImpl) {
+export async function fetchLive(fetchImpl, { fallbackStandings } = {}) {
+  // Con `fallbackStandings` (la última tabla buena, en el navegador) la tabla es opcional: si ESPN no la entrega, el
+  // marcador y el fixture llegan igual. Sin eso (el deploy), que falte la tabla es un error.
+  const table = fetchStandings(fetchImpl);
   const [fixture, results, standings, scoreboard] = await Promise.all([
     fetchSchedule({ fixture: true }, fetchImpl),
     fetchSchedule({}, fetchImpl),
-    fetchStandings(fetchImpl),
+    fallbackStandings ? table.catch(() => fallbackStandings) : table,
     getJson(`${SITE}/arg.1/scoreboard`, fetchImpl).catch(() => null),
   ]);
   return { updatedAt: new Date().toISOString(), fixture, results: completedResults(results, fixture), standings, playing: playingNow(scoreboard, standings) };
+}
+
+/** Un partido del fixture con lo que cambia mientras se juega (estado, reloj, goles) tomado del scoreboard. */
+export function patchLive(m, fresh) {
+  if (!fresh) return m;
+  const side = (s) => {
+    const f = [fresh.home, fresh.away].find((x) => x.id === s.id);
+    return f ? { ...s, score: f.score, pen: f.pen, winner: f.winner } : s;
+  };
+  return { ...m, status: fresh.status, statusName: fresh.statusName, completed: fresh.completed, detail: fresh.detail, clock: fresh.clock, home: side(m.home), away: side(m.away) };
+}
+
+/**
+ * Refresco liviano mientras se juega: solo el scoreboard (~3 KB contra ~40 KB y 7 pedidos de fetchLive), aplicado
+ * sobre los últimos datos completos (`prev`). Devuelve null cuando hace falta un refresco completo: el partido de
+ * Vélez no está en el scoreboard o ya no queda nada en juego (terminó: hay que traer resultados y tablas).
+ */
+export async function fetchLiveFast(prev, fetchImpl) {
+  const velez = prev.fixture.find((m) => m.status === 'in');
+  // La liga siempre (tabla en vivo) y, si Vélez juega o está por jugar una copa, también su scoreboard.
+  const focus = velez ?? prev.fixture.find((m) => !m.completed);
+  const slugs = [...new Set(['arg.1', focus?.compSlug].filter(Boolean))];
+  const boards = await Promise.all(slugs.map((s) => getJson(`${SITE}/${s}/scoreboard`, fetchImpl)));
+  const byId = new Map(boards.flatMap((b) => safeEvents(b.events)).map((m) => [m.id, m]));
+  if (velez && !byId.has(velez.id)) return null;
+  const fixture = prev.fixture.map((m) => patchLive(m, byId.get(m.id)));
+  const playing = playingNow(boards[0], prev.standings);
+  if (!fixture.some((m) => m.status === 'in') && !playing.length) return null;
+  return { ...prev, updatedAt: new Date().toISOString(), fixture, playing };
 }
 
 /**

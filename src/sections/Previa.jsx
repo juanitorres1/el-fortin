@@ -3,6 +3,7 @@
 // Cómo llega el rival (sus últimos partidos y goleadores) y las probables formaciones se piden a ESPN en el navegador.
 import { VELEZ_ID, fetchScorers } from '../lib/espn.js';
 import { monthDay, streakLines, teamForm } from '../lib/facts.js';
+import { nextMatch } from '../lib/core.js';
 import { useCached, useNow } from '../hooks/data.js';
 import { Lines, ResultBadge } from '../components/ui.jsx';
 import { Formaciones, scheduleOf } from './Formaciones.jsx';
@@ -70,7 +71,7 @@ export function Previa({ facts, data }) {
   for (const m of data.results) byId.set(m.id, m);
   const streaks = streakLines([...byId.values()]);
 
-  const next = data.fixture.find((m) => !m.completed);
+  const next = nextMatch(data.fixture);
   const rival = next && (next.home.id === VELEZ_ID ? next.away : next.home);
   const rf = rival && facts.rivals[rival.id];
   const today = facts.days[monthDay(new Date(now))] ?? [];

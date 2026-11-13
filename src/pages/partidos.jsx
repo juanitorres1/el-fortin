@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { mount } from '../main.jsx';
 import { velezView } from '../lib/espn.js';
-import { DATA, mergeResults, sourceNote, standingsNow } from '../lib/core.js';
+import { DATA, fmt, mergeResults, sourceNote, standingsNow } from '../lib/core.js';
 import { useJson, useLiveData, useNow } from '../hooks/data.js';
 import { useLiveTitle, useScrollToHash } from '../hooks/page.js';
 import { Layout, PageBand } from '../components/Layout.jsx';
@@ -37,10 +37,11 @@ function Agendar() {
 }
 
 function Copas({ fixture, results }) {
-  const season = new Date(useNow()).getFullYear();
+  // El año en hora de la Argentina, no en la del dispositivo (un partido del 31/12 a la noche no cambia de temporada).
+  const season = fmt.year.format(new Date(useNow()));
   const byComp = new Map();
   for (const m of [...results, ...fixture.filter((x) => !x.completed)]) {
-    if (m.comp === 'Liga Profesional' || m.comp === 'Amistoso' || new Date(m.date).getFullYear() !== season) continue;
+    if (m.comp === 'Liga Profesional' || m.comp === 'Amistoso' || fmt.year.format(new Date(m.date)) !== season) continue;
     byComp.set(m.comp, [...(byComp.get(m.comp) ?? []), m]);
   }
   if (!byComp.size) return null;

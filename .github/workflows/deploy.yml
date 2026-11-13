@@ -88,6 +88,22 @@ jobs:
       - uses: actions/upload-pages-artifact@v5
         with:
           path: dist
+      # Si el deploy programado falla (ESPN caído, cambio de formato), el sitio queda con los datos del último deploy
+      # bueno y el chequeo de arriba no llega a correr: se abre un issue (uno solo) y se cierra cuando vuelve a andar.
+      - name: Avisar si el deploy falla
+        if: always() && github.event_name != 'push'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITLE: 'El deploy está fallando'
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          ISSUE=$(gh issue list --repo "${{ github.repository }}" --state open --search "\"$TITLE\" in:title" --json number -q '.[0].number')
+          if [ "${{ job.status }}" = "failure" ]; then
+            if [ -z "$ISSUE" ]; then gh issue create --repo "${{ github.repository }}" --title "$TITLE" --body "El deploy programado falló y el sitio sigue con los datos del último deploy bueno. Primera corrida con error: $RUN_URL. Este issue se cierra solo cuando un deploy vuelve a terminar bien."; fi
+          elif [ "${{ job.status }}" = "success" ] && [ -n "$ISSUE" ]; then
+            gh issue close "$ISSUE" --repo "${{ github.repository }}" --comment "Resuelto: el deploy volvió a terminar bien ($RUN_URL)."
+          fi
 
   deploy:
     needs: build

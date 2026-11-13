@@ -269,6 +269,16 @@ a:hover { text-decoration-thickness: 2px; }
 .juega-vs { font: 800 1.5rem/1 var(--display); opacity: 0.9; }
 .juega-score { font-size: 2.75rem; line-height: 1; }
 .juega-when { margin: 1.25rem 0 0; text-align: center; font-weight: 600; font-size: 0.95rem; }
+/* «Cambió el horario: antes era…» (solo si este navegador había visto otra fecha): los colores de aviso de siempre,
+   con fondo propio sobre la banda azul. Medido: claro 8,06:1 (#5c4600 sobre #fdf3c4), noche 9,96:1 (#f5e3a3 sobre #3a3214). */
+.juega-changed { width: fit-content; max-width: 100%; margin: 0.6rem auto 0; padding: 0.35rem 0.75rem; border-radius: var(--radius-sm); background: var(--warn-bg); color: var(--warn-text); font-size: 0.8125rem; font-weight: 700; line-height: 1.35; text-align: center; }
+/* Aviso de gol en pantalla (Inicio y modo cancha), siempre sobre la banda azul, igual en los dos modos. El de Vélez:
+   bloque blanco con texto --velez-deep (10,06:1) y la pelota; el del rival, sobrio: blanco sobre --velez-deep (10,06:1)
+   con borde. Se distinguen por el texto y el tamaño, no solo por el color. */
+.goal-alert { display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin: 0 0 1rem; padding: 0.6rem 0.9rem; border: 1px solid rgba(255, 255, 255, 0.45); border-radius: var(--radius-sm); background: var(--velez-deep); color: var(--on-velez); font: 700 1.25rem/1.1 var(--display); letter-spacing: 0.03em; text-transform: uppercase; text-align: center; overflow-wrap: anywhere; }
+.goal-alert.is-velez { border-color: #fff; background: #fff; color: var(--velez-deep); font-weight: 800; font-size: 2rem; animation: goal-pop 0.45s ease-out; }
+.goal-alert-ball { font-size: 0.8em; }
+@keyframes goal-pop { from { transform: scale(0.85); opacity: 0; } }
 .juega-empty { margin: 0.5rem 0 1rem; }
 .countdown { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
 .countdown div { background: rgba(255, 255, 255, 0.14); padding: 0.6rem 0.25rem; text-align: center; }
@@ -369,6 +379,9 @@ a:hover { text-decoration-thickness: 2px; }
 .tag { display: inline-block; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; padding: 0.15rem 0.45rem; background: var(--bg-2); color: var(--text); margin-right: 0.4rem; }
 /* Partido que le dio una copa a Vélez (copas anteriores a 2001): bloque azul, igual en los dos modos (blanco 6,4:1). */
 .tag-title { background: var(--velez); color: var(--on-velez); }
+/* «Postergado» / «Suspendido» / «Cancelado» en lugar de la hora: lo dice el texto, no el color (el de .tag:
+   --text sobre --bg-2, 15,59:1 en claro y 14,85:1 en noche). */
+.tag-off { margin-right: 0; font-size: 0.8125rem; white-space: nowrap; }
 .match-note { margin: 0.2rem 0 0; font-size: 0.75rem; line-height: 1.4; color: var(--text-2); overflow-wrap: anywhere; }
 .match-score { display: flex; align-items: center; gap: 0.5rem; }
 .score { font: 700 1.6rem/1 var(--display); font-variant-numeric: tabular-nums; }
@@ -583,7 +596,7 @@ html:has(.subnav) { scroll-padding-top: calc(var(--topbar-h) + 4.5rem); }
 
 /* ---------- Preferencias de accesibilidad ---------- */
 @media (prefers-reduced-motion: reduce) {
-  .skeleton::after, .live-pill::before { animation: none; }
+  .skeleton::after, .live-pill::before, .goal-alert.is-velez { animation: none; }
   .nw-card { transition: none; }
   .nw-card:hover { transform: none; }
 }

@@ -1,6 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { initialFor, inject } from '../scripts/prerender.mjs';
+import { readFile } from 'node:fs/promises';
+import vm from 'node:vm';
+import { initialFor, inject, injectPrecache, precacheLists } from '../scripts/prerender.mjs';
+import { PAGES } from '../src/site.js';
 
 const BUILT = `<!doctype html>
 <html><head><script type="module" src="./assets/x.js"></script></head>
@@ -38,4 +41,33 @@ test('initialFor: cada página lleva solo sus datos; el historial ninguno', asyn
   assert.equal(club.live, undefined);
   const historial = await initialFor('historial', 123);
   assert.deepEqual(historial, { renderedAt: 123, json: {} });
+});
+
+// Como sale de recorrer dist/assets/ (con repetidos y desordenado a propósito).
+const ASSETS = ['assets/ui-AAA.js', 'assets/ui-BBB.css', 'assets/club-CCC.js', 'assets/estadio-scene-DDD.js', 'assets/og.png', 'assets/v.svg', 'assets/icons/icon-192.png', 'assets/ui-AAA.js', 'assets/ui-AAA.js.map'];
+
+test('precacheLists: las 8 páginas, el manifest, los íconos y el JS/CSS; el 3D del estadio queda a pedido', () => {
+  const { precache, onDemand } = precacheLists(PAGES, ASSETS);
+  assert.deepEqual(precache.slice(0, 9), ['./', 'partidos.html', 'plantel.html', 'historial.html', 'juegos.html', 'club.html', 'jugador.html', 'vivo.html', 'manifest.webmanifest']);
+  assert.deepEqual(precache.slice(9), ['assets/club-CCC.js', 'assets/icons/icon-192.png', 'assets/ui-AAA.js', 'assets/ui-BBB.css', 'assets/v.svg']);
+  assert.deepEqual(onDemand, ['assets/estadio-scene-DDD.js', 'assets/og.png']);
+  assert.ok(precache.every((p) => !/^[/.]\S/.test(p) || p === './'), 'rutas relativas al sitio, sin «/» ni «./» adelante');
+});
+
+test('injectPrecache escribe las listas en el sw.js del repo, que sigue siendo JS válido', async () => {
+  const sw = await readFile(new URL('../public/sw.js', import.meta.url), 'utf8');
+  new vm.Script(sw); // sin procesar también tiene que servir
+  const lists = precacheLists(PAGES, ASSETS);
+  const out = injectPrecache(sw, lists);
+  new vm.Script(out);
+  assert.ok(out.includes(`const PRECACHE = /*precarga:*/ ${JSON.stringify(lists.precache)} /*:precarga*/;`));
+  assert.ok(out.includes('const ON_DEMAND = /*a-pedido:*/ ["assets/estadio-scene-DDD.js","assets/og.png"] /*:a-pedido*/;'));
+  assert.equal(out.replace(/\/\*(precarga|a-pedido):\*\/.*?\/\*:\1\*\//g, ''), sw.replace(/\/\*(precarga|a-pedido):\*\/.*?\/\*:\1\*\//g, '')); // el resto queda igual
+  // Con otro build (otros hashes) se puede correr sobre el resultado: no se acumula nada.
+  const next = precacheLists(PAGES, ['assets/ui-ZZZ.js']);
+  assert.equal(injectPrecache(out, next), injectPrecache(sw, next));
+});
+
+test('injectPrecache falla si sw.js no tiene los marcadores', () => {
+  assert.throws(() => injectPrecache('const PRECACHE = [];', { precache: [], onDemand: [] }), /precarga/);
 });
