@@ -484,6 +484,7 @@ export function normalizeRoster(json) {
       age: a.age ?? null,
       nat: a.citizenship ?? null,
       flag: a.flag?.href ?? null,
+      photo: a.headshot?.href ?? null, // ESPN la tiene para muy pocos jugadores del fútbol argentino
       // ESPN informa lesiones de forma irregular: guardamos lo que venga, sin inventar detalle.
       injuries: (a.injuries ?? []).map((i) => ({
         status: i.status ?? i.type?.description ?? 'Lesionado',

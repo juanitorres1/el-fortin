@@ -4,6 +4,7 @@
 // - news.json: titulares de la semana de velez.com.ar (sin IA). El resumen semanal con IA lo genera
 //   .github/workflows/news-summary.yml y el deploy lo baja como artifact.
 // - promedios.json: tablas de las fases que cuentan para los promedios (últimas 3 temporadas).
+// - duelos.json: el historial resumido por rival, para el juego Mano a Mano.
 // - facts.json: datos para la previa del Inicio (rachas, historial con el próximo rival, un día como hoy).
 // - escudos.json: ids de ESPN para los equipos del historial 1919–2000 que no los tienen (escudo y unión con sus
 //   partidos desde 2001; ver src/lib/crests.js).
@@ -18,6 +19,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { buildCalendar } from './ics.mjs';
 import { writeHeadlines } from './news.mjs';
 import { monthDay, onThisDay, rivalFacts } from '../src/lib/facts.js';
+import { duelRows } from '../src/lib/duel.js';
 import { hydrateCup, linkTeams, relinkMatch } from '../src/lib/crests.js';
 import { VELEZ_ID, aggregateStats, discipline, gamesLog, fetchAverageParts, fetchLive, fetchPhaseEvents, fetchRoster, fetchSchedule, fetchSummary, fetchTeams, goalEvents, leaderboard, playersFromSummary, summaryAssists, tournamentOf } from '../src/lib/espn.js';
 
@@ -126,6 +128,10 @@ async function writeFacts(matches, live, crestIds) {
   const cups = (await readCups()).map((m) => hydrateCup(m, crestIds));
   const club = JSON.parse(await readFile(new URL('../public/data/club.json', import.meta.url), 'utf8'));
   const all = [...historic, ...cups, ...matches];
+  // Mano a Mano (Juegos): el historial resumido por rival, para no bajar los ~3.900 partidos en la página de juegos.
+  const duels = duelRows(all);
+  await writeFile(new URL('duelos.json', OUT), JSON.stringify({ updatedAt: new Date().toISOString(), rows: duels }));
+  console.log(`duelos: ${duels.length} rivales`);
   const slim = (t) => ({ id: t.id, name: t.name, score: t.score });
   const recent = matches.filter((m) => m.comp !== 'Amistoso').slice(-RECENT_FOR_STREAKS)
     .map((m) => ({ id: m.id, date: m.date, comp: m.comp, completed: m.completed, home: slim(m.home), away: slim(m.away) }));

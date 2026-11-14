@@ -1,36 +1,36 @@
-// Juegos: trivia diaria (sale de data/club.json), prode del próximo partido y «Adiviná el once». Lo que elige cada
-// hincha queda en su navegador (lib/storage.js): no hay cuentas ni servidor. Se lee en efectos, después de hidratar.
-import { useEffect, useMemo, useState } from 'react';
+// Juegos. Del día (los mismos para todos, salen de la fecha): Trivia, Mano a Mano, El Tapado, Trayectoria V, Grilla
+// del Fortín y El Once de Liniers (semanal). Del partido: Prode y «Adiviná el once». Se ve un juego por vez (pestañas,
+// con el #hash en la URL). Lo que elige cada hincha queda en su navegador (lib/storage.js): no hay cuentas ni
+// servidor. Se lee en efectos, después de hidratar.
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { mount } from '../main.jsx';
 import { VELEZ_ID } from '../lib/espn.js';
-import { DATA, TZ, capitalize, fmt } from '../lib/core.js';
-import { dailyTrivia, dayNumber, playStreak, shareText } from '../lib/trivia.js';
+import { DATA, TZ, capitalize, fmt, nextMatch } from '../lib/core.js';
+import { GAMES, gameStreak, markPlayed } from '../lib/daily.js';
+import { dailyTrivia, dayNumber, shareText } from '../lib/trivia.js';
 import { ONCE_SIZE, isOpen, onceScore, prodeSummary } from '../lib/games.js';
-import { load, save } from '../lib/storage.js';
 import { useJson, useLiveData, useNow, useRoster } from '../hooks/data.js';
 import { useScrollToHash } from '../hooks/page.js';
 import { Layout, PageBand } from '../components/Layout.jsx';
 import { Crest, Empty, Skeletons } from '../components/ui.jsx';
 import { ShareCardButton } from '../components/ShareCard.jsx';
+import { useStored } from '../sections/juegos/shared.jsx';
+import { ManoAMano } from '../sections/juegos/ManoAMano.jsx';
+import { Tapado } from '../sections/juegos/Tapado.jsx';
+import { Trayectoria } from '../sections/juegos/Trayectoria.jsx';
+import { Grilla } from '../sections/juegos/Grilla.jsx';
+import { Liniers } from '../sections/juegos/Liniers.jsx';
 
 const POS_GROUP = { G: 'Arqueros', D: 'Defensores', M: 'Mediocampistas', F: 'Delanteros' };
 const POS_ORDER = ['G', 'D', 'M', 'F'];
 const DAY_MONTH = new Intl.DateTimeFormat('es-AR', { timeZone: TZ, day: '2-digit', month: '2-digit' });
 const KIND_LABEL = { exacto: 'Exacto · 3 pts', resultado: 'Resultado · 1 pt', errado: 'Errado · 0 pts' };
 
-/** Estado guardado en el navegador: arranca vacío (igual que el HTML del deploy) y se lee al montar. */
-function useStored(key, fallback) {
-  const [value, setValue] = useState(fallback);
-  useEffect(() => setValue(load(key, fallback)), [key]);
-  const update = (next) => {
-    setValue((prev) => {
-      const v = typeof next === 'function' ? next(prev) : next;
-      save(key, v);
-      return v;
-    });
-  };
-  return [value, update];
-}
+// El próximo partido para pronosticar: el que sigue en pie (un postergado no cuenta) y todavía no empezó.
+const upcoming = (data) => {
+  const m = data && nextMatch(data.fixture);
+  return m && m.status !== 'in' ? m : undefined;
+};
 
 const rivalOf = (m) => (m.home.id === VELEZ_ID ? m.away : m.home);
 const matchLabel = (m) => `${m.home.name} vs ${m.away.name}`;
@@ -38,7 +38,7 @@ const whenLabel = (m) => `${capitalize(fmt.long.format(new Date(m.date)))}${m.ti
 
 // ---------- Trivia ----------
 
-function Trivia({ club }) {
+function Trivia({ club, onDone }) {
   const now = useNow();
   const day = dayNumber(new Date(now));
   const questions = useMemo(() => (club ? dailyTrivia(club, day) : []), [club, day]);
@@ -49,7 +49,6 @@ function Trivia({ club }) {
   const results = answers.map((a, i) => questions[i] && questions[i].options[a] === questions[i].answer);
   const score = results.filter(Boolean).length;
   const label = DAY_MONTH.format(new Date(now)); // «17/10»
-  const streak = playStreak(Object.keys(history).map(Number), day);
   const [copied, setCopied] = useState(false);
 
   const answer = (qi, oi) => {
@@ -59,6 +58,7 @@ function Trivia({ club }) {
     if (next.length === questions.length) {
       const ok = next.filter((a, i) => questions[i].options[a] === questions[i].answer).length;
       setHistory((h) => ({ ...h, [day]: ok }));
+      onDone('trivia');
     }
   };
   const shareResult = async () => {
@@ -112,7 +112,6 @@ function Trivia({ club }) {
           <p className="kicker">Trivia del {label}</p>
           <p className="trivia-score"><b className="num">{score}/{questions.length}</b> {score === questions.length ? '¡Perfecto! Sabés todo de Vélez.' : score >= 3 ? 'Muy bien, hincha.' : 'Mañana hay otra.'}</p>
           <p className="trivia-squares" aria-hidden="true">{results.map((r) => (r ? '🟦' : '⬜')).join('')}</p>
-          {streak > 1 && <p className="muted">Llevás {streak} días seguidos jugando.</p>}
           <div className="cal-links">
             <button type="button" className="btn btn-solid" onClick={shareResult}>{copied ? 'Copiado: pegalo en WhatsApp' : 'Compartir el resultado'}</button>
             <ShareCardButton
@@ -122,7 +121,7 @@ function Trivia({ club }) {
           </div>
         </div>
       )}
-      <p className="muted small">Cinco preguntas por día, las mismas para todos. Salen de la historia, el palmarés y los récords del club que están en este sitio.</p>
+      <p className="muted small">Cinco preguntas por día, las mismas para todos y sin repetir hasta que pasen todas. Salen de la historia, el palmarés y los récords del club que están en este sitio.</p>
     </>
   );
 }
@@ -141,7 +140,7 @@ function Stepper({ label, value, onChange, disabled }) {
 
 function Prode({ data, now }) {
   const [preds, setPreds] = useStored('prode', {});
-  const next = data?.fixture.find((m) => !m.completed && m.status !== 'in');
+  const next = upcoming(data);
   const saved = next && preds[next.id];
   const [draft, setDraft] = useState(null);
   const open = isOpen(next, now);
@@ -214,7 +213,7 @@ function Prode({ data, now }) {
 
 function Once({ data, roster, games, now }) {
   const [picks, setPicks] = useStored('once', {});
-  const next = data?.fixture.find((m) => !m.completed && m.status !== 'in');
+  const next = upcoming(data);
   const open = isOpen(next, now);
   const mine = (next && picks[next.id]) ?? [];
   const evaluated = useMemo(() => {
@@ -283,26 +282,82 @@ function Once({ data, roster, games, now }) {
   );
 }
 
+const ABOUT = {
+  trivia: ['Trivia del día', 'Cinco preguntas de la historia del club.'],
+  duelo: ['Mano a Mano', 'Diez duelos: ¿a quién le ganó más veces Vélez?'],
+  tapado: ['El Tapado', 'Adiviná el jugador por sus datos.'],
+  trayectoria: ['Trayectoria V', 'Adiviná el jugador por los clubes de su carrera.'],
+  grilla: ['Grilla del Fortín', 'Nueve casillas, nueve jugadores que pasaron por Vélez.'],
+  liniers: ['El Once de Liniers', 'Los once titulares de un partido para el recuerdo.'],
+  prode: ['Prode', 'Tu pronóstico del próximo partido.'],
+  once: ['Adiviná el once', 'Los titulares del próximo partido.'],
+};
+const isGame = (key) => GAMES.some((g) => g.key === key);
+
 function Juegos() {
   const state = useLiveData();
   const club = useJson('data/club.json');
   const games = useJson(`${DATA}games.json`);
   const roster = useRoster();
   const now = useNow(60_000);
+  const day = dayNumber(new Date(now));
+  const label = DAY_MONTH.format(new Date(now));
+  // El juego elegido sigue al #hash (los links compartidos abren directo en su juego). Se lee al montar: el HTML del
+  // deploy es el mismo para todos.
+  const [tab, setTab] = useState('trivia');
+  useEffect(() => {
+    const read = () => {
+      const key = location.hash.slice(1);
+      if (isGame(key)) setTab(key);
+    };
+    read();
+    addEventListener('hashchange', read);
+    return () => removeEventListener('hashchange', read);
+  }, []);
+  const pick = (key) => {
+    setTab(key);
+    history.replaceState(null, '', `#${key}`);
+  };
+  // Racha: días seguidos con al menos un juego del día terminado (los de la trivia de antes también cuentan).
+  const [log, setLog] = useStored('jugados', {});
+  const [triviaDays] = useStored('trivia-history', {});
+  const onDone = (game) => setLog((l) => markPlayed(l, day, game));
+  const streak = gameStreak(log, day, Object.keys(triviaDays).map(Number));
+  const doneToday = new Set(log[day] ?? []);
   useScrollToHash(club !== undefined && state.status !== 'loading');
+  // En el celular las pestañas son una fila que se desliza: la elegida tiene que quedar a la vista.
+  const tabsRef = useRef(null);
+  useEffect(() => {
+    const row = tabsRef.current;
+    const on = row?.querySelector('[aria-pressed="true"]');
+    if (on) row.scrollTo({ left: on.offsetLeft - (row.clientWidth - on.offsetWidth) / 2 });
+  }, [tab]);
+  const [title, about] = ABOUT[tab];
   return (
-    <Layout page="juegos" band={<PageBand title="Juegos"><p className="lead">Trivia, prode y el once. Para jugar con la V en el pecho.</p></PageBand>}>
-      <section className="block" id="trivia" aria-labelledby="t-trivia">
-        <div className="section-head"><h2 className="h2" id="t-trivia">Trivia del día</h2></div>
-        <Trivia club={club} />
-      </section>
-      <section className="block bleed bleed-gray" id="prode" aria-labelledby="t-prode">
-        <div className="section-head"><h2 className="h2" id="t-prode">Prode</h2></div>
-        <Prode data={state.data} now={now} />
-      </section>
-      <section className="block" id="once" aria-labelledby="t-once">
-        <div className="section-head"><h2 className="h2" id="t-once">Adiviná el once</h2></div>
-        <Once data={state.data} roster={roster} games={games} now={now} />
+    <Layout page="juegos" band={<PageBand title="Juegos"><p className="lead">Seis juegos del día, el prode y el once. Para jugar con la V en el pecho.</p></PageBand>}>
+      <nav className="games-tabs" aria-label="Elegir juego" ref={tabsRef}>
+        {GAMES.map((g) => (
+          <button key={g.key} type="button" className="seg" aria-pressed={g.key === tab} onClick={() => pick(g.key)}>
+            {g.label}{doneToday.has(g.key) && <><span aria-hidden="true"> ✓</span><span className="sr-only"> (jugado hoy)</span></>}
+          </button>
+        ))}
+      </nav>
+      {streak > 0 && (
+        <p className="games-streak" role="status" key={doneToday.size}>
+          <span className="games-flame" aria-hidden="true">🔥</span><b className="num">{streak}</b> {streak === 1 ? 'día' : 'días seguidos'} jugando{doneToday.size ? '.' : ': jugá hoy para no cortar la racha.'}
+        </p>
+      )}
+      <section className="block game-in" id={tab} key={tab} aria-labelledby="t-game">
+        <div className="section-head"><h2 className="h2" id="t-game">{title}</h2></div>
+        <p className="muted games-about">{about}</p>
+        {tab === 'trivia' && <Trivia club={club} onDone={onDone} />}
+        {tab === 'duelo' && <ManoAMano day={day} label={label} onDone={onDone} />}
+        {tab === 'tapado' && <Tapado day={day} label={label} roster={roster} onDone={onDone} />}
+        {tab === 'trayectoria' && <Trayectoria day={day} label={label} onDone={onDone} />}
+        {tab === 'grilla' && <Grilla day={day} label={label} onDone={onDone} />}
+        {tab === 'liniers' && <Liniers day={day} onDone={onDone} />}
+        {tab === 'prode' && <Prode data={state.data} now={now} />}
+        {tab === 'once' && <Once data={state.data} roster={roster} games={games} now={now} />}
       </section>
     </Layout>
   );

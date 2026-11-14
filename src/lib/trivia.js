@@ -1,4 +1,4 @@
-// Trivia diaria: 5 preguntas por día, iguales para todos (salen de la fecha), armadas solas con lo que ya está en
+// Trivia diaria: 5 preguntas por día, iguales para todos (salen de la fecha) y sin repetir hasta agotar todas, armadas solas con lo que ya está en
 // data/club.json (historia, palmarés, momentos, ídolos y récords). No hay preguntas escritas a mano: si se corrige
 // un dato en club.json, la trivia lo sigue. Las opciones incorrectas salen de otros datos del mismo archivo.
 
@@ -19,7 +19,7 @@ export function rng(seed) {
   };
 }
 
-function shuffle(list, rand) {
+export function shuffle(list, rand) {
   const a = [...list];
   for (let i = a.length - 1; i > 0; i--) {
     const j = Math.floor(rand() * (i + 1));
@@ -90,26 +90,62 @@ export function dayNumber(date) {
   return Math.round(Date.UTC(y, m - 1, d) / 864e5);
 }
 
-/**
- * Las preguntas de un día: de tipos distintos mientras se pueda, con 4 opciones mezcladas.
- * Devuelve [{ id, type, text, options, answer, note }].
- */
-export function dailyTrivia(club, day) {
-  const rand = rng(day * 2654435761);
-  const pool = shuffle(triviaPool(club), rand);
+// Cinco preguntas de `avail` (las saca de ahí), de tipos distintos mientras se pueda. Van primero los tipos con más
+// preguntas pendientes (con algo de azar): así los tipos chicos no se agotan antes de tiempo ni quedan todos para el final.
+function takeDay(avail, rand, blocked) {
   const picked = [];
   const types = new Set();
-  for (const x of pool) {
-    if (picked.length >= TRIVIA_SIZE) break;
-    if (!types.has(x.type)) {
+  const left = new Map();
+  for (const x of avail) left.set(x.type, (left.get(x.type) ?? 0) + 1);
+  const weight = new Map([...left].map(([t, n]) => [t, n + rand() * 3]));
+  const order = [...avail].sort((x, y) => weight.get(y.type) - weight.get(x.type));
+  const ok = (x) => !blocked?.has(x.text);
+  for (const pass of [(x) => ok(x) && !types.has(x.type), ok, () => true]) {
+    for (const x of order) {
+      if (picked.length >= TRIVIA_SIZE) break;
+      if (picked.includes(x) || !pass(x)) continue;
       picked.push(x);
       types.add(x.type);
     }
   }
-  for (const x of pool) {
-    if (picked.length >= TRIVIA_SIZE) break;
-    if (!picked.includes(x)) picked.push(x);
-  }
+  for (const x of picked) avail.splice(avail.indexOf(x), 1);
+  return picked;
+}
+
+const TAIL_DAYS = 4;
+
+/**
+ * El plan de un ciclo: todas las preguntas repartidas en días de 5, sin repetir ninguna dentro del ciclo (con 72
+ * preguntas, 14 días). Los últimos días del ciclo (`tail`) se sortean aparte y los primeros del ciclo siguiente no
+ * usan esas preguntas: entre una aparición y la siguiente pasan siempre 5 días o más.
+ */
+export function triviaCycle(pool, cycle) {
+  const length = Math.max(1, Math.floor(pool.length / TRIVIA_SIZE));
+  const tailDays = Math.min(TAIL_DAYS, Math.floor(length / 3));
+  const tailOf = (c) => {
+    const rand = rng(Math.imul(c, 2654435761) ^ 0x7a11);
+    const avail = shuffle(pool, rand);
+    return Array.from({ length: tailDays }, () => takeDay(avail, rand));
+  };
+  const tail = tailOf(cycle);
+  const used = new Set(tail.flat());
+  const blocked = new Set(tailOf(cycle - 1).flat().map((x) => x.text));
+  const rand = rng(Math.imul(cycle, 2654435761) ^ 0x4ead);
+  const avail = shuffle(pool.filter((x) => !used.has(x)), rand);
+  const head = Array.from({ length: length - tailDays }, (_, i) => takeDay(avail, rand, i < tailDays ? blocked : null));
+  return [...head, ...tail];
+}
+
+/**
+ * Las preguntas de un día: de tipos distintos mientras se pueda, con 4 opciones mezcladas, y sin repetir preguntas
+ * de los días anteriores (ver `triviaCycle`). Devuelve [{ id, type, text, options, answer, note }].
+ */
+export function dailyTrivia(club, day) {
+  const pool = triviaPool(club);
+  if (!pool.length) return [];
+  const length = Math.max(1, Math.floor(pool.length / TRIVIA_SIZE));
+  const picked = triviaCycle(pool, Math.floor(day / length))[day % length];
+  const rand = rng(day * 2654435761);
   return picked.map((x, i) => ({
     id: `${day}-${i}`,
     type: x.type,

@@ -1,0 +1,48 @@
+[
+  {
+    "id": "h-1994-08-24",
+    "date": "1994-08-24",
+    "title": "Copa Libertadores 1994 · final de ida",
+    "home": true,
+    "rival": "São Paulo",
+    "rivalId": "2026",
+    "score": "1-0",
+    "src": "https://es.wikipedia.org/wiki/Final_de_la_Copa_Libertadores_1994",
+    "players": [
+      { "n": "José Luis Chilavert", "num": 1, "pos": "G" },
+      { "n": "Flavio Zandoná", "num": 11, "pos": "D" },
+      { "n": "Roberto Trotta", "num": 2, "pos": "D" },
+      { "n": "Víctor Hugo Sotomayor", "num": 6, "pos": "D" },
+      { "n": "Raúl Cardozo", "num": 3, "pos": "D" },
+      { "n": "José Basualdo", "num": 8, "pos": "M" },
+      { "n": "Marcelo Gómez", "num": 5, "pos": "M" },
+      { "n": "Christian Bassedas", "num": 7, "pos": "M" },
+      { "n": "Roberto Pompei", "num": 18, "pos": "M" },
+      { "n": "Omar Asad", "num": 9, "pos": "F" },
+      { "n": "José Oscar Flores", "num": 17, "pos": "F" }
+    ]
+  },
+  {
+    "id": "h-1994-12-01",
+    "date": "1994-12-01",
+    "title": "Copa Intercontinental 1994",
+    "home": false,
+    "rival": "Milan",
+    "rivalId": "103",
+    "score": "2-0",
+    "src": "https://es.wikipedia.org/wiki/Copa_Intercontinental_1994",
+    "players": [
+      { "n": "José Luis Chilavert", "num": 1, "pos": "G" },
+      { "n": "Héctor Almandoz", "num": 4, "pos": "D" },
+      { "n": "Roberto Trotta", "num": 2, "pos": "D" },
+      { "n": "Víctor Hugo Sotomayor", "num": 6, "pos": "D" },
+      { "n": "Raúl Cardozo", "num": 3, "pos": "D" },
+      { "n": "José Basualdo", "num": 8, "pos": "M" },
+      { "n": "Marcelo Gómez", "num": 5, "pos": "M" },
+      { "n": "Christian Bassedas", "num": 7, "pos": "M" },
+      { "n": "Roberto Pompei", "num": 10, "pos": "M" },
+      { "n": "José Oscar Flores", "num": 11, "pos": "F" },
+      { "n": "Omar Asad", "num": 9, "pos": "F" }
+    ]
+  }
+]

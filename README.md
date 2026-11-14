@@ -35,7 +35,8 @@ src/
   components/    Layout (menú, banda, pie), MatchRow/MatchList, Crest, ResultBadge, Segmented, Skeletons, ShareCard, InstallApp…
   hooks/         useLiveData, useJson, useCached, useRoster, useNow, useLiveTitle, useScrollToHash, useCurrentSection
   lib/           lógica pura, sin React (la usan también los scripts): espn, facts, playoffs, weather, news, rules, core,
-                 card (textos de las imágenes), trivia, games (prode y once), storage (lo que guarda el navegador)
+                 card (textos de las imágenes), trivia, games (prode y once), daily (semilla, racha y buscador de los juegos del día),
+                 duel (Mano a Mano), players (El Tapado, Trayectoria V, Grilla y Once de Liniers), storage (lo que guarda el navegador)
   styles.css     sistema de diseño (tokens claro y noche)
 public/
   assets/        escudo, imagen para compartir (og.png) e íconos de la app (icons/: SVG fuente y PNG)
@@ -90,7 +91,10 @@ datos (no lo redibuja) y enseguida pide lo nuevo a ESPN.
 | Simulador «¿Qué necesita Vélez?» (Partidos) | Tabla en vivo + partidos que quedan (los mismos de los playoffs) | Cada 15 min |
 | Contador de visitas (solo el sitio publicado) | GoatCounter, sin cookies ni datos personales: panel en `juanignaciotorres.goatcounter.com` | En cada visita |
 | Récords del historial y efemérides (Historial) | `historico.json` + `matches.json` + `club.json`, calculados en el navegador | Cada deploy |
-| Juegos: trivia diaria | Preguntas armadas solas con `club.json` (sin preguntas a mano) | Una nueva por día |
+| Juegos: trivia diaria | Preguntas armadas solas con `club.json` (sin preguntas a mano) | Una nueva por día, sin repetir hasta agotar el pozo |
+| Juegos: Mano a Mano | `duelos.json` (el historial resumido por rival, lo escribe el deploy) | Cada deploy |
+| Juegos: El Tapado, Trayectoria V y Grilla | `data/jugadores.json` (Wikidata, CC0; fotos de Wikimedia Commons con su autor y licencia; escudos de ESPN o Commons) y el plantel de ESPN | A mano: `node scripts/import-jugadores.mjs` |
+| Juegos: El Once de Liniers | `data/onces.json` (ESPN y Wikipedia) | A mano: `node scripts/import-onces.mjs` |
 | Juegos: prode y «Adiviná el once» | Fixture en vivo + `games.json`; lo elegido queda en el navegador | Cada deploy |
 | Ficha de cada jugador | `players.json` + `games.json` (partido por partido del año) | Cada deploy |
 | Modo cancha | ESPN: el partido, el scoreboard de la fecha y la tabla de la zona, la anual y los promedios «si terminara así» | Cada 1 min en vivo |
@@ -110,6 +114,15 @@ Si ESPN no responde, la página usa el último `snapshot.json` y lo indica.
 - **Prode:** 3 puntos el resultado exacto, 1 el ganador o el empate (90 minutos, sin penales). Se cierra al empezar.
 - **Trivia:** 5 preguntas por día, iguales para todos (la semilla es la fecha en la Argentina). Las opciones
   incorrectas salen de otros datos de `club.json`; los títulos que se ganaron más de una vez no se preguntan por año.
+  Recorre todo el pozo antes de repetir (`triviaCycle`): entre dos apariciones de una pregunta pasan 5 días o más.
+- **Juegos del día:** todos salen de la fecha en la Argentina (`dayNumber`) y de una «sal» por juego (`lib/daily.js`),
+  sin servidor: Mano a Mano (10 duelos entre rivales, cada vez más parejos), El Tapado (el jugador por sus datos; dos
+  partidas: plantel de hoy e históricos), Trayectoria V (el jugador por sus clubes), Grilla del Fortín (3×3, un test
+  comprueba que las de los próximos 365 días tienen solución) y El Once de Liniers (semanal, cambia los domingos).
+  `dailyPick` recorre a todos los candidatos antes de repetir. La racha cuenta los días con algún juego terminado.
+- **Jugadores históricos:** `data/jugadores.json` sale de Wikidata y tiene errores y omisiones (lo edita cualquiera).
+  Las correcciones van en `scripts/jugadores-fixes.json` (por id de Wikidata) y se vuelve a correr el importador; el
+  JSON generado no se edita a mano. Por eso los juegos no usan partidos ni goles de Wikidata, que son lo menos confiable.
 - **Cancha neutral:** ESPN no la marca bien; se deduce por competencia (Copa Argentina, supercopas y finales).
 - Lo que no sale de ESPN está en `src/lib/rules.js`, revisado para `RULES_YEAR`.
 
@@ -123,7 +136,9 @@ Si ESPN no responde, la página usa el último `snapshot.json` y lo indica.
 - **Chequeo de datos** (`scripts/check-data.mjs`): si algo queda vacío o viejo, abre el issue «Revisar datos del
   sitio» (llega por mail) y lo cierra solo cuando se arregla. También avisa cuando empieza una temporada nueva y hay
   que revisar `src/lib/rules.js` (mientras tanto no se marca quién desciende).
-- **A mano:** títulos nuevos, ídolos y récords en `public/data/club.json` (la trivia los toma sola).
+- **A mano:** títulos nuevos, ídolos y récords en `public/data/club.json` (la trivia los toma sola). Formaciones
+  nuevas para El Once de Liniers: el id del partido de ESPN en `scripts/import-onces.mjs` o la ficha en
+  `scripts/onces-a-mano.json` (con su fuente), y correr el script.
 - **App instalable:** `public/manifest.webmanifest` + `public/sw.js`. El service worker trae primero de la red las
   páginas y los datos, con un límite de 3 s (si la red no contestó o no hay señal, lo último guardado), y guarda JS,
   CSS, íconos, tipografías y las últimas 40 miniaturas de noticias. Al instalarse precarga las 8 páginas con su JS y

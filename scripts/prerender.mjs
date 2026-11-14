@@ -21,7 +21,7 @@ const PAGE_DATA = {
   plantel: { json: [`${GENERATED}players.json`, `${GENERATED}games.json`], roster: true }, // games: vallas invictas
   historial: {},
   club: { json: ['data/club.json'] },
-  juegos: { live: true, json: ['data/club.json', `${GENERATED}games.json`], roster: true },
+  juegos: { live: true, json: ['data/club.json', `${GENERATED}games.json`], roster: true }, // los juegos nuevos piden sus datos al abrirlos
   jugador: { json: [`${GENERATED}players.json`, `${GENERATED}games.json`], roster: true }, // el jugador sale de ?id= al abrir
   vivo: { live: true, json: [`${GENERATED}promedios.json`] },
 };

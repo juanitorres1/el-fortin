@@ -1,0 +1,914 @@
+{
+ "source": "ESPN y Wikipedia (CC BY-SA), ver `src` en cada partido. Generado con scripts/import-onces.mjs.",
+ "onces": [
+  {
+   "id": "h-1994-08-24",
+   "date": "1994-08-24",
+   "title": "Copa Libertadores 1994 · final de ida",
+   "home": true,
+   "rival": "São Paulo",
+   "rivalId": "2026",
+   "score": "1-0",
+   "src": "https://es.wikipedia.org/wiki/Final_de_la_Copa_Libertadores_1994",
+   "players": [
+    {
+     "n": "José Luis Chilavert",
+     "num": 1,
+     "pos": "G",
+     "img": [
+      "Chilavert sanlorenzo.jpg",
+      "Unknown author Unknown author",
+      "Public domain"
+     ]
+    },
+    {
+     "n": "Flavio Zandoná",
+     "num": 11,
+     "pos": "D"
+    },
+    {
+     "n": "Roberto Trotta",
+     "num": 2,
+     "pos": "D"
+    },
+    {
+     "n": "Víctor Hugo Sotomayor",
+     "num": 6,
+     "pos": "D"
+    },
+    {
+     "n": "Raúl Cardozo",
+     "num": 3,
+     "pos": "D"
+    },
+    {
+     "n": "José Basualdo",
+     "num": 8,
+     "pos": "M"
+    },
+    {
+     "n": "Marcelo Gómez",
+     "num": 5,
+     "pos": "M"
+    },
+    {
+     "n": "Christian Bassedas",
+     "num": 7,
+     "pos": "M"
+    },
+    {
+     "n": "Roberto Pompei",
+     "num": 18,
+     "pos": "M"
+    },
+    {
+     "n": "Omar Asad",
+     "num": 9,
+     "pos": "F"
+    },
+    {
+     "n": "José Oscar Flores",
+     "num": 17,
+     "pos": "F"
+    }
+   ]
+  },
+  {
+   "id": "h-1994-12-01",
+   "date": "1994-12-01",
+   "title": "Copa Intercontinental 1994",
+   "home": false,
+   "rival": "Milan",
+   "rivalId": "103",
+   "score": "2-0",
+   "src": "https://es.wikipedia.org/wiki/Copa_Intercontinental_1994",
+   "players": [
+    {
+     "n": "José Luis Chilavert",
+     "num": 1,
+     "pos": "G",
+     "img": [
+      "Chilavert sanlorenzo.jpg",
+      "Unknown author Unknown author",
+      "Public domain"
+     ]
+    },
+    {
+     "n": "Héctor Almandoz",
+     "num": 4,
+     "pos": "D"
+    },
+    {
+     "n": "Roberto Trotta",
+     "num": 2,
+     "pos": "D"
+    },
+    {
+     "n": "Víctor Hugo Sotomayor",
+     "num": 6,
+     "pos": "D"
+    },
+    {
+     "n": "Raúl Cardozo",
+     "num": 3,
+     "pos": "D"
+    },
+    {
+     "n": "José Basualdo",
+     "num": 8,
+     "pos": "M"
+    },
+    {
+     "n": "Marcelo Gómez",
+     "num": 5,
+     "pos": "M"
+    },
+    {
+     "n": "Christian Bassedas",
+     "num": 7,
+     "pos": "M"
+    },
+    {
+     "n": "Roberto Pompei",
+     "num": 10,
+     "pos": "M"
+    },
+    {
+     "n": "José Oscar Flores",
+     "num": 11,
+     "pos": "F"
+    },
+    {
+     "n": "Omar Asad",
+     "num": 9,
+     "pos": "F"
+    }
+   ]
+  },
+  {
+   "id": "e-261311",
+   "date": "2009-07-05",
+   "title": "Clausura 2009 · última fecha",
+   "home": true,
+   "rival": "Huracán",
+   "rivalId": "10",
+   "score": "1-0",
+   "src": "https://www.espn.com.ar/futbol/partido/_/juegoId/261311",
+   "players": [
+    {
+     "n": "Germán Montoya",
+     "num": 25,
+     "pos": "G"
+    },
+    {
+     "n": "Gastón Díaz",
+     "num": 4,
+     "pos": "D"
+    },
+    {
+     "n": "Nicolás Otamendi",
+     "num": 30,
+     "pos": "D"
+    },
+    {
+     "n": "Sebastián Domínguez",
+     "num": 6,
+     "pos": "D",
+     "img": [
+      "Sebastián Domínguez.jpg",
+      "Jimmy Baikovicius",
+      "CC BY-SA 2.0"
+     ]
+    },
+    {
+     "n": "Emiliano Papa",
+     "num": 3,
+     "pos": "D",
+     "img": [
+      "Emiliano Papa.jpg",
+      "Jimmy Baikovicius",
+      "CC BY-SA 2.0"
+     ]
+    },
+    {
+     "n": "Fabián Cubero",
+     "num": 5,
+     "pos": "M",
+     "img": [
+      "Fabián Cubero.jpg",
+      "Frodar",
+      "CC BY-SA 4.0"
+     ]
+    },
+    {
+     "n": "Franco Razzotti",
+     "num": 35,
+     "pos": "M"
+    },
+    {
+     "n": "Víctor Zapata",
+     "num": 16,
+     "pos": "M"
+    },
+    {
+     "n": "Maxi Morález",
+     "num": 10,
+     "pos": "M",
+     "img": [
+      "Maxi Moralez CF Montreal NYCFC 6.28.25-065 (cropped).jpg",
+      "Bryan Berlin",
+      "CC BY-SA 4.0"
+     ]
+    },
+    {
+     "n": "Juan Martínez",
+     "num": 7,
+     "pos": "F"
+    },
+    {
+     "n": "Rodrigo López",
+     "num": 11,
+     "pos": "F",
+     "img": [
+      "Hernán Rodrigo López.jpg",
+      "Agencia de Noticias ANDES",
+      "CC BY-SA 2.0"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "e-311694",
+   "date": "2011-06-19",
+   "title": "Clausura 2011 · última fecha",
+   "home": true,
+   "rival": "Racing Club",
+   "rivalId": "15",
+   "score": "2-1",
+   "src": "https://www.espn.com.ar/futbol/partido/_/juegoId/311694",
+   "players": [
+    {
+     "n": "Marcelo Barovero",
+     "num": 1,
+     "pos": "G",
+     "img": [
+      "River-plate-2014-primera-división-sudamericana.JPG",
+      "Carlos A. Cermele",
+      "Public domain"
+     ]
+    },
+    {
+     "n": "Emiliano Papa",
+     "num": 3,
+     "pos": "D",
+     "img": [
+      "Emiliano Papa.jpg",
+      "Jimmy Baikovicius",
+      "CC BY-SA 2.0"
+     ]
+    },
+    {
+     "n": "Fernando Ortiz",
+     "num": 19,
+     "pos": "D"
+    },
+    {
+     "n": "Fernando Tobio",
+     "num": 2,
+     "pos": "D"
+    },
+    {
+     "n": "Gastón Díaz",
+     "num": 4,
+     "pos": "D"
+    },
+    {
+     "n": "Víctor Zapata",
+     "num": 16,
+     "pos": "M"
+    },
+    {
+     "n": "Héctor Canteros",
+     "num": 14,
+     "pos": "M"
+    },
+    {
+     "n": "Augusto Fernández",
+     "num": 8,
+     "pos": "M",
+     "img": [
+      "Augusto Fernandez.JPG",
+      "File:508cdc331d159-img partido Celta-Dépor, 27 outubro 2012.jpg by Zel",
+      "CC BY-SA 3.0"
+     ]
+    },
+    {
+     "n": "Maxi Morález",
+     "num": 10,
+     "pos": "M",
+     "img": [
+      "Maxi Moralez CF Montreal NYCFC 6.28.25-065 (cropped).jpg",
+      "Bryan Berlin",
+      "CC BY-SA 4.0"
+     ]
+    },
+    {
+     "n": "Juan Martínez",
+     "num": 7,
+     "pos": "F"
+    },
+    {
+     "n": "Santiago Silva",
+     "num": 23,
+     "pos": "F"
+    }
+   ]
+  },
+  {
+   "id": "e-352498",
+   "date": "2012-12-08",
+   "title": "Inicial 2012",
+   "home": false,
+   "rival": "Atletico Rafaela",
+   "rivalId": "9747",
+   "score": "3-0",
+   "src": "https://www.espn.com.ar/futbol/partido/_/juegoId/352498",
+   "players": [
+    {
+     "n": "Carlos Sosa",
+     "num": 13,
+     "pos": "G"
+    },
+    {
+     "n": "Gino Peruzzi",
+     "num": 4,
+     "pos": "D"
+    },
+    {
+     "n": "Fernando Tobio",
+     "num": 2,
+     "pos": "D"
+    },
+    {
+     "n": "Sebastián Domínguez",
+     "num": 6,
+     "pos": "D",
+     "img": [
+      "Sebastián Domínguez.jpg",
+      "Jimmy Baikovicius",
+      "CC BY-SA 2.0"
+     ]
+    },
+    {
+     "n": "Emiliano Papa",
+     "num": 3,
+     "pos": "D",
+     "img": [
+      "Emiliano Papa.jpg",
+      "Jimmy Baikovicius",
+      "CC BY-SA 2.0"
+     ]
+    },
+    {
+     "n": "Agustín Allione",
+     "num": 21,
+     "pos": "M",
+     "img": [
+      "Universidad Católica - Rosario Central 20190313 22.jpg",
+      "Carlos Figueroa Rojas",
+      "CC BY-SA 4.0"
+     ]
+    },
+    {
+     "n": "Francisco Cerro",
+     "num": 18,
+     "pos": "M",
+     "img": [
+      "Francisco Cerro.jpg",
+      "Jimmy Baikovicius",
+      "CC BY-SA 2.0"
+     ]
+    },
+    {
+     "n": "Alejandro Cabral",
+     "num": 11,
+     "pos": "M"
+    },
+    {
+     "n": "Federico Insúa",
+     "num": 10,
+     "pos": "M"
+    },
+    {
+     "n": "Lucas Pratto",
+     "num": 12,
+     "pos": "F",
+     "img": [
+      "Palestino - River Plate 20190424 24.jpg",
+      "Carlos Figueroa Rojas",
+      "CC BY-SA 4.0"
+     ]
+    },
+    {
+     "n": "Facundo Ferreyra",
+     "num": 14,
+     "pos": "F"
+    }
+   ]
+  },
+  {
+   "id": "e-589991",
+   "date": "2020-12-16",
+   "title": "Copa Sudamericana 2020 · cuartos de final",
+   "home": false,
+   "rival": "Universidad Católica",
+   "rivalId": "885",
+   "score": "3-1",
+   "src": "https://www.espn.com.ar/futbol/partido/_/juegoId/589991",
+   "players": [
+    {
+     "n": "Lucas Hoyos",
+     "num": 12,
+     "pos": "G"
+    },
+    {
+     "n": "Francisco Ortega",
+     "num": 5,
+     "pos": "D"
+    },
+    {
+     "n": "Luis Abram",
+     "num": 29,
+     "pos": "D"
+    },
+    {
+     "n": "Lautaro Giannetti",
+     "num": 17,
+     "pos": "D"
+    },
+    {
+     "n": "Tomás Guidara",
+     "num": 24,
+     "pos": "D"
+    },
+    {
+     "n": "Federico Mancuello",
+     "num": 30,
+     "pos": "M"
+    },
+    {
+     "n": "Pablo Galdames",
+     "num": 27,
+     "pos": "M",
+     "img": [
+      "Everton - Unión Española, 2018-04-28 - Pablo Galdames - 01.jpg",
+      "Carlos Figueroa",
+      "CC BY-SA 4.0"
+     ]
+    },
+    {
+     "n": "Lucas Janson",
+     "num": 11,
+     "pos": "M"
+    },
+    {
+     "n": "Ricardo Centurion",
+     "num": 7,
+     "pos": "M"
+    },
+    {
+     "n": "Agustín Bouzat",
+     "num": 10,
+     "pos": "M"
+    },
+    {
+     "n": "Cristian Tarragona",
+     "num": 18,
+     "pos": "F"
+    }
+   ]
+  },
+  {
+   "id": "e-647685",
+   "date": "2022-08-04",
+   "title": "Copa Libertadores 2022 · cuartos de final",
+   "home": true,
+   "rival": "Talleres (Córdoba)",
+   "rivalId": "19",
+   "score": "3-2",
+   "src": "https://www.espn.com.ar/futbol/partido/_/juegoId/647685",
+   "players": [
+    {
+     "n": "Lucas Hoyos",
+     "num": 30,
+     "pos": "G"
+    },
+    {
+     "n": "Francisco Ortega",
+     "num": 5,
+     "pos": "D"
+    },
+    {
+     "n": "Valentín Gómez",
+     "num": 31,
+     "pos": "D"
+    },
+    {
+     "n": "Matías De los Santos",
+     "num": 6,
+     "pos": "D"
+    },
+    {
+     "n": "Leonardo Jara",
+     "num": 29,
+     "pos": "D"
+    },
+    {
+     "n": "Nicolás Garayalde",
+     "num": 36,
+     "pos": "M"
+    },
+    {
+     "n": "Máximo Perrone",
+     "num": 16,
+     "pos": "M"
+    },
+    {
+     "n": "Lucas Janson",
+     "num": 11,
+     "pos": "M"
+    },
+    {
+     "n": "Walter Bou",
+     "num": 20,
+     "pos": "M"
+    },
+    {
+     "n": "Luca Orellano",
+     "num": 10,
+     "pos": "M"
+    },
+    {
+     "n": "Lucas Pratto",
+     "num": 12,
+     "pos": "F",
+     "img": [
+      "Palestino - River Plate 20190424 24.jpg",
+      "Carlos Figueroa Rojas",
+      "CC BY-SA 4.0"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "e-702268",
+   "date": "2024-05-05",
+   "title": "Copa de la Liga 2024 · final",
+   "home": false,
+   "rival": "Estudiantes de La Plata",
+   "rivalId": "8",
+   "score": "1-1",
+   "src": "https://www.espn.com.ar/futbol/partido/_/juegoId/702268",
+   "players": [
+    {
+     "n": "Tomás Marchiori",
+     "num": 1,
+     "pos": "G"
+    },
+    {
+     "n": "Elias Gomez",
+     "num": 3,
+     "pos": "D"
+    },
+    {
+     "n": "Valentín Gómez",
+     "num": 31,
+     "pos": "D"
+    },
+    {
+     "n": "Damián Fernández",
+     "num": 34,
+     "pos": "D"
+    },
+    {
+     "n": "Joaquín García",
+     "num": 4,
+     "pos": "D",
+     "img": [
+      "Roberto Joaquín García).jpg",
+      "Argentina.gob.ar",
+      "CC BY 4.0"
+     ]
+    },
+    {
+     "n": "Agustín Bouzat",
+     "num": 26,
+     "pos": "M"
+    },
+    {
+     "n": "Christian Ordoñez",
+     "num": 32,
+     "pos": "M"
+    },
+    {
+     "n": "Thiago Fernández",
+     "num": 27,
+     "pos": "M"
+    },
+    {
+     "n": "Claudio Aquino",
+     "num": 22,
+     "pos": "M"
+    },
+    {
+     "n": "Francisco Pizzini",
+     "num": 20,
+     "pos": "M"
+    },
+    {
+     "n": "Thiago Vecino",
+     "num": 18,
+     "pos": "F"
+    }
+   ]
+  },
+  {
+   "id": "e-722676",
+   "date": "2024-11-28",
+   "title": "Copa Argentina 2024 · semifinal",
+   "home": false,
+   "rival": "Boca Juniors",
+   "rivalId": "5",
+   "score": "4-3",
+   "src": "https://www.espn.com.ar/futbol/partido/_/juegoId/722676",
+   "players": [
+    {
+     "n": "Tomás Marchiori",
+     "num": 1,
+     "pos": "G"
+    },
+    {
+     "n": "Elias Gomez",
+     "num": 3,
+     "pos": "D"
+    },
+    {
+     "n": "Valentín Gómez",
+     "num": 31,
+     "pos": "D"
+    },
+    {
+     "n": "Damián Fernández",
+     "num": 34,
+     "pos": "D"
+    },
+    {
+     "n": "Joaquín García",
+     "num": 4,
+     "pos": "D",
+     "img": [
+      "Roberto Joaquín García).jpg",
+      "Argentina.gob.ar",
+      "CC BY 4.0"
+     ]
+    },
+    {
+     "n": "Claudio Aquino",
+     "num": 22,
+     "pos": "M"
+    },
+    {
+     "n": "Jalil Elías",
+     "num": 5,
+     "pos": "M"
+    },
+    {
+     "n": "Christian Ordoñez",
+     "num": 32,
+     "pos": "M"
+    },
+    {
+     "n": "Matías Pellegrini",
+     "num": 11,
+     "pos": "F"
+    },
+    {
+     "n": "Braian Romero",
+     "num": 9,
+     "pos": "F"
+    },
+    {
+     "n": "Francisco Pizzini",
+     "num": 20,
+     "pos": "F"
+    }
+   ]
+  },
+  {
+   "id": "e-694547",
+   "date": "2024-12-15",
+   "title": "Liga Profesional 2024 · última fecha",
+   "home": true,
+   "rival": "Huracán",
+   "rivalId": "10",
+   "score": "2-0",
+   "src": "https://www.espn.com.ar/futbol/partido/_/juegoId/694547",
+   "players": [
+    {
+     "n": "Tomás Marchiori",
+     "num": 1,
+     "pos": "G"
+    },
+    {
+     "n": "Elias Gomez",
+     "num": 3,
+     "pos": "D"
+    },
+    {
+     "n": "Valentín Gómez",
+     "num": 31,
+     "pos": "D"
+    },
+    {
+     "n": "Damián Fernández",
+     "num": 34,
+     "pos": "D"
+    },
+    {
+     "n": "Joaquín García",
+     "num": 4,
+     "pos": "D",
+     "img": [
+      "Roberto Joaquín García).jpg",
+      "Argentina.gob.ar",
+      "CC BY 4.0"
+     ]
+    },
+    {
+     "n": "Agustín Bouzat",
+     "num": 26,
+     "pos": "M"
+    },
+    {
+     "n": "Christian Ordoñez",
+     "num": 32,
+     "pos": "M"
+    },
+    {
+     "n": "Francisco Pizzini",
+     "num": 20,
+     "pos": "M"
+    },
+    {
+     "n": "Claudio Aquino",
+     "num": 22,
+     "pos": "M"
+    },
+    {
+     "n": "Maher Carrizo",
+     "num": 28,
+     "pos": "M"
+    },
+    {
+     "n": "Braian Romero",
+     "num": 9,
+     "pos": "F"
+    }
+   ]
+  },
+  {
+   "id": "e-735764",
+   "date": "2025-07-08",
+   "title": "Supercopa Internacional 2024",
+   "home": false,
+   "rival": "Estudiantes de La Plata",
+   "rivalId": "8",
+   "score": "2-0",
+   "src": "https://www.espn.com.ar/futbol/partido/_/juegoId/735764",
+   "players": [
+    {
+     "n": "Tomás Marchiori",
+     "num": 1,
+     "pos": "G"
+    },
+    {
+     "n": "Elias Gomez",
+     "num": 3,
+     "pos": "D"
+    },
+    {
+     "n": "Valentín Gómez",
+     "num": 31,
+     "pos": "D"
+    },
+    {
+     "n": "Emanuel Mammana",
+     "num": 2,
+     "pos": "D"
+    },
+    {
+     "n": "Jano Gordon",
+     "num": 21,
+     "pos": "D"
+    },
+    {
+     "n": "Agustín Bouzat",
+     "num": 26,
+     "pos": "M"
+    },
+    {
+     "n": "Claudio Baeza",
+     "num": 5,
+     "pos": "M"
+    },
+    {
+     "n": "Imanol Machuca",
+     "num": 39,
+     "pos": "M"
+    },
+    {
+     "n": "Tomás Galván",
+     "num": 8,
+     "pos": "M"
+    },
+    {
+     "n": "Maher Carrizo",
+     "num": 28,
+     "pos": "M"
+    },
+    {
+     "n": "Braian Romero",
+     "num": 9,
+     "pos": "F"
+    }
+   ]
+  },
+  {
+   "id": "e-729692",
+   "date": "2025-09-06",
+   "title": "Supercopa Argentina 2024",
+   "home": true,
+   "rival": "Central Córdoba (Santiago del Estero)",
+   "rivalId": "11989",
+   "score": "2-0",
+   "src": "https://www.espn.com.ar/futbol/partido/_/juegoId/729692",
+   "players": [
+    {
+     "n": "Tomás Marchiori",
+     "num": 1,
+     "pos": "G"
+    },
+    {
+     "n": "Elias Gomez",
+     "num": 3,
+     "pos": "D"
+    },
+    {
+     "n": "Aarón Quirós",
+     "num": 6,
+     "pos": "D"
+    },
+    {
+     "n": "Lisandro Magallán",
+     "num": 16,
+     "pos": "D"
+    },
+    {
+     "n": "Jano Gordon",
+     "num": 21,
+     "pos": "D"
+    },
+    {
+     "n": "Tomás Galván",
+     "num": 8,
+     "pos": "M"
+    },
+    {
+     "n": "Agustín Bouzat",
+     "num": 26,
+     "pos": "M"
+    },
+    {
+     "n": "Rodrigo Aliendro",
+     "num": 29,
+     "pos": "M"
+    },
+    {
+     "n": "Imanol Machuca",
+     "num": 39,
+     "pos": "F"
+    },
+    {
+     "n": "Braian Romero",
+     "num": 9,
+     "pos": "F"
+    },
+    {
+     "n": "Maher Carrizo",
+     "num": 28,
+     "pos": "F"
+    }
+   ]
+  }
+ ]
+}

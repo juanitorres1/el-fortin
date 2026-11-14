@@ -9,7 +9,7 @@ export const SITE = {
   ogImage: 'assets/og.png',
   ogImageAlt: 'El Fortín, sitio de hinchas de Vélez Sarsfield',
   sources:
-    'Partidos, tablas, plantel y estadísticas: ESPN. Noticias: velez.com.ar. Pronóstico: Open-Meteo (CC BY 4.0). Historial 1931–2000: dataset «Liga Argentina 1931–2023» (dominio público); Primera División 1919–1930 (era amateur) y copas 1970–2000: RSSSF (rsssf.org, P. Ciullini, P. Wally, O. J. Gorgazzi, J. P. Andrés, K. Stokkermans y otros). Récords: Wikipedia (CC BY-SA).',
+    'Partidos, tablas, plantel y estadísticas: ESPN. Noticias: velez.com.ar. Pronóstico: Open-Meteo (CC BY 4.0). Historial 1931–2000: dataset «Liga Argentina 1931–2023» (dominio público); Primera División 1919–1930 (era amateur) y copas 1970–2000: RSSSF (rsssf.org, P. Ciullini, P. Wally, O. J. Gorgazzi, J. P. Andrés, K. Stokkermans y otros). Récords: Wikipedia (CC BY-SA). Juegos: jugadores de Wikidata (CC0) y fotos de Wikimedia Commons (autor y licencia junto a cada foto).',
 };
 
 // Íconos del menú inferior en celular (trazos SVG de 24×24).
