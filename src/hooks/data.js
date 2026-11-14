@@ -5,6 +5,9 @@ import { useEffect, useRef, useState } from 'react';
 import { DATA, REFRESH_LIVE_MS, REFRESH_MS, getJson, isLive, keepNewest, loadLive, loadLiveFast, withTimeout } from '../lib/core.js';
 import { fetchRoster } from '../lib/espn.js';
 import { getInitial } from '../initial.js';
+import { load, save } from '../lib/storage.js';
+
+const LIVE_KEY = 'live'; // los últimos datos en vivo (fixture, resultados, tablas): ~40 KB en localStorage
 
 const WAKE_MIN_MS = 15_000; // al volver a la pestaña no se vuelve a pedir si el último pedido fue hace menos que esto
 
@@ -42,6 +45,14 @@ export function useLiveData() {
     let timer;
     let running = false;
     let last = getInitial().live ?? null; // lo último bueno en pantalla
+    // Lo último que este navegador recibió en vivo, si es más nuevo que lo que trae la página: se abre al instante
+    // con eso (sin conexión en la cancha, o en la app instalada con el HTML guardado hace días) y después se refresca.
+    // Va acá y no en el estado inicial: el HTML del deploy no sabe qué hay guardado (hidratación).
+    const saved = load(LIVE_KEY);
+    if (saved?.updatedAt && saved.fixture && saved.results && saved.standings && !(Date.parse(saved.updatedAt) <= Date.parse(last?.updatedAt))) {
+      last = saved;
+      setState({ status: 'ok', data: saved, live: false });
+    }
     let fullAt = 0; // cuándo llegó el último refresco completo en vivo
     let tickedAt = 0;
     // Con la página oculta no se pide nada (datos y batería en la cancha): al volver se refresca enseguida.
@@ -63,6 +74,7 @@ export function useLiveData() {
         if (!on) return;
         r = keepNewest(last, r);
         last = r.data;
+        if (r.live) save(LIVE_KEY, r.data);
         setState({ status: 'ok', ...r });
         schedule(isLive(r.data) ? REFRESH_LIVE_MS : REFRESH_MS);
       } catch (err) {

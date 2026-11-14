@@ -36,6 +36,9 @@
   --tap: 2.75rem;           /* 44 px: tamaño mínimo de control táctil */
   --gutter: 1rem;
   --topbar-h: 4rem;
+  /* Áreas seguras del iPhone (isla o muesca arriba, bordes curvos en horizontal): 0 en el resto. */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-x: max(env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px));
   --tabbar-h: 4rem;
   --notch: 2rem;            /* profundidad de la muesca en V del borde de las bandas */
   --radius: 14px;
@@ -64,7 +67,7 @@
 
 /* ---------- Base ---------- */
 *, *::before, *::after { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; overflow-x: clip; scroll-padding-top: calc(var(--topbar-h) + 0.75rem); }
+html { -webkit-text-size-adjust: 100%; overflow-x: clip; scroll-padding-top: calc(var(--topbar-h) + var(--safe-top) + 0.75rem); }
 body {
   margin: 0;
   background: var(--bg);
@@ -76,7 +79,7 @@ img { max-width: 100%; }
 a { color: var(--accent); }
 a:hover { text-decoration-thickness: 2px; }
 :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
-.wrap { width: min(76rem, 100% - 2 * var(--gutter)); margin-inline: auto; }
+.wrap { width: min(76rem, 100% - 2 * max(var(--gutter), var(--safe-x))); margin-inline: auto; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .skip { position: absolute; left: -999px; top: 0.5rem; z-index: 99; background: var(--on-velez); color: var(--velez); padding: 0.6rem 1rem; font-weight: 700; }
 .skip:focus { left: 0.75rem; }
@@ -95,7 +98,9 @@ a:hover { text-decoration-thickness: 2px; }
 
 /* ---------- Encabezado y navegación ----------
    Escritorio: barra azul con el menú. Celular: barra azul arriba + barra inferior con ícono y texto. */
-.topbar { position: sticky; top: 0; z-index: 20; background: var(--velez); color: var(--on-velez); }
+.topbar { position: sticky; top: 0; z-index: 20; background: var(--velez); color: var(--on-velez); padding-top: var(--safe-top); }
+/* Los controles no se seleccionan como texto ni abren el menú de «copiar» al mantener apretado (como en una app). */
+.btn, .seg, .tabbar a, .subnav a, .brand, summary { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 .topbar-in { height: var(--topbar-h); display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
 .brand { display: inline-flex; align-items: center; gap: 0.6rem; min-height: var(--tap); color: inherit; text-decoration: none; font: 800 1.6rem/1 var(--display); text-transform: uppercase; letter-spacing: 0.02em; }
 .brand img { background: #fff; border-radius: 50%; padding: 2px; }
@@ -517,7 +522,7 @@ select:hover { border-color: var(--accent); }
 
 /* ---------- El club ---------- */
 .subnav {
-  position: sticky; top: var(--topbar-h); z-index: 10; display: flex; gap: 0.4rem; overflow-x: auto; scrollbar-width: none;
+  position: sticky; top: calc(var(--topbar-h) + var(--safe-top)); z-index: 10; display: flex; gap: 0.4rem; overflow-x: auto; scrollbar-width: none;
   margin: 0 calc(-1 * var(--gutter)); padding: 0.6rem var(--gutter); background: var(--bg);
   /* Fondo y línea a todo el ancho de la ventana (si no, sobre las bandas azules queda una caja suelta). */
   box-shadow: 0 0 0 100vmax var(--bg), 0 1px 0 100vmax var(--line); clip-path: inset(0 -100vmax -1px);
@@ -525,7 +530,7 @@ select:hover { border-color: var(--accent); }
 .subnav a { flex: none; display: inline-flex; align-items: center; min-height: var(--tap); padding: 0 1rem; border-radius: 999px; background: var(--bg-2); color: var(--text); text-decoration: none; font-weight: 600; font-size: 0.9rem; }
 .subnav a:hover { color: var(--accent); }
 .subnav a[aria-current='true'] { background: var(--accent); color: var(--bg); }
-html:has(.subnav) { scroll-padding-top: calc(var(--topbar-h) + 4.5rem); }
+html:has(.subnav) { scroll-padding-top: calc(var(--topbar-h) + var(--safe-top) + 4.5rem); }
 .fortin { margin: 0 0 1.75rem; padding: 1.25rem 1.4rem; background: var(--bg-2); border-left: 5px solid var(--accent); max-width: 50rem; }
 .fortin .h3 { text-transform: uppercase; font-weight: 800; }
 .fortin p { margin: 0.4rem 0 0; }
