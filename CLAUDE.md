@@ -21,7 +21,7 @@ un servidor en Render/Railway/Vercel). Node ≥ 20. Detalle en `README.md`.
   `RULES_YEAR`), `core.js` (formato, carga con respaldo, marcador y tabla en vivo), `card.js` (textos de las imágenes
   para compartir), `trivia.js` (trivia diaria desde `club.json`), `games.js` (prode y once), `crests.js` (une por nombre los equipos del historial 1919–2000 con su id de ESPN → `escudos.json`), `storage.js`
   (`localStorage` con prefijo `fortin:`). Testear acá, no en los componentes.
-- `src/hooks/`: `useLiveData` (ESPN con refresco 5 min / 1 min en vivo; mientras se juega, el refresco de cada minuto es solo el scoreboard —`fetchLiveFast`— y el completo va cada 5 min; con la página oculta no pide y al volver refresca; la copia del deploy nunca pisa datos más nuevos —`keepNewest`—; próximo partido = `nextMatch`, que saltea postergados), `useJson` (JSON compartido entre
+- `src/hooks/`: `useLiveData` (ESPN con refresco 5 min / 1 min en vivo; mientras se juega, el refresco de cada minuto es solo el scoreboard —`fetchLiveFast`— y el completo va cada 5 min; con la página oculta no pide y al volver refresca; la copia del deploy nunca pisa datos más nuevos —`keepNewest`—; próximo partido = `nextMatch`, que saltea postergados; lo último recibido en vivo queda en `localStorage` —`fortin:live`— y se muestra al abrir si es más nuevo que lo que trae la página), `useJson` (JSON compartido entre
   componentes), `useCached` (promesa con vencimiento), `useRoster`, `useNow`, `useLiveTitle`, `useScrollToHash`,
   `useCurrentSection`. Convención: `undefined` = cargando, `null` = falló o no hay.
 - `src/components/`: `Layout`/`PageBand`, `MatchRow`/`MatchList`, `Crest`, `ResultBadge`, `Segmented`,
@@ -137,6 +137,48 @@ npm run preview # sirve dist/
 - **Línea de tiempo del estadio 3D (oct-2026):** 1924 (Villa Luro: Basualdo, Pizarro, Guardia Nacional, Schmidl),
   1951, años 70, 1978 y hoy, a partir de fotos de época que pasó el usuario. Formas en `lib/stadium.js › ERAS`,
   textos en `club.json › estadio.epocas`. Son aproximadas; solo en «hoy» se eligen tribunas.
+- **Realismo del estadio 3D (nov-2026):** filas de butacas, escalones y público son **texturas de canvas** que se
+  repiten (`seatTile`, `terraceTile`, `crowdTile` en `estadio-scene.js`), no geometría; la tribuna elegida se
+  ilumina con `emissive`. Botón «Con público». Son **genéricos, sin confirmar con fotos**: escaleras cada 10 m,
+  fachadas (pilastras, ventanas, portones), visera en voladizo, barrio, autos y estacionamiento. Del resumen de TV
+  de Vélez 2-2 San Lorenzo (nov-2026) sí sale: carteles LED en todo el lateral de enfrente de la cámara y detrás de
+  los arcos, carteles chicos en el piso al lado de cada arco, bancos del lado de la cámara y telones a rayas en la
+  popular. La cámara de TV y los bancos están del lado de la Norte y los LED del lateral, en la Sur (confirmado por el usuario).
+  De cuatro fotos que pasó el usuario (nov-2026) sale: exterior todo azul (plateas con losas y columnas a la vista,
+  cinco cuerpos de rampas en la espalda de la Sur), torres blancas más altas que las tribunas con un anillo rojo
+  (sin marca) y panel más alto que ancho, visera corta con reflectores en el borde, franja iluminada entre bandejas,
+  autopista separada de la Sur (cancha de tenis y árboles en el medio), barrio muy arbolado, playa del lado Este.
+  La foto donde la Norte Alta se ve blanca es vieja: hoy es azul con «VELEZ» (confirmado por el usuario).
+  La autopista va como curva (`au6` en `estadio-scene.js`): se abre hacia el oeste y dobla al norte; el trazado es
+  a ojo desde la foto, no medido.
+  Revisión con 5 agentes (nov-2026, dos rondas contra las mismas fotos): Sur Alta en trapecio y en voladizo sobre la
+  baja (`over` y `flare` en `stadium.js`), anillo cerrado en las esquinas, visera corta pegada a la última fila con
+  fila de focos, torres con el cilindro rojo bajo un panel alto, rampas abiertas y bocas de acceso; sol desde el
+  noreste (la Sur al sol, la Norte en sombra); playa del Este, tenis, galpón sin marca y parque reubicados midiendo
+  la foto; avenida a 62 m de la Norte en «hoy» (entre las dos hay arboleda, no estacionamiento). Rendimiento: las
+  sombras se dibujan una sola vez y **la escena solo se redibuja cuando algo cambia** (`invalidate()`; todo cambio
+  nuevo de escena o cámara tiene que llamarlo). Medido en Node, no en un celular: 145 mallas, 77 materiales.
+  Sin verificar: fps y memoria en un teléfono, gesto táctil, restauración del contexto WebGL.
+  Ronda 3 (nov-2026), con una foto aérea de febrero de 2026 tomada desde el norte (la mejor referencia de «hoy»):
+  detrás de la Norte hay un **edificio** con azotea (`back` en la pieza `visera`, 28 m estimados), parasoles blancos y
+  el cartel con el nombre del club; la «visera» es una **cercha blanca con reflectores** y una cabina, no un techo; la
+  V es ancha y, como «VELEZ», está hecha de butacas sueltas; el cilindro rojo va solo en las torres del sur. Textos
+  permitidos en el 3D: el nombre del club y del estadio y «PLATEA CARLOS BIANCHI»; nada de sponsors ni escudo.
+  Técnicas: mapa de entorno generado (PMREM, sin archivo), `roughnessMap` en butacas y césped, suciedad y sombra de
+  contacto horneadas en las texturas, haces falsos en las torres. Descartado a propósito: SSS, relieve en escalones,
+  bloom, profundidad de campo, briznas 3D y butacas instanciadas (no entran en celular).
+  `tests/stadium.test.js` fija un **tope de costo por época** (`BUDGET`; `STADIUM_COST=1 node --test
+  tests/stadium.test.js` imprime los números). «Hoy» está al límite en texturas (20 de 20).
+- **Épocas viejas del 3D (nov-2026, decisiones del usuario; no hay fotos de época a mano):** 1924 = tribuna
+  principal de tablones sobre Basualdo (lado `sur`) con módulo central techado a dos aguas, sin luz artificial (es de
+  dic-1928), calles de tierra; 1951 = lo que dice `club.json` (asimétrico, sin segundas bandejas, Norte de madera
+  techada, sin torres); años 70 = Norte en dos bandejas de curva a curva, Sur de una bandeja, 4 torres; 1978 = Sur
+  Alta de hormigón. **La Sur no se techa en ninguna época**, las rampas exteriores de la Sur no se dibujan antes de
+  «hoy» y la autopista solo aparece en «hoy». Cada época tiene su entorno en la tabla `ENTORNO` de
+  `estadio-scene.js` y su césped en `style.pitch`. Medidas, densidades, autos y arbolado de época son inferencia.
+  Las torres de los años 70 y 1978 son mástiles lisos, sin reticulado (confirmado por el usuario).
+- **Vista por bandeja: probada y descartada por el usuario (nov-2026).** «Desde la tribuna» sienta siempre en la
+  bandeja más alta; no volver a proponer un selector Baja / Media / Alta.
 
 ## Ideas no hechas (solo si el usuario las pide)
 

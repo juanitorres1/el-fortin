@@ -1,5 +1,5 @@
 // El Amalfitani en 3D (Club › Estadio): se gira y se acerca con el dedo o el mouse, se puede ver desde cada tribuna,
-// desde arriba y de noche con las torres LED encendidas, y con la línea de tiempo se ve cómo era en cada época
+// desde arriba, de noche con las torres LED encendidas y con público, y con la línea de tiempo se ve cómo era en cada época
 // (Villa Luro, 1951, los 70, el Mundial 78 y hoy). La escena (Three.js) está en estadio-scene.js y se baja
 // recién cuando la sección está por aparecer: el resto del sitio no la carga. Los sectores salen de
 // data/club.json (estadio.tribunas); las medidas, de lib/stadium.js.
@@ -35,8 +35,7 @@ function Info({ s, level, general }) {
           </div>
         ))}
       </dl>
-      {s.niveles.length > 1 && <p className="muted small">En total, {fmtN(sectorCapacity(s))} lugares.</p>}
-      {s.acceso && <p className="st3d-access"><b>Cómo se entra:</b> {s.acceso}</p>}
+      {s.niveles.length > 1 && <p className="muted small">En total, {fmtN(sectorCapacity(s))} lugares.</p>}      {s.acceso && <p className="st3d-access"><b>Cómo se entra:</b> {s.acceso}</p>}
       {s.aConfirmar?.length > 0 && (
         <div className="st3d-pending">
           <p><b>Falta confirmar</b></p>
@@ -57,22 +56,33 @@ export function Estadio3D({ tribunas, epocas = [] }) {
   const [mode, setMode] = useState('general');
   const [night, setNight] = useState(false);
   const [spin, setSpin] = useState(false);
+  const [crowd, setCrowd] = useState(false);
   const [era, setEra] = useState('hoy');
   const scene = useRef(null); // el módulo de la escena, una vez cargado
-  const nightRef = useRef(false);
-  nightRef.current = night;
+  // Lo último que pidió el usuario (época, noche, público), sin esperar a que React vuelva a dibujar: la escena se
+  // arma con esto aunque el módulo termine de bajar después del clic.
+  const wants = useRef({ era: 'hoy', night: false, crowd: false });
 
-  /** Arma la escena de una época, desde donde está mirando la cámara. */
-  function build(eraId, start) {
-    api.current?.dispose();
-    api.current = scene.current.createStadium(box.current, {
-      sectores,
-      era: eraId,
-      start,
-      reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches,
-      onPick: (id, level) => select(id, level),
-    });
-    if (nightRef.current) api.current.setNight(true);
+  /** Arma la escena de la época pedida, desde donde está mirando la cámara. */
+  function build(start) {
+    const old = api.current;
+    api.current = null;
+    old?.dispose();
+    try {
+      api.current = scene.current.createStadium(box.current, {
+        sectores,
+        start,
+        ...wants.current, // era, night, crowd
+        reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches,
+        onPick: (id, level) => select(id, level),
+      });
+    } catch (err) {
+      // Sin WebGL (o si el armado falla) ya no hay escena: que se vea el aviso en vez de una caja vacía.
+      console.warn('No se pudo mostrar el estadio en 3D:', err);
+      setStatus('error');
+      return;
+    }
+    setStatus('ready');
   }
 
   function select(id, level = null, view = 'general') {
@@ -95,11 +105,9 @@ export function Estadio3D({ tribunas, epocas = [] }) {
       import('./estadio-scene.js')
         .then((mod) => {
           if (!alive) return;
-          const probe = document.createElement('canvas');
-          if (!(probe.getContext('webgl2') || probe.getContext('webgl'))) throw new Error('Sin WebGL');
+          // Sin WebGL, Three tira un error al crear el renderer: build() lo atrapa y muestra el aviso.
           scene.current = mod;
-          build('hoy');
-          setStatus('ready');
+          build();
         })
         .catch((err) => {
           console.warn('No se pudo mostrar el estadio en 3D:', err);
@@ -120,15 +128,22 @@ export function Estadio3D({ tribunas, epocas = [] }) {
   const selected = era === 'hoy' ? sectores.find((s) => s.id === pick.id) : null;
   const epoca = epocas.find((x) => x.id === era);
   const changeEra = (id) => {
-    if (id === era) return;
+    if (id === wants.current.era) return;
+    wants.current.era = id;
     setEra(id);
     setSpin(false);
     setPick({ id: null, level: null });
-    if (scene.current) build(id, api.current?.getCamera());
+    // Si el módulo todavía está bajando, la escena se arma al llegar, ya con esta época.
+    if (scene.current) build(api.current?.getCamera());
   };
   const setView = (m) => {
     setMode(m);
     setSpin(false);
+    // En una época vieja no hay tribuna para elegir: solo se mueve la cámara.
+    if (m === 'tribuna' && era !== 'hoy') {
+      api.current?.view('tribuna', 'sur');
+      return;
+    }
     if (m === 'tribuna' && !selected) {
       select(sectores.find((s) => s.lado === 'sur')?.id ?? sectores[0].id, null, 'tribuna');
       return;
@@ -159,7 +174,8 @@ export function Estadio3D({ tribunas, epocas = [] }) {
           <button type="button" className="btn btn-outline" aria-pressed={mode === 'tribuna'} onClick={() => setView('tribuna')}>Desde la tribuna</button>
           <button type="button" className="btn btn-outline" aria-pressed={mode === 'arriba'} onClick={() => setView('arriba')}>Desde arriba</button>
           <button type="button" className="btn btn-outline" aria-pressed={spin} onClick={() => { setSpin(!spin); api.current?.setAutoRotate(!spin); }}>Girar solo</button>
-          <button type="button" className="btn btn-outline" aria-pressed={night} onClick={() => { setNight(!night); api.current?.setNight(!night); }}>De noche</button>
+          <button type="button" className="btn btn-outline" aria-pressed={night} onClick={() => { const on = !wants.current.night; wants.current.night = on; setNight(on); api.current?.setNight(on); }}>De noche</button>
+          <button type="button" className="btn btn-outline" aria-pressed={crowd} onClick={() => { const on = !wants.current.crowd; wants.current.crowd = on; setCrowd(on); api.current?.setCrowd(on); }}>Con público</button>
         </div>
         <p className="muted small">Arrastrá para girarlo y usá la ruedita o dos dedos para acercarte. Modelo aproximado hecho a partir de una foto aérea: las alturas son estimadas.</p>
       </div>
