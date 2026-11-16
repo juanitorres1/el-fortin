@@ -193,6 +193,12 @@ npm run preview # sirve dist/
   «hoy» y la autopista solo aparece en «hoy». Cada época tiene su entorno en la tabla `ENTORNO` de
   `estadio-scene.js` y su césped en `style.pitch`. Medidas, densidades, autos y arbolado de época son inferencia.
   Las torres de los años 70 y 1978 son mástiles lisos, sin reticulado (confirmado por el usuario).
+- **Hinchada con público (nov-2026, pedido del usuario):** `cheer()` en `estadio-scene.js`, solo «hoy» y solo con
+  «Con público». Lo documentado (El Destape, Vélez-River 2022; Vermouth Deportivo, final ante Huracán 2024;
+  velez.com.ar, «Recibimiento tricolor» 2017): banderas largas, banderitas rojas, blancas y verdes en la Oeste (el
+  tricolor del origen italiano), globos azules y blancos en la Este y banderas y globos en las plateas. Inferencia:
+  cantidades, tamaños, posiciones y los trapos lisos de la reja. Sin textos ni nombres de barras. Nada cerca de donde
+  se sienta la cámara «desde la tribuna». No se hizo el mosaico «Vélez» de la Sur (fue de un partido y taparía la V).
 - **Vista por bandeja: probada y descartada por el usuario (nov-2026).** «Desde la tribuna» sienta siempre en la
   bandeja más alta; no volver a proponer un selector Baja / Media / Alta.
 

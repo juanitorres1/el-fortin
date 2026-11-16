@@ -1899,6 +1899,101 @@ export function buildStadium(container, renderer, { sectores, era = 'hoy', start
     // Los telones de las populares: solo se ven con público.
     const flagsTex = flagsTexture();
     for (const lado of ['este', 'oeste']) decal(lado, 0, 0, flagsTex, { span: [0.12, 0.3], list: flags }).visible = false;
+    cheer();
+  }
+
+  /**
+   * El color de la gente (solo con público). Lo que dicen las crónicas: banderas largas (final ante Huracán, 2024);
+   * banderitas rojas, blancas y verdes en la Oeste —el tricolor del origen italiano del club—, globos azules y
+   * blancos en la Este y banderas y globos en las plateas Norte y Sur (Libertadores ante River, 2022). Cuántos, de
+   * qué tamaño y dónde exactamente es inferencia; los trapos del alambrado van sin texto (en el 3D solo va el nombre
+   * del club). Todo en dos mallas instanciadas con un solo material y sin texturas.
+   */
+  function cheer() {
+    let seed = 23;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    const AZUL = 0x0b4f96;
+    const BLANCO = 0xf2f4f7;
+    const TRICOLOR = [0x008c45, 0xf4f5f0, 0xcd212a];
+    const cloth = []; // [matriz, color]
+    const balloons = [];
+    const m4 = new THREE.Matrix4();
+    // Nada en la mano de la gente cerca de donde se sienta la cámara «desde la tribuna»: taparía la vista.
+    const seats = Object.keys(layout).map((l) => new THREE.Vector3(...cameraFor(l, 'tribuna', layout).pos));
+    const clear = (m) => seats.every((c) => c.distanceTo(new THREE.Vector3().setFromMatrixPosition(m)) > 16);
+    /** Marco apoyado sobre la grada (como `decal`): x a lo largo de la tribuna, y subiendo por la pendiente, z hacia la cancha. */
+    const frame = (lado, idx) => {
+      const p = layout[lado][idx];
+      const u0 = FRONT[lado] + offsets(lado, layout)[idx];
+      const t = Math.atan2(p.y1 - p.y0, p.d);
+      const o = new THREE.Object3D();
+      o.rotation.y = ANGLE[lado];
+      const inner = new THREE.Object3D();
+      inner.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3(0, 0, 1), new THREE.Vector3(Math.cos(t), Math.sin(t), 0), new THREE.Vector3(-Math.sin(t), Math.cos(t), 0)));
+      inner.position.set(u0, p.y0 + 0.5, 0);
+      o.add(inner);
+      o.updateMatrixWorld(true);
+      return { p, u0, slope: Math.hypot(p.d, p.y1 - p.y0), at: (x, y, z, sx = 1, sy = 1) => new THREE.Matrix4().multiplyMatrices(inner.matrixWorld, m4.compose(new THREE.Vector3(x, y, z), new THREE.Quaternion(), new THREE.Vector3(sx, sy, 1))), base: o };
+    };
+    for (const lado of ['este', 'oeste']) {
+      const f = frame(lado, 0);
+      const half = f.p.len / 2 - 4;
+      // Banderas largas de arriba abajo, sobre la gente: azul, blanco, azul (o al revés), de 2,4 m de ancho.
+      for (let k = 0; k < 6; k++) {
+        const x = -half + 6 + ((2 * half - 12) * (k + 0.5)) / 6 + (rnd() - 0.5) * 4;
+        const [y0, y1] = [f.slope * 0.33, f.slope * 0.97];
+        const bands = k % 2 ? [BLANCO, AZUL, BLANCO] : [AZUL, BLANCO, AZUL];
+        bands.forEach((c, j) => cloth.push([f.at(x + (j - 1) * 0.8, (y0 + y1) / 2, 0.9, 0.8, y1 - y0), c]));
+      }
+      // Trapos colgados de la reja del frente: lisos o partidos en dos, sin texto.
+      const reja = new THREE.Object3D();
+      reja.rotation.y = ANGLE[lado];
+      reja.updateMatrixWorld(true);
+      const face = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -Math.PI / 2);
+      for (let x = -f.p.len / 2 + 2; x < f.p.len / 2 - 4;) {
+        const w = 2.5 + rnd() * 3.5;
+        const kind = rnd();
+        const colors = kind < 0.4 ? [AZUL, BLANCO] : kind < 0.75 ? [BLANCO, AZUL] : lado === 'oeste' && kind > 0.9 ? TRICOLOR : [AZUL];
+        colors.forEach((c, j) => {
+          const local = new THREE.Matrix4().compose(new THREE.Vector3(f.u0 - 0.2, 1.75 - (j + 0.5) * (1.1 / colors.length), x + w / 2), face, new THREE.Vector3(w, 1.1 / colors.length, 1));
+          cloth.push([new THREE.Matrix4().multiplyMatrices(reja.matrixWorld, local), c]);
+        });
+        x += w + 0.4 + rnd() * 2;
+      }
+      // La Oeste, con banderitas tricolor; la Este, con globos azules y blancos. Sobre la gente (2 m sobre la grada).
+      for (let i = 0; i < (lado === 'oeste' ? 220 : 260); i++) {
+        const [x, y] = [(rnd() * 2 - 1) * half, f.slope * (0.05 + rnd() * 0.9)];
+        const m = lado === 'oeste' ? f.at(x, y, 2 + rnd() * 0.4, 0.9, 0.6) : f.at(x, y, 2.3 + rnd() * 0.6, 1, 1);
+        const color = lado === 'oeste' ? TRICOLOR[i % 3] : rnd() < 0.55 ? AZUL : BLANCO;
+        if (clear(m)) (lado === 'oeste' ? cloth : balloons).push([m, color]);
+      }
+    }
+    // Plateas: algunas banderas y globos en la baja de cada una.
+    for (const lado of ['norte', 'sur']) {
+      const f = frame(lado, 0);
+      const half = f.p.len / 2 - 6;
+      for (let i = 0; i < 90; i++) {
+        const [x, y] = [(rnd() * 2 - 1) * half, f.slope * (0.08 + rnd() * 0.85)];
+        const m = i % 3 ? f.at(x, y, 2.3 + rnd() * 0.6, 1, 1) : f.at(x, y, 2, 1.1, 0.7);
+        const color = i % 3 ? (rnd() < 0.55 ? AZUL : BLANCO) : i % 2 ? AZUL : BLANCO;
+        if (clear(m)) (i % 3 ? balloons : cloth).push([m, color]);
+      }
+    }
+    const material = mat(0xffffff, { side: THREE.DoubleSide, roughness: 0.7 });
+    const build = (geo, list) => {
+      const mesh = new THREE.InstancedMesh(keep(geo), material, list.length);
+      const c = new THREE.Color();
+      list.forEach(([m, color], i) => {
+        mesh.setMatrixAt(i, m);
+        mesh.setColorAt(i, c.set(color));
+      });
+      mesh.visible = false;
+      scene.add(mesh);
+      flags.push(mesh);
+    };
+    build(new THREE.PlaneGeometry(1, 1), cloth);
+    // Globos de 0,45 m de radio, de 8 caras (de lejos no se distinguen más).
+    build(new THREE.OctahedronGeometry(0.45, 0), balloons);
   }
 
   // Pantalla detrás de la Popular Este: LED hoy, tablero viejo en el 78.
