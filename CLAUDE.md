@@ -19,7 +19,7 @@ un servidor en Render/Railway/Vercel). Node ≥ 20. Detalle en `README.md`.
 - `src/lib/`: **lógica pura sin React**, compartida con los scripts de Node: `espn.js` (cliente ESPN; `teamStats` y `matchFigure` para el resumen, `lineupFromSummary` para las formaciones, `goalEvents` para games.json, `fetchScorers`/`phaseGoals` = goleadores contados desde el scoreboard y `summaryAssists` = asistidores, porque la tabla de goleadores de ESPN llega tarde y no suma los goles con el club anterior), `facts.js`
   (rachas, rival, `teamForm` del rival, un día como hoy, cancha neutral, `seasonNumbers` = Vélez en cifras, `rivalRanking`), `playoffs.js`, `weather.js`, `news.js`, `rules.js` (reglamento,
   `RULES_YEAR`), `core.js` (formato, carga con respaldo, marcador y tabla en vivo), `card.js` (textos de las imágenes
-  para compartir), `trivia.js` (trivia diaria desde `club.json`, sin repetir hasta agotar el pozo: `triviaCycle`), `games.js` (prode y once), `daily.js` (lo común de los juegos del día: semilla por juego, `dailyPick` sin repetidos, buscador de jugadores, racha), `duel.js` (Mano a Mano), `players.js` (El Tapado, Trayectoria V, Grilla del Fortín y El Once de Liniers), `crests.js` (une por nombre los equipos del historial 1919–2000 con su id de ESPN → `escudos.json`), `storage.js`
+  para compartir), `trivia.js` (trivia diaria desde `club.json`, sin repetir hasta agotar el pozo: `triviaCycle`), `games.js` (prode y once), `daily.js` (lo común de los juegos del día: semilla por juego, `dailyPick` sin repetidos, buscador de jugadores, racha), `duel.js` (Mano a Mano), `players.js` (El Tapado, Trayectoria V, Grilla del Fortín y El Once de Liniers), `barrio.js` (casas y árboles genéricos sobre las calles reales de `entorno.json`, para el 3D), `crests.js` (une por nombre los equipos del historial 1919–2000 con su id de ESPN → `escudos.json`), `storage.js`
   (`localStorage` con prefijo `fortin:`). Testear acá, no en los componentes.
 - `src/hooks/`: `useLiveData` (ESPN con refresco 5 min / 1 min en vivo; mientras se juega, el refresco de cada minuto es solo el scoreboard —`fetchLiveFast`— y el completo va cada 5 min; con la página oculta no pide y al volver refresca; la copia del deploy nunca pisa datos más nuevos —`keepNewest`—; próximo partido = `nextMatch`, que saltea postergados; lo último recibido en vivo queda en `localStorage` —`fortin:live`— y se muestra al abrir si es más nuevo que lo que trae la página), `useJson` (JSON compartido entre
   componentes), `useCached` (promesa con vencimiento), `useRoster`, `useNow`, `useLiveTitle`, `useScrollToHash`,
@@ -42,7 +42,7 @@ un servidor en Render/Railway/Vercel). Node ≥ 20. Detalle en `README.md`.
 - `public/`: `assets/` (escudo, `og.png`, `icons/`), `data/club.json` (a mano), `data/historico.json`, `data/generated/`
   (lo genera el deploy; no va al repo).
 - `scripts/` (Node): `update-data.mjs` (genera `public/data/generated/`), `news.mjs` (titulares y resumen IA),
-  `ics.mjs`, `check-data.mjs` (issue «Revisar datos del sitio»), `import-historico.mjs` (uso único, ya corrido), `import-jugadores.mjs` (Wikidata → `public/data/jugadores.json`; correcciones en `scripts/jugadores-fixes.json`), `import-onces.mjs` (ESPN + `scripts/onces-a-mano.json` → `public/data/onces.json`), `import-copas.mjs` (`copas-historicas.txt` → `public/data/copas-historicas.json`, y con `--amateur` `amateur-historico.txt` → `amateur-historico.json`; correrlo si se corrige el .txt: un test avisa si quedaron distintos).
+  `ics.mjs`, `check-data.mjs` (issue «Revisar datos del sitio»), `import-historico.mjs` (uso único, ya corrido), `import-jugadores.mjs` (Wikidata → `public/data/jugadores.json`; correcciones en `scripts/jugadores-fixes.json`), `import-onces.mjs` (ESPN + `scripts/onces-a-mano.json` → `public/data/onces.json`), `import-entorno.mjs` (OpenStreetMap → `public/data/entorno.json`, barrio del 3D), `import-copas.mjs` (`copas-historicas.txt` → `public/data/copas-historicas.json`, y con `--amateur` `amateur-historico.txt` → `amateur-historico.json`; correrlo si se corrige el .txt: un test avisa si quedaron distintos).
 - Workflows: `deploy.yml` (push a `main`, cada 15 min —GitHub lo demora: con «cada 1 h» corría cada 3 a 5 h— y manual: `npm ci`, tests, datos, chequeo, `vite build`, publica
   `dist/`), `news-summary.yml` (todos los días 20:30 AR, solo si hay notas nuevas: resumen de 7 días con Qwen3-8B
   como artifact; el deploy baja el artifact más nuevo) y `keepalive.yml` (commit mínimo si
@@ -137,8 +137,19 @@ npm run preview # sirve dist/
   arcos, Norte con 3 bandejas, palcos y visera, Sur con 2 bandejas y descubierta, 4 torres LED, pantalla detrás de
   la Popular Este. Las alturas son estimadas. No se usó el modelo de SketchUp (el dominio está bloqueado acá). 
   Alrededores (confirmado por el usuario): Av. Juan B. Justo por el norte (rampas, estacionamiento, sede) y la
-  Autopista Perito Moreno (AU6), elevada, pegada a la Sur (es la vía ancha de la foto). Las vías del Sarmiento no se
-  dibujan: no se sabe de qué lado de la autopista pasan.
+  Autopista Perito Moreno (AU6), elevada, pegada a la Sur (es la vía ancha de la foto).
+- **Barrio real del 3D (nov-2026, pedido del usuario: «que los alrededores sean los verdaderos»):** en «hoy», el entorno
+  sale de **OpenStreetMap** (ODbL, crédito debajo del 3D y en `site.js`): `scripts/import-entorno.mjs` (a mano, con
+  reintentos porque Overpass suele estar lleno) → `public/data/entorno.json` (~90 KB, 900 m de radio, coordenadas en
+  metros desde el centro de la cancha, giradas 8,4° con la cancha de OSM, que mide 105 × 68 como la de la escena).
+  Lo dibuja `sections/estadio-entorno.js`: calles con su ancho, AU6 en puente a 9 m con bajadas interpoladas y pilas,
+  **vías del Sarmiento al sur de la autopista** (OSM lo resolvió), parques, canchas, playas con autos, ~300 edificios con
+  altura de OSM. OSM casi no tiene casas: `lib/barrio.js` completa las manzanas con casas genéricas en lotes de
+  8,66 m sobre las calles reales y árboles de vereda, de patio y de parque (inferencia, determinista). Las canchas
+  de piso azul van como `FIXES` en el importador (OSM no dice la superficie). Se descartaron Google Maps (3D Tiles
+  exige key y sus términos no dejan usarlo así) y recrearlo con IA (inventa). Si `entorno.json` no baja, queda el
+  entorno aproximado de antes (`liniers` en `estadio-scene.js`). Las épocas viejas siguen con su barrio genérico.
+  Costo: «hoy» pasó a ~159.000 triángulos (tope 165.000 en `tests/stadium.test.js`).
 - **Línea de tiempo del estadio 3D (oct-2026):** 1924 (Villa Luro: Basualdo, Pizarro, Guardia Nacional, Schmidl),
   1951, años 70, 1978 y hoy, a partir de fotos de época que pasó el usuario. Formas en `lib/stadium.js › ERAS`,
   textos en `club.json › estadio.epocas`. Son aproximadas; solo en «hoy» se eligen tribunas.

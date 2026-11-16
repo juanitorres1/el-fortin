@@ -42,7 +42,7 @@ public/
   assets/        escudo, imagen para compartir (og.png) e íconos de la app (icons/: SVG fuente y PNG)
   manifest.webmanifest, sw.js   app instalable (nombre «El Fortín», ícono) y modo sin conexión
   data/          club.json (a mano), amateur-historico.json (1919–1930), historico.json (1931–2000), copas-historicas.json (copas 1970–2000), generated/ (lo genera el deploy, no va al repo)
-scripts/         update-data, news, ics, check-data, prerender, import-historico, import-copas (Node)
+scripts/         update-data, news, ics, check-data, prerender, import-historico, import-copas, import-entorno (Node)
 tests/           lógica de src/lib y scripts, y consistencia de las páginas
 ```
 
@@ -87,6 +87,7 @@ datos (no lo redibuja) y enseguida pide lo nuevo a ESPN.
 | Pronóstico a la hora del partido | Open-Meteo (sin key) | Si el partido es dentro de 7 días |
 | Historia, estadio, cómo llegar, palmarés, ídolos, récords | `public/data/club.json` (a mano; récords de Wikipedia) | Cuando se edita |
 | Estadio en 3D (Club › Estadio): tribunas, capacidad, puertas y accesos, y línea de tiempo (1924 → hoy) | Three.js (se baja solo en esa sección) + `club.json › estadio.tribunas`; modelo hecho a partir de fotos aéreas | Cuando se edita |
+| Estadio en 3D: el barrio de «hoy» (calles, AU6 elevada, vías del Sarmiento, parques, canchas, playas, edificios y árboles en 900 m) | `data/entorno.json` (OpenStreetMap, ODbL; crédito debajo del 3D). Las casas que OSM no tiene las completa `src/lib/barrio.js` sobre las manzanas reales | A mano: `node scripts/import-entorno.mjs` |
 | Imagen para compartir el resultado y la previa (Inicio) | Se dibuja en el navegador con `<canvas>` (1080×1350) | Al tocar el botón |
 | Simulador «¿Qué necesita Vélez?» (Partidos) | Tabla en vivo + partidos que quedan (los mismos de los playoffs) | Cada 15 min |
 | Contador de visitas (solo el sitio publicado) | GoatCounter, sin cookies ni datos personales: panel en `juanignaciotorres.goatcounter.com` | En cada visita |

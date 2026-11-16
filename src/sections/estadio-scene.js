@@ -10,6 +10,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { DEFAULT_VIEW, ERAS, FRONT, GAP, ORBIT, OUT, PITCH, cameraFor, depthOf, offsets, stepProfile } from '../lib/stadium.js';
+import { drawEntorno } from './estadio-entorno.js';
 
 // `frame` = el azul de la estructura pintada de hoy (foto de feb-2026: más saturado y apenas más cian que las butacas).
 const COLOR = { facade: 0xe8ebef, roof: 0x2f6388, frame: 0x0f4f9e, frameDark: 0x0f4590, palcos: 0x1b2430 };
@@ -902,9 +903,12 @@ export function createStadium(container, options) {
 }
 
 /** La escena sobre un renderer ya creado (aparte para poder armarla en los tests con un renderer falso). */
-export function buildStadium(container, renderer, { sectores, era = 'hoy', start, onPick, reducedMotion = false, night: startNight = false, crowd: startCrowd = false }) {
+export function buildStadium(container, renderer, { sectores, era = 'hoy', start, onPick, reducedMotion = false, night: startNight = false, crowd: startCrowd = false, entorno = null }) {
   const { layout, style } = ERAS[era] ?? ERAS.hoy;
   const E = ENTORNO[era] ?? {};
+  // Hoy, con data/entorno.json (OpenStreetMap): el barrio real. Sin él (si no bajó), el de antes, medido a ojo de las
+  // fotos aéreas (`liniers`).
+  const real = style.streets === 'liniers' && entorno?.calles?.length > 0;
   const today = layout === ERAS.hoy.layout; // las tribunas de hoy son las que se pueden elegir
   const T = TONOS[era] ?? {};
   const tones = (name) => T[name] ?? SEATS[name]; // los colores de una grada en esta época
@@ -980,7 +984,8 @@ export function buildStadium(container, renderer, { sectores, era = 'hoy', start
 
   // Piso y explanada alrededor del estadio.
   // El piso entre las casas son calles (asfalto); la explanada, cemento.
-  const GROUND_DAY = E.ground ?? 0x8b8f8a;
+  // Con el barrio real las calles se dibujan aparte: el piso es el de los patios y las veredas, más claro.
+  const GROUND_DAY = real ? 0x9b988d : E.ground ?? 0x8b8f8a;
   const groundMat = mat(GROUND_DAY);
   const ground = add(new THREE.PlaneGeometry(3200, 3200), groundMat, { cast: false });
   ground.rotation.x = -Math.PI / 2;
@@ -1023,6 +1028,7 @@ export function buildStadium(container, renderer, { sectores, era = 'hoy', start
     scene.add(r);
   };
   const houseMat = mat(0xffffff, { emissive: 0x000000 });
+  const bldMat = mat(0xffffff, { emissive: 0x000000, vertexColors: true }); // edificios de OSM (color por vértice)
   const treeSpots = []; // [x, z, radio, color opcional]: árboles sueltos (barrio, alrededor del estadio)
   // Casas del barrio fuera de `skip` (siempre las mismas: pseudoaleatorio con semilla fija). Cada 6 casas, una calle.
   // `green` = parte de los lotes sin casa y `trees` = cuántos de esos tienen un árbol; `tall` = parte de edificios
@@ -1078,7 +1084,7 @@ export function buildStadium(container, renderer, { sectores, era = 'hoy', start
   // La autopista (foto aérea): no va pegada a la Sur (en el medio hay árboles y una cancha de tenis) ni es recta;
   // se abre hacia el oeste y después dobla hacia el norte. Traza aproximada, a ojo: [x, metros desde la espalda de la Sur].
   // El hueco entre la Sur y la autopista se agranda hacia el oeste (unos 37 m a la altura de la cancha de tenis).
-  const liniers = style.streets === 'liniers';
+  const liniers = style.streets === 'liniers' && !real;
   const zSur = FRONT.sur + depthOf('sur', layout);
   const zN = -(FRONT.norte + depthOf('norte', layout));
   // La espalda de lo que haya detrás de la Norte (hoy, el edificio): de ahí cuelgan los árboles del lado norte.
@@ -1127,6 +1133,22 @@ export function buildStadium(container, renderer, { sectores, era = 'hoy', start
       const r = 3.5 + r1() * 3;
       if (!onRoad(x, z)) treeSpots.push([x, z, r]);
     }
+  } else if (real) {
+    // El barrio de verdad (OpenStreetMap) y, encima, lo que OSM no tiene y sí se ve en las fotos: la isleta de pasto
+    // donde nace el mástil de la torre sudeste.
+    const laneTex = keep(roadTex.clone());
+    laneTex.needsUpdate = true;
+    laneTex.repeat.set(1, 1);
+    const xE = FRONT.este + depthOf('este', layout);
+    const xO = -(FRONT.oeste + depthOf('oeste', layout));
+    const keepOut = (x, z) => x > xO - 10 && x < xE + 10 && z > zNb - 8 && z < zSur + 14;
+    const out = drawEntorno(entorno, { scene, keep, mat, unitBox, houseMat, bldMat, laneTex, keepOut });
+    streets.push(...out.labels);
+    for (const t of out.trees) treeSpots.push(t);
+    const isla = add(new THREE.CircleGeometry(9, 24), mat(0x5c9a52), { cast: false });
+    isla.rotation.x = -Math.PI / 2;
+    isla.position.set(TOWERS[0][0] + 5.5, 0.16, TOWERS[0][1] + 6);
+    scene.add(isla);
   } else {
     road(28, 0, zJusto);
     streets.push(['Av. Juan B. Justo', [80, 2, zJusto]]);
@@ -1329,17 +1351,25 @@ export function buildStadium(container, renderer, { sectores, era = 'hoy', start
   }
 
   if (treeSpots.length) {
-    const grove = new THREE.InstancedMesh(keep(new THREE.IcosahedronGeometry(1, 1)), mat(0xffffff, { flatShading: true }), treeSpots.length);
+    // Los de cerca, con más caras; los de lejos (el barrio real tiene miles), con 20 triángulos cada uno.
+    const leafMat = mat(0xffffff, { flatShading: true });
+    const NEAR = 260;
+    const groups = [[keep(new THREE.IcosahedronGeometry(1, 1)), []], [keep(new THREE.IcosahedronGeometry(1, 0)), []]];
+    treeSpots.forEach((t, i) => groups[real && Math.hypot(t[0], t[1]) > NEAR ? 1 : 0][1].push([t, i]));
     const m4 = new THREE.Matrix4();
     const q = new THREE.Quaternion();
     const color = new THREE.Color();
-    treeSpots.forEach(([x, z, r, c], i) => {
-      m4.compose(new THREE.Vector3(x, r + 1.2, z), q, new THREE.Vector3(r, r * 1.1, r));
-      grove.setMatrixAt(i, m4);
-      // Oliva oscuro, en sRGB: el estadio tiene que ser lo más claro y saturado de la escena.
-      grove.setColorAt(i, c != null ? color.set(c) : color.setHSL(0.24 + ((i * 37) % 10) * 0.006, 0.34, 0.27 + ((i * 53) % 10) * 0.012, THREE.SRGBColorSpace));
-    });
-    scene.add(grove);
+    for (const [geo, list] of groups) {
+      if (!list.length) continue;
+      const grove = new THREE.InstancedMesh(geo, leafMat, list.length);
+      list.forEach(([[x, z, r, c], i], k) => {
+        m4.compose(new THREE.Vector3(x, r + 1.2, z), q, new THREE.Vector3(r, r * 1.1, r));
+        grove.setMatrixAt(k, m4);
+        // Oliva oscuro, en sRGB: el estadio tiene que ser lo más claro y saturado de la escena.
+        grove.setColorAt(k, c != null ? color.set(c) : color.setHSL(0.24 + ((i * 37) % 10) * 0.006, 0.34, 0.27 + ((i * 53) % 10) * 0.012, THREE.SRGBColorSpace));
+      });
+      scene.add(grove);
+    }
   }
 
   // El césped de cada época sale de `style.pitch` (franjas, desgaste, medialunas, tono). La rugosidad cambia de una
@@ -2255,6 +2285,7 @@ export function buildStadium(container, renderer, { sectores, era = 'hoy', start
         m.emissiveIntensity = on ? k : 1;
       }
       houseMat.emissive.set(on ? 0x14110a : 0x000000);
+      bldMat.emissive.set(on ? 0x14110a : 0x000000);
       applyTheme();
     },
     dispose() {

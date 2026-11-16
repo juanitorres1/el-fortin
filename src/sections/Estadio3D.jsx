@@ -4,6 +4,7 @@
 // recién cuando la sección está por aparecer: el resto del sitio no la carga. Los sectores salen de
 // data/club.json (estadio.tribunas); las medidas, de lib/stadium.js.
 import { useEffect, useRef, useState } from 'react';
+import { ExtLink } from '../components/ui.jsx';
 import { sectorCapacity } from '../lib/stadium.js';
 
 const fmtN = (n) => n.toLocaleString('es-AR');
@@ -59,6 +60,7 @@ export function Estadio3D({ tribunas, epocas = [] }) {
   const [crowd, setCrowd] = useState(false);
   const [era, setEra] = useState('hoy');
   const scene = useRef(null); // el módulo de la escena, una vez cargado
+  const entorno = useRef(null); // data/entorno.json (null = no bajó)
   // Lo último que pidió el usuario (época, noche, público), sin esperar a que React vuelva a dibujar: la escena se
   // arma con esto aunque el módulo termine de bajar después del clic.
   const wants = useRef({ era: 'hoy', night: false, crowd: false });
@@ -72,6 +74,7 @@ export function Estadio3D({ tribunas, epocas = [] }) {
       api.current = scene.current.createStadium(box.current, {
         sectores,
         start,
+        entorno: entorno.current,
         ...wants.current, // era, night, crowd
         reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches,
         onPick: (id, level) => select(id, level),
@@ -102,11 +105,14 @@ export function Estadio3D({ tribunas, epocas = [] }) {
       if (!entry.isIntersecting) return;
       io.disconnect();
       setStatus('loading');
-      import('./estadio-scene.js')
-        .then((mod) => {
+      // El barrio real (OpenStreetMap) baja junto con la escena; si falla, la escena usa el entorno aproximado.
+      const barrio = fetch('data/entorno.json').then((r) => (r.ok ? r.json() : null)).catch(() => null);
+      Promise.all([import('./estadio-scene.js'), barrio])
+        .then(([mod, data]) => {
           if (!alive) return;
           // Sin WebGL, Three tira un error al crear el renderer: build() lo atrapa y muestra el aviso.
           scene.current = mod;
+          entorno.current = data;
           build();
         })
         .catch((err) => {
@@ -199,6 +205,11 @@ export function Estadio3D({ tribunas, epocas = [] }) {
         </div>
         {tribunas.borrador && <p className="st3d-draft"><b>Borrador.</b> Datos todavía sin confirmar en la cancha. Las puertas cambian según el partido: confirmalas en las redes del club.</p>}
         <p className="muted small">{tribunas.fuente}</p>
+        {era === 'hoy' && (
+          <p className="muted small">
+            Alrededores: calles, autopista, vías, parques y edificios de <ExtLink href="https://www.openstreetmap.org/copyright">© colaboradores de OpenStreetMap</ExtLink> (ODbL). Las casas que OSM no tiene son genéricas, ubicadas sobre las manzanas reales.
+          </p>
+        )}
       </div>
     </div>
   );

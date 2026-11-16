@@ -320,18 +320,23 @@ function sceneCost(scene) {
 // Presupuesto por época: lo que cuesta «hoy», con un poco de aire. Medido en nov-2026, de noche y con público:
 // 138 mallas, 77 materiales, 112.450 triángulos, 66 mallas con sombra y 21.800 triángulos de sombra, 20 texturas
 // (contando las de rugosidad) y 23,1 MB. Para ver los números de cada época: STADIUM_COST=1 node --test tests/stadium.test.js
-const BUDGET = { meshes: 150, materials: 80, tris: 115000, casters: 85, casterTris: 24000, textures: 20, textureMB: 24 };
+// Con el barrio real (nov-2026, data/entorno.json de OpenStreetMap): ~3.500 casas y ~4.000 árboles sobre 900 m de
+// radio llevan «hoy» a 159.000 triángulos con 136 mallas (las mallas no subieron: todo va instanciado o unido). El
+// tope de triángulos subió de 115.000 a 165.000; los árboles de lejos van con 20 triángulos y más ralos para eso.
+const BUDGET = { meshes: 150, materials: 80, tris: 165000, casters: 85, casterTris: 24000, textures: 20, textureMB: 24 };
 
 test('escena 3D: las cinco épocas arman, entran en el presupuesto, dibujan a demanda y se liberan', async () => {
   const { el, frames, renderer } = fakeDom();
   const { buildStadium } = await import('../src/sections/estadio-scene.js');
   const club = JSON.parse(readFileSync(new URL('../public/data/club.json', import.meta.url), 'utf8'));
   const { sectores } = club.estadio.tribunas;
-  for (const era of ERA_ORDER) {
+  // Hoy con el barrio real (data/entorno.json) y, aparte, sin él (si no baja, queda el entorno aproximado).
+  const entorno = JSON.parse(readFileSync(new URL('../public/data/entorno.json', import.meta.url), 'utf8'));
+  for (const era of [...ERA_ORDER, 'hoy sin entorno']) {
     const box = el();
     const r = renderer();
     const picks = [];
-    const api = buildStadium(box, r, { sectores, era, night: true, crowd: true, onPick: (...a) => picks.push(a) });
+    const api = buildStadium(box, r, { sectores, era: era.split(' ')[0], entorno: era === 'hoy sin entorno' ? null : entorno, night: true, crowd: true, onPick: (...a) => picks.push(a) });
     assert.equal(r.draws, 0, `${era}: el primer dibujo espera al primer cuadro (con la noche y el público ya puestos)`);
     assert.equal(r.shadowMap.autoUpdate, false, `${era}: sombras estáticas`);
     assert.equal(r.shadowMap.needsUpdate, true, `${era}: las sombras se dibujan en el primer cuadro`);
@@ -381,7 +386,7 @@ test('escena 3D: las cinco épocas arman, entran en el presupuesto, dibujan a de
     assert.ok([...cam.pos, ...cam.target].every(Number.isFinite), `${era}: getCamera`);
     assert.equal(cam.to, null, `${era}: quieta, no va a ningún lado`);
     api.view('arriba');
-    assert.deepEqual(api.getCamera().to, cameraFor('sur', 'arriba', ERAS[era].layout), `${era}: en viaje, dice a dónde va`);
+    assert.deepEqual(api.getCamera().to, cameraFor('sur', 'arriba', ERAS[era.split(' ')[0]].layout), `${era}: en viaje, dice a dónde va`);
 
     api.dispose();
     assert.equal(r.lost, 1, `${era}: suelta el contexto WebGL`);
