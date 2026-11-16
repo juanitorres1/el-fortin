@@ -4,13 +4,14 @@
 // Uso: node scripts/check-data.mjs [archivo-del-reporte.md]
 import { readFile, writeFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
-import { AVERAGE_SEASONS, RULES_YEAR } from '../src/lib/rules.js';
+import { AVERAGE_SEASONS, PLAYOFF_SEEDS, RULES_YEAR, rulesApply } from '../src/lib/rules.js';
+import { buildBracket } from '../src/lib/bracket.js';
 
 const OUT = new URL('../public/data/generated/', import.meta.url);
 const MAX_AGE_H = 3;
 
 /**
- * Problemas encontrados, como frases. `d` = { snapshot, matches, promedios, players, games, news, facts, ics } (null si falta).
+ * Problemas encontrados, como frases. `d` = { snapshot, matches, promedios, players, games, news, facts, ics, playoffs } (null si falta).
  * Entre mediados de diciembre y fin de enero no hay partidos: ahí un fixture vacío es normal.
  */
 export function checkData(d, now = new Date()) {
@@ -27,6 +28,7 @@ export function checkData(d, now = new Date()) {
     if (!rows.length && !offseason) out.push('La tabla de ESPN vino vacía: Inicio y Partidos no muestran posiciones.');
     if (!d.snapshot.fixture?.some((m) => !m.completed) && !offseason) out.push('No hay próximos partidos en ESPN: «Juega Vélez» y el calendario quedan vacíos.');
     if (rows.length && !d.snapshot.standings.playoffTeams) out.push('ESPN no informa la fase de playoffs: «Camino a los playoffs» está oculto.');
+    out.push(...checkBracket(d.snapshot.standings, d.playoffs, now));
   }
   if (!(d.matches?.matches?.length > 1000)) out.push(`El historial tiene ${d.matches?.matches?.length ?? 0} partidos (se esperan más de 1000).`);
   const seasons = new Set((d.promedios?.parts ?? []).map((p) => p.season));
@@ -37,9 +39,26 @@ export function checkData(d, now = new Date()) {
   if (!d.facts) out.push('Falta `facts.json`: «La previa» no se muestra.');
   if (!d.ics?.includes('BEGIN:VEVENT') && !offseason) out.push('El calendario `velez.ics` no tiene partidos.');
   if (year > RULES_YEAR) {
-    out.push(`El reglamento de \`js/rules.js\` es de ${RULES_YEAR} y ya es ${year}: revisar descensos, promedios y torneos que cuentan, y actualizar \`RULES_YEAR\`. Mientras tanto no se marca quién desciende.`);
+    out.push(`El reglamento de \`src/lib/rules.js\` es de ${RULES_YEAR} y ya es ${year}: revisar descensos, promedios, torneos que cuentan y el cuadro de los playoffs (\`PLAYOFF_SEEDS\`), y actualizar \`RULES_YEAR\`. Mientras tanto no se marca quién desciende y el cuadro de los playoffs se ve sin líneas.`);
   }
   return out;
+}
+
+/**
+ * El cuadro de los playoffs de Partidos, una vez que empezaron: que esté `playoffs.json` y que los partidos de ESPN
+ * encajen en `PLAYOFF_SEEDS` (si no, la página muestra cada ronda con sus partidos, sin líneas ni cruces por venir).
+ * Con el reglamento de otra temporada no se revisa: ya lo avisa el chequeo de `RULES_YEAR`.
+ */
+export function checkBracket(standings, playoffs, now = new Date()) {
+  const rounds = standings?.playoffRounds ?? [];
+  if (!rounds[0]?.start || Date.parse(rounds[0].start) > now.getTime()) return [];
+  if (!playoffs) return ['Falta `playoffs.json`: el cuadro de los playoffs no se muestra en Partidos.'];
+  if (playoffs.phaseKey !== standings.phaseKey || !playoffs.events?.length || !rulesApply(standings.year)) return [];
+  const bracket = buildBracket({ groups: standings.groups, rounds, events: playoffs.events, seeds: PLAYOFF_SEEDS });
+  if (bracket.tree) return [];
+  return [
+    'Los partidos de playoffs de ESPN no encajan en el cuadro de `PLAYOFF_SEEDS` (`src/lib/rules.js`): Partidos muestra cada ronda con sus partidos, sin líneas ni cruces por venir. Revisar si cambió el formato (o si la tabla de ESPN ya no es la de la fase regular) y corregir `PLAYOFF_SEEDS`.',
+  ];
 }
 
 async function load(name, json = true) {
@@ -55,6 +74,7 @@ async function main() {
   const d = {
     snapshot: await load('snapshot.json'), matches: await load('matches.json'), promedios: await load('promedios.json'),
     players: await load('players.json'), games: await load('games.json'), news: await load('news.json'), facts: await load('facts.json'), ics: await load('velez.ics', false),
+    playoffs: await load('playoffs.json'),
   };
   const problems = checkData(d);
   const report = problems.length

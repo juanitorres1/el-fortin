@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { checkData } from '../scripts/check-data.mjs';
-import { RULES_YEAR, rulesApply } from '../src/lib/rules.js';
+import { checkBracket, checkData } from '../scripts/check-data.mjs';
+import { PLAYOFF_SEEDS, RULES_YEAR, rulesApply } from '../src/lib/rules.js';
 
 const NOW = new Date(`${RULES_YEAR}-10-15T12:00:00Z`);
 const ok = () => ({
@@ -52,8 +52,43 @@ test('checkData y rulesApply: en una temporada nueva pide revisar el reglamento'
   d.promedios.parts.push({ season: next });
   const out = checkData(d, new Date(`${next}-03-01T12:00:00Z`));
   assert.equal(out.length, 1);
-  assert.match(out[0], /js\/rules\.js/);
+  assert.match(out[0], /src\/lib\/rules\.js/);
   assert.equal(rulesApply(RULES_YEAR), true);
   assert.equal(rulesApply(next), false);
   assert.equal(rulesApply(null), true);
+});
+
+// Cuadro de los playoffs: zonas A y B de 8 con id = puesto («A3»), octavos según PLAYOFF_SEEDS.
+const zones = ['A', 'B'].map((z) => ({ name: `Zona ${z}`, rows: Array.from({ length: 8 }, (_, i) => ({ id: `${z}${i + 1}`, name: `${z}${i + 1}`, rank: i + 1 })) }));
+const side = (tid) => ({ id: tid, name: tid, score: null, pen: null, winner: false });
+const octavo = (h, a, i) => ({ id: String(i), slug: 'r16', date: '2026-11-20T23:00Z', status: 'pre', completed: false, home: side(h), away: side(a) });
+const bracketData = (pairs) => ({
+  standings: {
+    phaseKey: 'arg.1-2026-6', year: RULES_YEAR, groups: zones,
+    playoffRounds: ['r16', 'r8', 'r4', 'r2'].map((slug, i) => ({ id: String(i), slug, start: i === 0 ? '2026-11-09T05:00Z' : null })),
+  },
+  playoffs: { phaseKey: 'arg.1-2026-6', events: pairs.map(([h, a], i) => octavo(h, a, i)) },
+});
+const AFTER = new Date('2026-11-16T12:00:00Z');
+
+test('checkBracket: los octavos de ESPN encajan en el cuadro: sin aviso', () => {
+  const { standings, playoffs } = bracketData(PLAYOFF_SEEDS);
+  assert.deepEqual(checkBracket(standings, playoffs, AFTER), []);
+});
+
+test('checkBracket: avisa si un partido no encaja o si falta playoffs.json', () => {
+  const pairs = PLAYOFF_SEEDS.map((p) => [...p]);
+  pairs[0] = ['A1', 'B7']; // cambió el formato
+  pairs[6] = ['A2', 'B8'];
+  const { standings, playoffs } = bracketData(pairs);
+  assert.match(checkBracket(standings, playoffs, AFTER).join(), /PLAYOFF_SEEDS/);
+  assert.match(checkBracket(standings, null, AFTER).join(), /playoffs\.json/);
+});
+
+test('checkBracket: antes de los playoffs, con datos de otra fase o con el reglamento vencido no avisa', () => {
+  const pairs = PLAYOFF_SEEDS.map(([a]) => [a, 'A1']);
+  const { standings, playoffs } = bracketData(pairs);
+  assert.deepEqual(checkBracket(standings, null, new Date('2026-11-01T12:00:00Z')), []);
+  assert.deepEqual(checkBracket(standings, { ...playoffs, phaseKey: 'arg.1-2026-1' }, AFTER), []);
+  assert.deepEqual(checkBracket({ ...standings, year: RULES_YEAR + 1 }, playoffs, AFTER), []);
 });
