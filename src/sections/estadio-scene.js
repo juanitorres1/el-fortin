@@ -903,7 +903,7 @@ export function createStadium(container, options) {
 }
 
 /** La escena sobre un renderer ya creado (aparte para poder armarla en los tests con un renderer falso). */
-export function buildStadium(container, renderer, { sectores, era = 'hoy', start, onPick, reducedMotion = false, night: startNight = false, crowd: startCrowd = false, entorno = null }) {
+export function buildStadium(container, renderer, { sectores, era = 'hoy', start, onPick, reducedMotion = false, night: startNight = false, crowd: startCrowd = false, mosaic: startMosaic = false, entorno = null }) {
   const { layout, style } = ERAS[era] ?? ERAS.hoy;
   const E = ENTORNO[era] ?? {};
   // Hoy, con data/entorno.json (OpenStreetMap): el barrio real. Sin él (si no bajó), el de antes, medido a ojo de las
@@ -1862,6 +1862,9 @@ export function buildStadium(container, renderer, { sectores, era = 'hoy', start
   // Plano apoyado sobre las puntas de los escalones de una o más piezas, con un dibujo hecho con butacas.
   // `width` = ancho del dibujo (si no, el largo de la tribuna menos 3 m por punta).
   const flags = [];
+  const mosaic = []; // el mosaico «Vélez» de la Sur (fondo y letras)
+  const overMosaic = []; // [malla, índice, matriz]: globos y banderas de la Platea Sur, que el mosaico esconde
+  let vSur = null; // la V de butacas de la Sur Baja: se esconde con el mosaico
   const decal = (lado, idxFrom, idxTo, texture, { span = [0, 1], list = decals, width = null } = {}) => {
     const L = layout[lado];
     const at = offsets(lado, layout);
@@ -1874,7 +1877,7 @@ export function buildStadium(container, renderer, { sectores, era = 'hoy', start
     const v1 = b.y0 + (b.y1 - b.y0) * span[1] + (b.y1 - b.y0) / Math.max(1, Math.round(b.d / 1.2)) + 0.12;
     const len = width ?? Math.min(a.len, b.len) - 6;
     const slope = Math.hypot(u1 - u0, v1 - v0);
-    keep(texture);
+    if (texture) keep(texture); // el fondo del mosaico va sin textura
     const plane = add(new THREE.PlaneGeometry(len, slope), mat(0xffffff, { map: texture, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -6 }), { cast: false });
     const group = new THREE.Group();
     group.rotation.y = ANGLE[lado];
@@ -1894,8 +1897,18 @@ export function buildStadium(container, renderer, { sectores, era = 'hoy', start
     // Los anchos son los de siempre (94 y 98 m) aunque las plateas ahora lleguen hasta las curvas: si no, las
     // letras y la V se estiran. La V termina antes de las filas que quedan bajo el voladizo de la alta.
     // «VELEZ» ocupa la mitad de arriba de la bandeja (foto desde el sudeste); las bocas quedan debajo.
-    decal('norte', 3, 3, velezTexture(), { width: 94, span: [0.3, 1] });
-    decal('sur', 0, 0, surTexture(), { width: 98, span: [0, 17 / 24] });
+    const velezTex = velezTexture();
+    decal('norte', 3, 3, velezTex, { width: 94, span: [0.3, 1] });
+    vSur = decal('sur', 0, 0, surTexture(), { width: 98, span: [0, 17 / 24] });
+    // El mosaico «Vélez» de la gente (opción aparte): la palabra en azul sobre fondo blanco, en la zona media y baja de
+    // la Platea Sur (El Destape, Vélez-River de la Libertadores 2022). Ocupa el lugar de la V, que se esconde. Usa la
+    // misma textura de las letras de la Norte (teñida de azul): no suma texturas. Medidas a ojo.
+    const fondo = decal('sur', 0, 0, null, { width: 98, span: [0, 17 / 24], list: mosaic });
+    fondo.material.color.set(0xf4f6f8);
+    const letras = decal('sur', 0, 0, velezTex, { width: 64, span: [0.1, 0.66], list: mosaic });
+    letras.material.color.set(0x0b4f96);
+    letras.renderOrder = 1; // arriba del fondo (los dos son transparentes y están en el mismo plano)
+    for (const m of mosaic) m.visible = false;
     // Los telones de las populares: solo se ven con público.
     const flagsTex = flagsTexture();
     for (const lado of ['este', 'oeste']) decal(lado, 0, 0, flagsTex, { span: [0.12, 0.3], list: flags }).visible = false;
@@ -1976,16 +1989,17 @@ export function buildStadium(container, renderer, { sectores, era = 'hoy', start
         const [x, y] = [(rnd() * 2 - 1) * half, f.slope * (0.08 + rnd() * 0.85)];
         const m = i % 3 ? f.at(x, y, 2.3 + rnd() * 0.6, 1, 1) : f.at(x, y, 2, 1.1, 0.7);
         const color = i % 3 ? (rnd() < 0.55 ? AZUL : BLANCO) : i % 2 ? AZUL : BLANCO;
-        if (clear(m)) (i % 3 ? balloons : cloth).push([m, color]);
+        if (clear(m)) (i % 3 ? balloons : cloth).push([m, color, lado === 'sur']);
       }
     }
     const material = mat(0xffffff, { side: THREE.DoubleSide, roughness: 0.7 });
     const build = (geo, list) => {
       const mesh = new THREE.InstancedMesh(keep(geo), material, list.length);
       const c = new THREE.Color();
-      list.forEach(([m, color], i) => {
+      list.forEach(([m, color, sur], i) => {
         mesh.setMatrixAt(i, m);
         mesh.setColorAt(i, c.set(color));
+        if (sur) overMosaic.push([mesh, i, m]);
       });
       mesh.visible = false;
       scene.add(mesh);
@@ -2328,6 +2342,16 @@ export function buildStadium(container, renderer, { sectores, era = 'hoy', start
       invalidate();
     },
     /** Con público: las filas se llenan de gente (y los dibujos de butacas quedan tapados a medias). */
+    /** El mosaico «Vélez» en la Platea Sur, en lugar de la V (solo hoy; en las otras épocas no hace nada). */
+    setMosaic(on) {
+      for (const m of mosaic) m.visible = on;
+      if (vSur) vSur.visible = !on;
+      // Los globos y banderas de la Sur se verían como puntos sobre el blanco: con el mosaico, escala cero.
+      const zero = new THREE.Matrix4().makeScale(0, 0, 0);
+      for (const [mesh, i, m] of overMosaic) mesh.setMatrixAt(i, on ? zero : m);
+      for (const mesh of new Set(overMosaic.map(([mesh]) => mesh))) mesh.instanceMatrix.needsUpdate = true;
+      invalidate();
+    },
     setCrowd(on) {
       for (const p of parts) {
         if (!on) p.material.map = tile(p.kind, p.base);
@@ -2410,6 +2434,7 @@ export function buildStadium(container, renderer, { sectores, era = 'hoy', start
   };
   if (startNight) api.setNight(true);
   if (startCrowd) api.setCrowd(true);
+  if (startMosaic) api.setMosaic(true);
   // Si la época anterior estaba en medio de un viaje de cámara, esta lo termina.
   if (start?.to) goTo(start.to);
   return api;

@@ -198,7 +198,9 @@ npm run preview # sirve dist/
   velez.com.ar, «Recibimiento tricolor» 2017): banderas largas, banderitas rojas, blancas y verdes en la Oeste (el
   tricolor del origen italiano), globos azules y blancos en la Este y banderas y globos en las plateas. Inferencia:
   cantidades, tamaños, posiciones y los trapos lisos de la reja. Sin textos ni nombres de barras. Nada cerca de donde
-  se sienta la cámara «desde la tribuna». No se hizo el mosaico «Vélez» de la Sur (fue de un partido y taparía la V).
+  se sienta la cámara «desde la tribuna». El mosaico «Vélez» (azul sobre blanco, zona media y baja de la Sur, Vélez-River 2022) es un botón aparte, solo
+  en «hoy»: esconde la V, reusa la textura de las letras de la Norte y prende el público (sacar el público lo apaga).
+  Con él, «hoy sin entorno» queda justo en el tope de 80 materiales.
 - **Vista por bandeja: probada y descartada por el usuario (nov-2026).** «Desde la tribuna» sienta siempre en la
   bandeja más alta; no volver a proponer un selector Baja / Media / Alta.
 

@@ -58,12 +58,13 @@ export function Estadio3D({ tribunas, epocas = [] }) {
   const [night, setNight] = useState(false);
   const [spin, setSpin] = useState(false);
   const [crowd, setCrowd] = useState(false);
+  const [mosaic, setMosaic] = useState(false);
   const [era, setEra] = useState('hoy');
   const scene = useRef(null); // el módulo de la escena, una vez cargado
   const entorno = useRef(null); // data/entorno.json (null = no bajó)
   // Lo último que pidió el usuario (época, noche, público), sin esperar a que React vuelva a dibujar: la escena se
   // arma con esto aunque el módulo termine de bajar después del clic.
-  const wants = useRef({ era: 'hoy', night: false, crowd: false });
+  const wants = useRef({ era: 'hoy', night: false, crowd: false, mosaic: false });
 
   /** Arma la escena de la época pedida, desde donde está mirando la cámara. */
   function build(start) {
@@ -75,7 +76,7 @@ export function Estadio3D({ tribunas, epocas = [] }) {
         sectores,
         start,
         entorno: entorno.current,
-        ...wants.current, // era, night, crowd
+        ...wants.current, // era, night, crowd, mosaic
         reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches,
         onPick: (id, level) => select(id, level),
       });
@@ -133,6 +134,19 @@ export function Estadio3D({ tribunas, epocas = [] }) {
   if (!sectores.length) return null;
   const selected = era === 'hoy' ? sectores.find((s) => s.id === pick.id) : null;
   const epoca = epocas.find((x) => x.id === era);
+  // El mosaico lo arma la gente: prenderlo prende el público y sacar el público lo saca.
+  const toggleCrowd = (on) => {
+    wants.current.crowd = on;
+    setCrowd(on);
+    api.current?.setCrowd(on);
+    if (!on && wants.current.mosaic) toggleMosaic(false);
+  };
+  const toggleMosaic = (on) => {
+    wants.current.mosaic = on;
+    setMosaic(on);
+    api.current?.setMosaic(on);
+    if (on && !wants.current.crowd) toggleCrowd(true);
+  };
   const changeEra = (id) => {
     if (id === wants.current.era) return;
     wants.current.era = id;
@@ -181,7 +195,8 @@ export function Estadio3D({ tribunas, epocas = [] }) {
           <button type="button" className="btn btn-outline" aria-pressed={mode === 'arriba'} onClick={() => setView('arriba')}>Desde arriba</button>
           <button type="button" className="btn btn-outline" aria-pressed={spin} onClick={() => { setSpin(!spin); api.current?.setAutoRotate(!spin); }}>Girar solo</button>
           <button type="button" className="btn btn-outline" aria-pressed={night} onClick={() => { const on = !wants.current.night; wants.current.night = on; setNight(on); api.current?.setNight(on); }}>De noche</button>
-          <button type="button" className="btn btn-outline" aria-pressed={crowd} onClick={() => { const on = !wants.current.crowd; wants.current.crowd = on; setCrowd(on); api.current?.setCrowd(on); }}>Con público</button>
+          <button type="button" className="btn btn-outline" aria-pressed={crowd} onClick={() => toggleCrowd(!wants.current.crowd)}>Con público</button>
+          {era === 'hoy' && <button type="button" className="btn btn-outline" aria-pressed={mosaic} onClick={() => toggleMosaic(!wants.current.mosaic)}>Mosaico «Vélez»</button>}
         </div>
         <p className="muted small">Arrastrá para girarlo y usá la ruedita o dos dedos para acercarte. Modelo aproximado hecho a partir de una foto aérea: las alturas son estimadas.</p>
       </div>

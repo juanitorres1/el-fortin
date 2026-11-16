@@ -336,7 +336,7 @@ test('escena 3D: las cinco épocas arman, entran en el presupuesto, dibujan a de
     const box = el();
     const r = renderer();
     const picks = [];
-    const api = buildStadium(box, r, { sectores, era: era.split(' ')[0], entorno: era === 'hoy sin entorno' ? null : entorno, night: true, crowd: true, onPick: (...a) => picks.push(a) });
+    const api = buildStadium(box, r, { sectores, era: era.split(' ')[0], entorno: era === 'hoy sin entorno' ? null : entorno, night: true, crowd: true, mosaic: true, onPick: (...a) => picks.push(a) });
     assert.equal(r.draws, 0, `${era}: el primer dibujo espera al primer cuadro (con la noche y el público ya puestos)`);
     assert.equal(r.shadowMap.autoUpdate, false, `${era}: sombras estáticas`);
     assert.equal(r.shadowMap.needsUpdate, true, `${era}: las sombras se dibujan en el primer cuadro`);
@@ -355,6 +355,7 @@ test('escena 3D: las cinco épocas arman, entran en el presupuesto, dibujan a de
     const actions = {
       setNight: () => api.setNight(false),
       setCrowd: () => api.setCrowd(false),
+      setMosaic: () => api.setMosaic(true),
       select: () => api.select(sectores[0].id, 0),
       view: () => api.view('tribuna', 'sur'),
       reset: () => api.reset(),
