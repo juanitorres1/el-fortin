@@ -31,12 +31,14 @@ src/
   initial.js     datos con los que se prerenderizó la página (los lee del <script id="initial-data">)
   prerender.jsx  entrada del build para Node: dibuja cada página a HTML
   pages/         una por página (inicio, partidos, plantel, historial, juegos, club, jugador, vivo)
-  sections/      bloques grandes: Juega, Previa, Formaciones, Resumen, Cifras, Noticias, Tablas, Goleadores, Playoffs, Cuadro, Simulador, Records
+  sections/      bloques grandes: Juega, Previa, Formaciones, Resumen, Cifras, Noticias, Tablas, Goleadores, Playoffs, Cuadro, Simulador, Records;
+                 juegos/ (un archivo por juego) y juegos/carrera/ (el modo Carrera: pantallas, jugadas y escenas en SVG, cargado aparte)
   components/    Layout (menú, banda, pie), MatchRow/MatchList, Crest, ResultBadge, Segmented, Skeletons, ShareCard, InstallApp…
   hooks/         useLiveData, useJson, useCached, useRoster, useNow, useLiveTitle, useScrollToHash, useCurrentSection
   lib/           lógica pura, sin React (la usan también los scripts): espn, facts, playoffs, bracket, weather, news, rules, core,
                  card (textos de las imágenes), trivia, games (prode y once), daily (semilla, racha y buscador de los juegos del día),
-                 duel (Mano a Mano), players (El Tapado, Trayectoria V, Grilla y Once de Liniers), storage (lo que guarda el navegador)
+                 duel (Mano a Mano), players (El Tapado, Trayectoria V, Grilla y Once de Liniers), storage (lo que guarda el navegador),
+                 carrera/ (modo Carrera: player, season, match, career, extras, logros, historia, economia, save)
   styles.css     sistema de diseño (tokens claro y noche)
 public/
   assets/        escudo, imagen para compartir (og.png) e íconos de la app (icons/: SVG fuente y PNG)
@@ -98,6 +100,7 @@ datos (no lo redibuja) y enseguida pide lo nuevo a ESPN.
 | Juegos: El Tapado, Trayectoria V y Grilla | `data/jugadores.json` (Wikidata, CC0; fotos de Wikimedia Commons con su autor y licencia; escudos de ESPN o Commons) y el plantel de ESPN | A mano: `node scripts/import-jugadores.mjs` |
 | Juegos: El Once de Liniers | `data/onces.json` (ESPN y Wikipedia) | A mano: `node scripts/import-onces.mjs` |
 | Juegos: prode y «Adiviná el once» | Fixture en vivo + `games.json`; lo elegido queda en el navegador | Cada deploy |
+| Juegos: Carrera (un jugador de las inferiores, de la Reserva al retiro) | Equipos y zonas de la tabla de ESPN, compañeros del plantel de ESPN y récords de `club.json` (para el lugar en la historia); fuerzas, goles y resultados los inventa el juego | Al crear la carrera (los equipos quedan en el guardado) |
 | Ficha de cada jugador | `players.json` + `games.json` (partido por partido del año) | Cada deploy |
 | Modo cancha | ESPN: el partido, el scoreboard de la fecha y la tabla de la zona, la anual y los promedios «si terminara así» | Cada 1 min en vivo |
 
@@ -125,6 +128,17 @@ Si ESPN no responde, la página usa el último `snapshot.json` y lo indica.
   partidas: plantel de hoy e históricos), Trayectoria V (el jugador por sus clubes), Grilla del Fortín (3×3, un test
   comprueba que las de los próximos 365 días tienen solución) y El Once de Liniers (semanal, cambia los domingos).
   `dailyPick` recorre a todos los candidatos antes de repetir. La racha cuenta los días con algún juego terminado.
+- **Modo Carrera** (`src/lib/carrera/`, tests en `tests/carrera.test.js`): todo el azar sale de la semilla de la
+  carrera más la semana, así recargar no cambia ningún resultado. Cada semana: entrenar o descansar, a veces un evento
+  fuera de la cancha (efectos fijos y a la vista) y el partido, donde se juegan 2 o 3 jugadas (remate, pase, gambeta y
+  penal en playoffs) frenando una barra; el resto se simula con goles de Poisson según la fuerza de cada equipo. La
+  fuerza es una inferencia (puntos y diferencia de gol por partido de la tabla real, comprimidos a 50–72). El rol lo da
+  la confianza del DT: menos de 50, Reserva; 70 o más, titular. Torneo: las dos zonas reales todos contra todos y
+  playoffs de 16. También hay metas por torneo, 16 logros, partidos grandes (River, Boca, San Lorenzo, Racing,
+  Independiente y Huracán), conferencias de prensa, plata de ficción con mejoras para comprar (sin apuestas), edad
+  (desde los 31 baja el físico) y retiro (desde los 33; a los 38, obligatorio). **Balance:** medido simulando carreras
+  completas, pasar a Bianchi (206 goles) exige frenar la barra casi siempre en el centro durante 15 años; un test lo
+  controla. El lugar en la historia no cuenta a Cubero, como la trivia.
 - **Jugadores históricos:** `data/jugadores.json` sale de Wikidata y tiene errores y omisiones (lo edita cualquiera).
   Las correcciones van en `scripts/jugadores-fixes.json` (por id de Wikidata) y se vuelve a correr el importador; el
   JSON generado no se edita a mano. Por eso los juegos no usan partidos ni goles de Wikidata, que son lo menos confiable.
@@ -151,8 +165,10 @@ Si ESPN no responde, la página usa el último `snapshot.json` y lo indica.
   visitarlo), y al activarse borra el JS/CSS con hash viejo. Las páginas se guardan sin la query. ESPN no pasa por
   él. Para que todos borren lo guardado, cambiar `VERSION` en `sw.js`. El ícono sale de
   `public/assets/icons/icon.svg` e `icon-maskable.svg` (PNG renderizados con Chromium).
-- **Lo que guarda cada hincha** (prode, once, trivia, aviso de instalar) va en `localStorage` con el prefijo
-  `fortin:`: solo en su navegador, sin cuentas ni servidor.
+- **Lo que guarda cada hincha** (prode, once, trivia, juegos del día, la carrera y el aviso de instalar) va en
+  `localStorage` con el prefijo `fortin:`: solo en su navegador, sin cuentas ni servidor. La carrera (`fortin:carrera`)
+  lleva un número de versión con migraciones (`src/lib/carrera/save.js`) y se puede pasar a otro dispositivo con un
+  código desde la Ficha.
 - GitHub Pages cachea 10 minutos: después de un deploy puede verse la versión anterior un rato.
 
 ## Límites conocidos
