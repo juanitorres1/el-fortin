@@ -167,20 +167,34 @@ export function annualTable(phases) {
 }
 
 const ROUND_TEAMS = [[/Round of (\d+)/, (m) => Number(m[1])], [/Quarterfinal/, () => 8], [/Semifinal/, () => 4], [/Final/, () => 2]];
+const ROUND_LABELS = { 16: 'Octavos', 8: 'Cuartos', 4: 'Semifinales', 2: 'Final' };
+
+/**
+ * Rondas de playoffs de una fase regular: las fases que ESPN declara después de ella hasta la regular siguiente
+ * (Clausura 2026: octavos, cuartos, semis y final). [{ id, name, slug, label, teams, start, end }], en orden.
+ * `slug` es el `season.slug` de sus partidos en el scoreboard («clausura---round-of-16»).
+ */
+export function playoffRounds(types, phase) {
+  const i = types.findIndex((t) => t.id === phase?.id);
+  if (i < 0) return [];
+  const out = [];
+  for (const t of types.slice(i + 1)) {
+    if (t.hasStandings) break; // empieza la fase regular siguiente
+    const teams = ROUND_TEAMS.map(([re, n]) => (re.test(t.name) ? n(t.name.match(re)) : null)).find((x) => x != null) ?? null;
+    out.push({
+      id: t.id, name: t.name, slug: phaseSlug(t.name), label: ROUND_LABELS[teams] ?? t.name.replace(/^.* - /, ''), teams,
+      start: t.startDate ?? null, end: t.endDate ?? null,
+    });
+  }
+  return out;
+}
 
 /**
  * Cuántos equipos juegan los playoffs de una fase regular, según las fases que ESPN declara después de ella
  * (2026: «Clausura - Round of 16» → 16). Así, si la AFA cambia el formato, el cálculo de clasificación lo sigue solo.
  */
 export function playoffTeams(types, phase) {
-  const i = types.findIndex((t) => t.id === phase?.id);
-  if (i < 0) return null;
-  const after = [];
-  for (const t of types.slice(i + 1)) {
-    if (t.hasStandings) break; // empieza la fase regular siguiente
-    after.push(t);
-  }
-  const sizes = after.map((t) => ROUND_TEAMS.map(([re, n]) => (re.test(t.name) ? n(t.name.match(re)) : null)).find((x) => x != null)).filter(Boolean);
+  const sizes = playoffRounds(types, phase).map((r) => r.teams).filter(Boolean);
   return sizes.length ? Math.max(...sizes) : null;
 }
 
@@ -201,6 +215,7 @@ export async function fetchStandings(fetchImpl) {
     phaseEnd: phases.at(-1)?.endDate ?? null, // fin de la fase regular: hasta ahí se piden los partidos que quedan
     year: season?.year ?? null,
     playoffTeams: playoffTeams(season?.types ?? [], phases.at(-1)), // para «Camino a los playoffs»; null si no hay
+    playoffRounds: playoffRounds(season?.types ?? [], phases.at(-1)), // rondas del cuadro de los playoffs
     groups: normalizeStandings(json),
     annual: phaseTables.length ? { phases: phases.map((t) => t.name), rows: annualTable(phaseTables) } : null,
   };
@@ -216,6 +231,46 @@ const phaseSlug = (phase) => (phase ?? '').toLowerCase().normalize('NFD').replac
 export function playingNow(scoreboard, standings) {
   return safeEvents((scoreboard?.events ?? []).filter((ev) => ev.season?.slug === phaseSlug(standings?.phase)))
     .filter((m) => m.status === 'in');
+}
+
+// ---------- Playoffs (cuadro) ----------
+
+/**
+ * Partidos de los playoffs de la fase en curso que trae un scoreboard (jugados, en juego o por jugar), con `slug` =
+ * la ronda. El scoreboard del día los trae con el marcador minuto a minuto.
+ */
+export function playoffEventsOf(scoreboard, standings) {
+  const slugs = new Set((standings?.playoffRounds ?? []).map((r) => r.slug));
+  const raw = (scoreboard?.events ?? []).filter((ev) => slugs.has(ev.season?.slug));
+  const slugOf = new Map(raw.map((ev) => [String(ev.id), ev.season.slug]));
+  return safeEvents(raw).map((m) => ({ ...m, slug: slugOf.get(m.id) })).sort(byDate);
+}
+
+/**
+ * Todos los partidos de los playoffs de la fase en curso. Es para el deploy: el scoreboard de un mes pesa ~350 KB
+ * (ESPN no acepta rangos de días). Se piden los meses que cubren las rondas, 6 como mucho.
+ */
+export async function fetchPlayoffEvents(standings, fetchImpl) {
+  const rounds = standings?.playoffRounds ?? [];
+  if (!rounds.length || !rounds[0].start) return [];
+  // Los meses en hora de la Argentina: la final de 2026 «termina» el 01/01 04:59 UTC (31/12 a la noche acá).
+  const month = (iso) => new Date(Date.parse(iso) - 3 * 3600_000).toISOString().slice(0, 7).replace('-', ''); // UTC−3, sin horario de verano
+  const first = month(rounds[0].start);
+  const last = month(rounds.at(-1).end ?? rounds.at(-1).start);
+  const months = [];
+  for (let y = Number(first.slice(0, 4)), mo = Number(first.slice(4)); months.length < 6; mo === 12 ? ((mo = 1), y++) : mo++) {
+    const key = `${y}${String(mo).padStart(2, '0')}`;
+    months.push(key);
+    if (key >= last) break;
+  }
+  const lists = await Promise.all(months.map((m) => getJson(`${SITE}/arg.1/scoreboard?dates=${m}`, fetchImpl)));
+  const byId = new Map(lists.flatMap((json) => playoffEventsOf(json, standings)).map((m) => [m.id, m]));
+  return [...byId.values()].sort(byDate);
+}
+
+/** Partidos de los playoffs de un día («20261120», hora de la Argentina): un resultado que el deploy todavía no tiene. */
+export async function fetchPlayoffDay(day, standings, fetchImpl) {
+  return playoffEventsOf(await getJson(`${SITE}/arg.1/scoreboard?dates=${day}`, fetchImpl), standings);
 }
 
 /**
@@ -384,7 +439,11 @@ export async function fetchLive(fetchImpl, { fallbackStandings } = {}) {
     fallbackStandings ? table.catch(() => fallbackStandings) : table,
     getJson(`${SITE}/arg.1/scoreboard`, fetchImpl).catch(() => null),
   ]);
-  return { updatedAt: new Date().toISOString(), fixture, results: completedResults(results, fixture), standings, playing: playingNow(scoreboard, standings) };
+  return {
+    updatedAt: new Date().toISOString(), fixture, results: completedResults(results, fixture), standings,
+    playing: playingNow(scoreboard, standings),
+    playoffNow: playoffEventsOf(scoreboard, standings), // partidos de playoffs del día, para el cuadro en vivo
+  };
 }
 
 /** Un partido del fixture con lo que cambia mientras se juega (estado, reloj, goles) tomado del scoreboard. */
@@ -412,8 +471,9 @@ export async function fetchLiveFast(prev, fetchImpl) {
   if (velez && !byId.has(velez.id)) return null;
   const fixture = prev.fixture.map((m) => patchLive(m, byId.get(m.id)));
   const playing = playingNow(boards[0], prev.standings);
-  if (!fixture.some((m) => m.status === 'in') && !playing.length) return null;
-  return { ...prev, updatedAt: new Date().toISOString(), fixture, playing };
+  const playoffNow = playoffEventsOf(boards[0], prev.standings);
+  if (!fixture.some((m) => m.status === 'in') && !playing.length && !playoffNow.some((m) => m.status === 'in')) return null;
+  return { ...prev, updatedAt: new Date().toISOString(), fixture, playing, playoffNow };
 }
 
 /**

@@ -31,10 +31,10 @@ src/
   initial.js     datos con los que se prerenderizó la página (los lee del <script id="initial-data">)
   prerender.jsx  entrada del build para Node: dibuja cada página a HTML
   pages/         una por página (inicio, partidos, plantel, historial, juegos, club, jugador, vivo)
-  sections/      bloques grandes: Juega, Previa, Formaciones, Resumen, Cifras, Noticias, Tablas, Goleadores, Playoffs, Simulador, Records
+  sections/      bloques grandes: Juega, Previa, Formaciones, Resumen, Cifras, Noticias, Tablas, Goleadores, Playoffs, Cuadro, Simulador, Records
   components/    Layout (menú, banda, pie), MatchRow/MatchList, Crest, ResultBadge, Segmented, Skeletons, ShareCard, InstallApp…
   hooks/         useLiveData, useJson, useCached, useRoster, useNow, useLiveTitle, useScrollToHash, useCurrentSection
-  lib/           lógica pura, sin React (la usan también los scripts): espn, facts, playoffs, weather, news, rules, core,
+  lib/           lógica pura, sin React (la usan también los scripts): espn, facts, playoffs, bracket, weather, news, rules, core,
                  card (textos de las imágenes), trivia, games (prode y once), daily (semilla, racha y buscador de los juegos del día),
                  duel (Mano a Mano), players (El Tapado, Trayectoria V, Grilla y Once de Liniers), storage (lo que guarda el navegador)
   styles.css     sistema de diseño (tokens claro y noche)
@@ -71,6 +71,7 @@ datos (no lo redibuja) y enseguida pide lo nuevo a ESPN.
 | Próximo partido, fixture, resultados, tablas, plantel | ESPN (API no oficial, sin key) | En cada visita; cada 1 min si Vélez juega |
 | Minuto a minuto y alerta de gol en la pestaña | ESPN, detalle del partido | Cada 1 min mientras se juega |
 | Goleadores del torneo (contados desde los goles de cada partido del scoreboard, también en vivo; suman los goles con todos los clubes) y camino a los playoffs | ESPN | Cada 15 min |
+| Cuadro de los playoffs (el mapa del reducido, en Partidos desde que empiezan) | ESPN: `playoffs.json` del deploy + scoreboard del día | Cada 5 min; cada 1 min si se juega un partido del cuadro |
 | Asistidores del torneo (`asistencias.json`, desde el detalle de cada partido; el deploy guarda lo leído en `cache/` y pide solo los partidos nuevos y los de la última semana, por si ESPN corrigió algo) | ESPN | Cada deploy |
 | Promedios | `promedios.json` (temporadas cerradas) + la fase en curso en vivo | Cada deploy / en cada visita |
 | Estadísticas del plantel y sanciones estimadas | `players.json`, sumando el detalle de cada partido; arqueros: vallas invictas y atajadas desde `games.json` | Cada deploy |
@@ -109,6 +110,9 @@ Si ESPN no responde, la página usa el último `snapshot.json` y lo indica.
 - **Descenso (2026):** el último de los promedios y el último de la anual (si coinciden, el anteúltimo de la anual).
 - **Playoffs:** cuántos pasan sale de ESPN (16 equipos ÷ 2 zonas = 8). El cálculo es conservador: «Clasificado» y
   «Eliminado» son seguros, aunque a veces se confirman una fecha después que con un cálculo exacto.
+- **Cuadro de los playoffs:** ESPN da las rondas y los partidos, no el cuadro. Los octavos salen de la tabla de cada
+  zona (`PLAYOFF_SEEDS` en `rules.js`, sacado de los cruces reales del Apertura 2026; los octavos del Clausura 2026
+  coinciden). Si un partido de ESPN no encaja, se muestra cada ronda con sus partidos, sin líneas ni cruces por venir.
 - **Valla invicta:** el arquero fue titular y Vélez no recibió goles. Penales atajados no: ESPN no dice quién atajó.
 - **Sanciones:** 5 amarillas en un torneo o roja en el último partido. Es una estimación; la oficial es del Tribunal.
 - **Simulador:** suma los resultados elegidos a la tabla de la zona; desempata por la diferencia de gol actual.

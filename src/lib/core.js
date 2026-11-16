@@ -98,7 +98,8 @@ export const nextMatch = (fixture) => fixture.find((m) => m.status === 'in') ?? 
 export const standingsNow = ({ data, live }) => (live && data.playing?.length ? liveTables(data.standings, data.playing) : data.standings);
 
 /** ¿Hay que refrescar cada minuto? Si juega Vélez o hay partidos de la liga en juego (la tabla en vivo). */
-export const isLive = (data) => data.fixture.some((m) => m.status === 'in') || Boolean(data.playing?.length);
+export const isLive = (data) =>
+  data.fixture.some((m) => m.status === 'in') || Boolean(data.playing?.length) || Boolean(data.playoffNow?.some((m) => m.status === 'in'));
 
 export function mergeResults(history, recent) {
   const byId = new Map(history.map((m) => [m.id, m]));

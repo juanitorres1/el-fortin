@@ -12,6 +12,7 @@
 // - players.json: estadísticas de jugadores por torneo del año y sanciones probables (desde el detalle de cada partido).
 // - games.json: partido por partido del año con quién jugó y los goles con su minuto (página de cada jugador,
 //   «Adiviná el once» y «Vélez en cifras»).
+// - playoffs.json: partidos de los playoffs de la fase en curso (el cuadro de Partidos).
 // - asistencias.json: asistidores de la fase en curso (desde el detalle de cada partido; lo ya leído queda en
 //   cache/asistencias.json, que el deploy conserva entre corridas).
 // Uso: node scripts/update-data.mjs
@@ -21,7 +22,7 @@ import { writeHeadlines } from './news.mjs';
 import { monthDay, onThisDay, rivalFacts } from '../src/lib/facts.js';
 import { duelRows } from '../src/lib/duel.js';
 import { hydrateCup, linkTeams, relinkMatch } from '../src/lib/crests.js';
-import { VELEZ_ID, aggregateStats, discipline, gamesLog, fetchAverageParts, fetchLive, fetchPhaseEvents, fetchRoster, fetchSchedule, fetchSummary, fetchTeams, goalEvents, leaderboard, playersFromSummary, summaryAssists, tournamentOf } from '../src/lib/espn.js';
+import { VELEZ_ID, aggregateStats, discipline, gamesLog, fetchAverageParts, fetchLive, fetchPhaseEvents, fetchPlayoffEvents, fetchRoster, fetchSchedule, fetchSummary, fetchTeams, goalEvents, leaderboard, playersFromSummary, summaryAssists, tournamentOf } from '../src/lib/espn.js';
 
 const OUT = new URL('../public/data/generated/', import.meta.url);
 const FIRST_SEASON = 2000; // ESPN no tiene datos de Vélez anteriores a 2001
@@ -65,6 +66,17 @@ async function main() {
     console.log(`asistencias: ${assists.read} partidos leídos ahora (${assists.recent} de la última semana, por si ESPN corrigió algo), ${assists.cached} del caché; líder: ${assists.top ?? '—'}`);
   } catch (err) {
     console.warn('No se pudieron armar las asistencias:', err.message);
+  }
+
+  // Partidos de los playoffs de la fase en curso, para el cuadro de Partidos (el navegador le suma el scoreboard del
+  // día). Antes de que empiecen no se piden. Si falla, el cuadro no se muestra: no frena el deploy.
+  try {
+    const rounds = live.standings.playoffRounds ?? [];
+    const events = rounds[0]?.start && Date.parse(rounds[0].start) <= Date.now() + 7 * 86400_000 ? await withRetry(() => fetchPlayoffEvents(live.standings)) : [];
+    await writeFile(new URL('playoffs.json', OUT), JSON.stringify({ updatedAt: new Date().toISOString(), phaseKey: live.standings.phaseKey, events }));
+    console.log(`playoffs: ${events.length} partidos (${rounds.map((r) => r.label).join(', ') || 'sin rondas'})`);
+  } catch (err) {
+    console.warn('No se pudieron leer los playoffs:', err.message);
   }
 
   // Titulares de la web oficial (sin IA). Si falla, la página oculta la lista: no frena el deploy.

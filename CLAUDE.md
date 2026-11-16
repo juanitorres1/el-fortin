@@ -17,7 +17,7 @@ un servidor en Render/Railway/Vercel). Node ≥ 20. Detalle en `README.md`.
   compartir); lo usan `vite.config.js`, el menú y los tests. Menú y pie ya no se copian: están en
   `src/components/Layout.jsx`.
 - `src/lib/`: **lógica pura sin React**, compartida con los scripts de Node: `espn.js` (cliente ESPN; `teamStats` y `matchFigure` para el resumen, `lineupFromSummary` para las formaciones, `goalEvents` para games.json, `fetchScorers`/`phaseGoals` = goleadores contados desde el scoreboard y `summaryAssists` = asistidores, porque la tabla de goleadores de ESPN llega tarde y no suma los goles con el club anterior), `facts.js`
-  (rachas, rival, `teamForm` del rival, un día como hoy, cancha neutral, `seasonNumbers` = Vélez en cifras, `rivalRanking`), `playoffs.js`, `weather.js`, `news.js`, `rules.js` (reglamento,
+  (rachas, rival, `teamForm` del rival, un día como hoy, cancha neutral, `seasonNumbers` = Vélez en cifras, `rivalRanking`), `playoffs.js`, `bracket.js` (cuadro de los playoffs: octavos por puesto según `PLAYOFF_SEEDS` de `rules.js`, sacado de los cruces del Apertura 2026; si ESPN no encaja, cuadro plano), `weather.js`, `news.js`, `rules.js` (reglamento,
   `RULES_YEAR`), `core.js` (formato, carga con respaldo, marcador y tabla en vivo), `card.js` (textos de las imágenes
   para compartir), `trivia.js` (trivia diaria desde `club.json`, sin repetir hasta agotar el pozo: `triviaCycle`), `games.js` (prode y once), `daily.js` (lo común de los juegos del día: semilla por juego, `dailyPick` sin repetidos, buscador de jugadores, racha), `duel.js` (Mano a Mano), `players.js` (El Tapado, Trayectoria V, Grilla del Fortín y El Once de Liniers), `barrio.js` (casas y árboles genéricos sobre las calles reales de `entorno.json`, para el 3D), `crests.js` (une por nombre los equipos del historial 1919–2000 con su id de ESPN → `escudos.json`), `storage.js`
   (`localStorage` con prefijo `fortin:`). Testear acá, no en los componentes.
@@ -26,7 +26,7 @@ un servidor en Render/Railway/Vercel). Node ≥ 20. Detalle en `README.md`.
   `useCurrentSection`. Convención: `undefined` = cargando, `null` = falló o no hay.
 - `src/components/`: `Layout`/`PageBand`, `MatchRow`/`MatchList`, `Crest`, `ResultBadge`, `Segmented`,
   `Skeletons`, `Lines`, `Empty` (`Crest` sin escudo de ESPN = escudo gris con «?»), `ExtLink`, `ShareCard` (imagen 1080×1350 con `<canvas>`), `InstallApp`.
-  `src/sections/`: bloques grandes (Juega, Previa, Formaciones (probables onces, dentro de la previa), Resumen = «Así terminó», Cifras = Vélez en cifras, Noticias, Tablas, Goleadores, Playoffs, Simulador, Records,
+  `src/sections/`: bloques grandes (Juega, Previa, Formaciones (probables onces, dentro de la previa), Resumen = «Así terminó», Cifras = Vélez en cifras, Noticias, Tablas, Goleadores, Playoffs, Cuadro (el mapa del reducido: reemplaza a «Camino a los playoffs» y va arriba desde que empiezan; partidos de `playoffs.json` del deploy + `playoffNow` del scoreboard del día que trae `useLiveData`, que refresca cada minuto si se juega uno del cuadro), Simulador, Records,
   Estadio3D). El estadio 3D usa **Three.js** en `sections/estadio-scene.js`, que se carga con import dinámico solo
   en Club › Estadio; medidas y cámaras en `lib/stadium.js`; datos en `club.json › estadio.tribunas`.
 - Prerender: `npm run build` = `vite build` + `vite build --ssr src/prerender.jsx` + `scripts/prerender.mjs`, que mete

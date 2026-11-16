@@ -219,6 +219,43 @@ a:hover { text-decoration-thickness: 2px; }
 .po-cut { display: flex; align-items: center; gap: 0.5rem; color: var(--text-2); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
 .po-cut::before, .po-cut::after { content: ''; flex: 1; border-top: 2px dashed var(--line); }
 
+/* Cuadro de los playoffs: una columna por ronda; en el celular se desliza de costado. Cada cruce queda centrado
+   entre los dos que lo alimentan (las parejas reparten el alto en partes iguales) y las líneas son seudoelementos. */
+.bk-scroll { overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; padding: 0.25rem 0 0.75rem; margin-bottom: 0.5rem; }
+.bk-scroll:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: var(--radius-sm); }
+.bk { --bk-gap: 1.25rem; --bk-line: color-mix(in srgb, var(--text-2) 45%, transparent); list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(var(--bk-cols, 4), minmax(10.75rem, 1fr)); column-gap: var(--bk-gap); }
+.bk-round { display: flex; flex-direction: column; min-width: 0; scroll-snap-align: start; }
+.bk-title { margin: 0 0 0.4rem; font: 800 0.8125rem/1.3 var(--body); text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-2); }
+.bk-round.is-current .bk-title { color: var(--accent); }
+.bk-ties { flex: 1; display: flex; flex-direction: column; }
+.bk-pair { flex: 1; display: flex; flex-direction: column; position: relative; }
+.bk-slot { flex: 1; display: flex; align-items: center; position: relative; padding: 0.3rem 0; }
+.bk-flat .bk-pair, .bk-flat .bk-slot { flex: none; }
+.bk-tree .bk-round:not(:last-child) .bk-slot::after,
+.bk-tree .bk-round:not(:first-child) .bk-slot::before { content: ''; position: absolute; top: calc(50% - 1px); width: calc(var(--bk-gap) / 2); border-top: 2px solid var(--bk-line); }
+.bk-tree .bk-round:not(:last-child) .bk-slot::after { left: 100%; }
+.bk-tree .bk-round:not(:first-child) .bk-slot::before { right: 100%; }
+.bk-tree .bk-round:not(:last-child) .bk-pair::after { content: ''; position: absolute; left: calc(100% + var(--bk-gap) / 2 - 2px); top: calc(25% - 1px); bottom: calc(25% - 1px); border-right: 2px solid var(--bk-line); }
+.bk-tree .bk-round:not(:last-child) .bk-pair:only-child::after { display: none; }
+.bk-tie { width: 100%; min-width: 0; padding: 0.4rem 0.55rem 0.3rem; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-sm); }
+.bk-tie.is-velez { background: var(--accent-soft); border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
+.bk-tie.is-live { border-color: var(--loss); }
+.bk-team { display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 0.4rem; min-height: 1.75rem; font-size: 0.875rem; }
+.bk-team .crest { flex: none; }
+.bk-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bk-tbd { color: var(--text-2); font-style: italic; }
+.bk-cands { display: inline-flex; }
+.bk-cands .crest + .crest { margin-left: -0.3rem; }
+.bk-seed { font: 600 0.75rem/1 var(--display); color: var(--text-2); letter-spacing: 0.02em; }
+.bk-score { min-width: 1.1rem; text-align: right; font: 800 1.125rem/1 var(--display); }
+.bk-score small { font-size: 0.75rem; color: var(--text-2); }
+.bk-team.is-win .bk-name { font-weight: 800; }
+.bk-team.is-lose { color: var(--text-2); }
+.bk-team.is-lose .crest { opacity: 0.6; }
+.bk-meta { display: flex; align-items: center; min-height: 1.5rem; margin: 0.15rem 0 0; font-size: 0.75rem; color: var(--text-2); }
+.bk-meta .live-pill { padding: 0.15rem 0.45rem; font-size: 0.75rem; }
+.bk-round .muted { margin: 0.5rem 0; }
+
 /* Agendar partidos: desplegable debajo del fixture */
 .cal { margin-top: 1rem; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 0 1.1rem; }
 .cal > summary { cursor: pointer; min-height: var(--tap); display: flex; align-items: center; font-weight: 700; color: var(--accent); }
