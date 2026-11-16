@@ -12,6 +12,7 @@ export const GAMES = [
   { key: 'liniers', label: 'Once de Liniers', daily: true },
   { key: 'prode', label: 'Prode', daily: false },
   { key: 'once', label: 'Adiviná el once', daily: false },
+  { key: 'carrera', label: 'Carrera', daily: false },
 ];
 
 /** Número a partir de un texto (FNV-1a): la «sal» de cada juego, para que no compartan sorteo. */

@@ -1,8 +1,9 @@
 // Juegos. Del día (los mismos para todos, salen de la fecha): Trivia, Mano a Mano, El Tapado, Trayectoria V, Grilla
-// del Fortín y El Once de Liniers (semanal). Del partido: Prode y «Adiviná el once». Se ve un juego por vez (pestañas,
+// del Fortín y El Once de Liniers (semanal). Del partido: Prode y «Adiviná el once». Y el modo Carrera, que se carga
+// aparte (sections/juegos/carrera/) solo al abrir su pestaña. Se ve un juego por vez (pestañas,
 // con el #hash en la URL). Lo que elige cada hincha queda en su navegador (lib/storage.js): no hay cuentas ni
 // servidor. Se lee en efectos, después de hidratar.
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
 import { mount } from '../main.jsx';
 import { VELEZ_ID } from '../lib/espn.js';
 import { DATA, TZ, capitalize, fmt, nextMatch } from '../lib/core.js';
@@ -20,6 +21,8 @@ import { Tapado } from '../sections/juegos/Tapado.jsx';
 import { Trayectoria } from '../sections/juegos/Trayectoria.jsx';
 import { Grilla } from '../sections/juegos/Grilla.jsx';
 import { Liniers } from '../sections/juegos/Liniers.jsx';
+
+const Carrera = lazy(() => import('../sections/juegos/carrera/Carrera.jsx'));
 
 const POS_GROUP = { G: 'Arqueros', D: 'Defensores', M: 'Mediocampistas', F: 'Delanteros' };
 const POS_ORDER = ['G', 'D', 'M', 'F'];
@@ -291,6 +294,7 @@ const ABOUT = {
   liniers: ['El Once de Liniers', 'Los once titulares de un partido para el recuerdo.'],
   prode: ['Prode', 'Tu pronóstico del próximo partido.'],
   once: ['Adiviná el once', 'Los titulares del próximo partido.'],
+  carrera: ['Carrera', 'Salís de las inferiores: entrená, ganate el puesto y jugá las jugadas clave de cada partido.'],
 };
 const isGame = (key) => GAMES.some((g) => g.key === key);
 
@@ -334,7 +338,7 @@ function Juegos() {
   }, [tab]);
   const [title, about] = ABOUT[tab];
   return (
-    <Layout page="juegos" band={<PageBand title="Juegos"><p className="lead">Seis juegos del día, el prode y el once. Para jugar con la V en el pecho.</p></PageBand>}>
+    <Layout page="juegos" band={<PageBand title="Juegos"><p className="lead">Seis juegos del día, el prode, el once y una carrera en Vélez. Para jugar con la V en el pecho.</p></PageBand>}>
       <nav className="games-tabs" aria-label="Elegir juego" ref={tabsRef}>
         {GAMES.map((g) => (
           <button key={g.key} type="button" className="seg" aria-pressed={g.key === tab} onClick={() => pick(g.key)}>
@@ -358,6 +362,11 @@ function Juegos() {
         {tab === 'liniers' && <Liniers day={day} onDone={onDone} />}
         {tab === 'prode' && <Prode data={state.data} now={now} />}
         {tab === 'once' && <Once data={state.data} roster={roster} games={games} now={now} />}
+        {tab === 'carrera' && (
+          <Suspense fallback={<Skeletons className="sk-card" />}>
+            <Carrera standings={state.data?.standings ?? (state.status === 'loading' ? undefined : null)} roster={roster} />
+          </Suspense>
+        )}
       </section>
     </Layout>
   );
