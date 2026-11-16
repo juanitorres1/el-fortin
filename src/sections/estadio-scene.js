@@ -1550,7 +1550,9 @@ export function buildStadium(container, renderer, { sectores, era = 'hoy', start
   // Hoy (fotos): cuerpos abiertos de rampas y escaleras que salen de la espalda de la Sur y de las populares, y
   // bocas de acceso repartidas sobre las gradas. Se juntan acá y se dibujan instanciados después de las tribunas.
   const bodies = []; // { lado, u, w, width, out, h }: u = la espalda de la tribuna, w = a lo largo
-  const mouths = []; // { lado, u, y, w }
+  const mouths = []; // { lado, u, y, w, mosaico }
+  // [malla, índice, matriz]: lo que el mosaico «Vélez» esconde (bocas, globos y banderas de la Sur Baja).
+  const overMosaic = [];
   const rails = []; // paravalanchas de las populares: [lado, u, y, w]
   // Por bandeja (lado:nivel): [parte de la pendiente desde el frente, posiciones a lo largo]. Cantidad y lugar
   // aproximados; en la Norte Alta van por debajo de las letras.
@@ -1612,7 +1614,7 @@ export function buildStadium(container, renderer, { sectores, era = 'hoy', start
       piece(add(flared(geo, p), body), u0);
       for (const [f, ws] of (blue && MOUTHS[`${lado}:${p.level}`]) || []) {
         const open = 1 + ((2 * (p.flare ?? 0)) / p.len) * f; // sigue el trapecio
-        for (const w of ws) mouths.push({ lado, u: u0 + f * p.d, y: p.y0 + f * (p.y1 - p.y0) + 0.8, w: w * open });
+        for (const w of ws) mouths.push({ lado, u: u0 + f * p.d, y: p.y0 + f * (p.y1 - p.y0) + 0.8, w: w * open, mosaico: lado === 'sur' && p.level === 0 });
       }
       if (!solid) {
         const wood = (p.material ?? style.seats) === 'madera';
@@ -1841,7 +1843,10 @@ export function buildStadium(container, renderer, { sectores, era = 'hoy', start
       cores.setMatrixAt(i, place(lado, u + out * 0.3, (h - 0.5) / 2, w, out * 0.6, h - 0.5, width * 0.6));
     });
     const boxes = new THREE.InstancedMesh(keep(new THREE.BoxGeometry(2.2, 1.6, 3.2)), mat(0x12336b), mouths.length);
-    mouths.forEach(({ lado, u, y, w }, i) => boxes.setMatrixAt(i, place(lado, u, y, w)));
+    mouths.forEach(({ lado, u, y, w, mosaico }, i) => {
+      boxes.setMatrixAt(i, place(lado, u, y, w));
+      if (mosaico) overMosaic.push([boxes, i, m4.clone()]);
+    });
     for (const m of [frames, cores]) {
       m.castShadow = true;
       m.receiveShadow = true;
@@ -1849,7 +1854,10 @@ export function buildStadium(container, renderer, { sectores, era = 'hoy', start
     boxes.receiveShadow = true;
     // La abertura de cada boca, del lado de la cancha: el túnel se ve negro.
     const tunnels = new THREE.InstancedMesh(unit, keep(new THREE.MeshBasicMaterial({ color: 0x04070c })), mouths.length);
-    mouths.forEach(({ lado, u, y, w }, i) => tunnels.setMatrixAt(i, place(lado, u - 1.12, y - 0.12, w, 0.06, 1.2, 2.5)));
+    mouths.forEach(({ lado, u, y, w, mosaico }, i) => {
+      tunnels.setMatrixAt(i, place(lado, u - 1.12, y - 0.12, w, 0.06, 1.2, 2.5));
+      if (mosaico) overMosaic.push([tunnels, i, m4.clone()]);
+    });
     // Paravalanchas: un caño y dos patas cada uno (cajas finas, sin sombra).
     const bars = new THREE.InstancedMesh(unit, mat(0xc9d3de, { roughness: 0.5, metalness: 0.4 }), rails.length * 3);
     rails.forEach(([lado, u, y, w], i) => {
@@ -1863,7 +1871,6 @@ export function buildStadium(container, renderer, { sectores, era = 'hoy', start
   // `width` = ancho del dibujo (si no, el largo de la tribuna menos 3 m por punta).
   const flags = [];
   const mosaic = []; // el mosaico «Vélez» de la Sur (fondo y letras)
-  const overMosaic = []; // [malla, índice, matriz]: globos y banderas de la Platea Sur, que el mosaico esconde
   let vSur = null; // la V de butacas de la Sur Baja: se esconde con el mosaico
   const decal = (lado, idxFrom, idxTo, texture, { span = [0, 1], list = decals, width = null } = {}) => {
     const L = layout[lado];
@@ -2346,7 +2353,7 @@ export function buildStadium(container, renderer, { sectores, era = 'hoy', start
     setMosaic(on) {
       for (const m of mosaic) m.visible = on;
       if (vSur) vSur.visible = !on;
-      // Los globos y banderas de la Sur se verían como puntos sobre el blanco: con el mosaico, escala cero.
+      // Las bocas, los globos y las banderas de la Sur Baja ensuciarían el blanco: con el mosaico, escala cero.
       const zero = new THREE.Matrix4().makeScale(0, 0, 0);
       for (const [mesh, i, m] of overMosaic) mesh.setMatrixAt(i, on ? zero : m);
       for (const mesh of new Set(overMosaic.map(([mesh]) => mesh))) mesh.instanceMatrix.needsUpdate = true;
