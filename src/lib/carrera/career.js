@@ -4,11 +4,11 @@
 // carrera más la semana: recargar la página no cambia ningún resultado.
 import { rng } from '../trivia.js';
 import { hash } from '../daily.js';
-import { WEEK_REST, clamp, matchCost, newPlayer, overall, roleOf, train } from './player.js';
+import { WEEK_REST, clamp, matchCost, newPlayer, overall, roleOf, spotOf, train } from './player.js';
 import { PLAYOFF_SPOTS, expectedGoals, nextPairs, playoffPairs, poisson, roundName, schedule, shootout, simMatch, table, teamsFrom } from './season.js';
-import { PENALTY, makeMoments, matchRating, momentShape, outcomeKind, quality, resolveDribble, resolvePass, resolveShot } from './match.js';
+import { isPenalty, makeMoments, matchRating, momentShape, outcomeKind, quality, resolveDribble, resolvePass, resolveSave, resolveShot, resolveTackle } from './match.js';
 import { isBigMatch, matchLogros, torneoLogros } from './logros.js';
-import { GOAL_PRIZE, WIN_PRIZE, hasPerk, perkOf, salaryOf } from './economia.js';
+import { CLEAN_PRIZE, GOAL_PRIZE, WIN_PRIZE, hasPerk, perkOf, salaryOf } from './economia.js';
 import { EVENTS, GOAL_REWARD, applyFx, goalProgress, goalsFor, pickEvent } from './extras.js';
 import { PRESS, RETIRE_AT, RETIRE_FROM, ageAttrs, pickPress } from './historia.js';
 
@@ -31,19 +31,19 @@ function newTorneo(state, n, teams) {
     n, label: torneoLabel(state.startYear, n), teams,
     fixtures: schedule(teams, randOf(state, 'fixture', n)),
     results: [], week: 0, phase: 'liga', bracket: null,
-    stats: { pj: 0, tit: 0, g: 0, a: 0, ratings: [], res: { pj: 0, g: 0, a: 0 } },
+    stats: { pj: 0, tit: 0, g: 0, a: 0, at: 0, qt: 0, vi: 0, ratings: [], res: { pj: 0, g: 0, a: 0, at: 0, qt: 0 } },
     trained: null, match: null, last: null, summary: null, event: null,
     goals: goalsFor(state.player),
   };
 }
 
 /** Carrera nueva. null si los datos no alcanzan (sin la tabla de ESPN o sin Vélez en ella). */
-export function newCareer({ name, pos, extra, standings, roster, velezId, seed }) {
+export function newCareer({ name, pos, spot, extra, standings, roster, velezId, seed }) {
   const teams = teamsFrom(standings, velezId);
   if (!teams) return null;
   const state = {
     v: SAVE_VERSION, seed: seed >>> 0, velez: String(velezId), startYear: (standings.year ?? 2026) + 1,
-    player: newPlayer({ name, pos, extra }), mates: matesFrom(roster), history: [], news: [], torneo: null,
+    player: newPlayer({ name, pos, spot, extra }), mates: matesFrom(roster), history: [], news: [], torneo: null,
   };
   state.torneo = newTorneo(state, 1, teams);
   state.news = [{ n: 1, text: `Firmaste tu primer contrato con Vélez. Arrancás en la Reserva.` }];
@@ -133,15 +133,20 @@ export function startMatch(state) {
   const rStr = side === 'reserva' ? game.rival.str - 6 : game.rival.str;
   const [lh, la] = game.home ? expectedGoals(vStr, rStr) : expectedGoals(rStr, vStr);
   const [lv, lr] = game.home ? [lh, la] : [la, lh];
-  const share = role === 'suplente' ? 0.12 : 0.3; // las chances que pasan por los pies del jugador
+  const { mix, key: spot } = spotOf(s.player);
+  // Las chances que pasan por el jugador: las de gol de Vélez (según cuánto ataca su lugar) y, para arqueros y
+  // defensores, también las del rival (esas las juega él: si falla, es gol de ellos).
+  const defending = (mix.quite ?? 0) + (mix.atajada ?? 0);
+  const share = (role === 'suplente' ? 0.12 : 0.3) * (1 - defending);
+  const guard = (role === 'suplente' ? 0.4 : 1) * 0.4 * defending;
   const mates = s.mates;
   const events = [];
   for (let i = poisson(r, lv * (1 - share)); i > 0; i--) events.push({ min: 1 + Math.floor(r() * 90), team: 'v', who: mates[Math.floor(r() * mates.length)] });
-  for (let i = poisson(r, lr); i > 0; i--) events.push({ min: 1 + Math.floor(r() * 90), team: 'r' });
+  for (let i = poisson(r, lr * (1 - guard)); i > 0; i--) events.push({ min: 1 + Math.floor(r() * 90), team: 'r' });
   events.sort((a, b) => a.min - b.min);
   const moments = makeMoments(r, {
     count: role === 'suplente' ? 2 : 3, from: role === 'suplente' ? 62 : 6, to: 88,
-    shots: { del: 0.5, vol: 0.25 }[s.player.pos], dribbles: 0.2, player: s.player, rivalStr: rStr,
+    mix, headers: spot === 'dci' || spot === 'dcd', player: s.player, rivalStr: rStr,
   });
   t.match = { kind: game.kind, label: game.label, side, role, home: game.home, big: isBigMatch(game.rival), rival: { ...game.rival, str: Math.round(rStr) }, moments, answers: [], events };
   return s;
@@ -188,15 +193,27 @@ export function answerMoment(state, { choice, x }) {
     m.answers.push({ q: rq, choice, ok: res.ok, kind: res.kind, text: res.text });
     // Si la pasó, la jugada sigue: queda de frente al arco en el mismo minuto.
     if (res.ok) m.moments.splice(i + 1, 0, { ...momentShape(r, { min: mo.min, type: 'remate', kind: res.next, player: s.player, rivalStr: m.rival.str }), from: 'gambeta' });
+  } else if (mo.type === 'quite') {
+    const mate = s.mates[Math.floor(r() * s.mates.length)];
+    const res = resolveTackle(r, { q, option: choice, attr: s.player.attrs.fisico, rivalStr: m.rival.str, mate });
+    m.answers.push({ q: rq, choice, ok: res.ok, kind: res.kind, mate: res.counter ? mate : undefined, text: res.text });
+    if (res.counter) m.events.push({ min: mo.min, mi: i, team: 'v', who: mate, counter: true });
+    if (res.kind === 'golrival') m.events.push({ min: mo.min, mi: i, team: 'r' });
+  } else if (mo.type === 'atajada') {
+    const res = resolveSave(r, { q, dive: choice, kind: mo.kind, tell: mo.tell, attr: s.player.attrs.remate, rivalStr: m.rival.str });
+    m.answers.push({ q: rq, choice, saved: res.saved, shot: res.shot, kind: res.kind, text: res.text });
+    if (res.kind === 'golrival' && mo.kind !== 'penal') m.events.push({ min: mo.min, mi: i, team: 'r' });
   } else {
     const res = resolveShot(r, { q, aim: choice, kind: mo.type === 'penal' ? 'penal' : mo.kind, attr: s.player.attrs.remate, rivalStr: m.rival.str, bonus: hasPerk(s.player, 'botines') ? 0.01 : 0 });
     m.answers.push({ q: rq, choice, goal: res.goal, keeper: res.keeper, kind: res.kind, text: res.text });
     if (res.goal && mo.type !== 'penal') m.events.push({ min: mo.min, mi: i, team: 'v', who: s.player.name, mine: true });
   }
   // En playoffs, empate al final y el jugador en cancha: patea en la definición por penales.
-  if (m.answers.length === m.moments.length && m.kind === 'playoff' && m.side === 'primera' && !m.moments.some((x) => x.type === 'penal')) {
+  // El arquero, en cambio, ataja uno.
+  if (m.answers.length === m.moments.length && m.kind === 'playoff' && m.side === 'primera' && !m.moments.some(isPenalty)) {
     const [v, rv] = scoreAt(m);
-    if (v === rv) m.moments.push(momentShape(r, { min: 120, type: 'penal', kind: 'penal', player: s.player, rivalStr: m.rival.str }));
+    const keeper = s.player.pos === 'arq';
+    if (v === rv) m.moments.push(momentShape(r, { min: 120, type: keeper ? 'atajada' : 'penal', kind: 'penal', player: s.player, rivalStr: m.rival.str }));
   }
   return s;
 }
@@ -270,7 +287,7 @@ function closeTorneo(s) {
   const done = goals.filter((g) => g.done).length;
   s.player.fans = clamp(s.player.fans + done * GOAL_REWARD, 0, 100);
   t.summary = {
-    n: t.n, label: t.label, pos, result, champion: champion?.name ?? null, pj: st.pj, tit: st.tit, g: st.g, a: st.a, avg, res: st.res,
+    n: t.n, label: t.label, pos, result, champion: champion?.name ?? null, pj: st.pj, tit: st.tit, g: st.g, a: st.a, at: st.at ?? 0, qt: st.qt ?? 0, vi: st.vi ?? 0, avg, res: st.res,
     age: s.player.age, ov: overall(s.player), goals: { done, total: goals.length },
   };
   const logros = torneoLogros(s.logros ?? {}, t, { result, goalsDone: done, goalsTotal: goals.length });
@@ -325,8 +342,15 @@ export function finishMatch(state) {
   const dribbles = m.answers.filter((a, i) => m.moments[i].type === 'gambeta');
   const good = passes.filter((a) => a.ok && !a.assist).length + shots.filter((a) => !a.goal && a.q >= 0.5).length + dribbles.filter((a) => a.ok).length;
   const bad = passes.filter((a) => !a.ok).length + shots.filter((a) => a.q < 0.15).length + dribbles.filter((a) => !a.ok).length;
-  const penIdx = m.moments.findIndex((x) => x.type === 'penal');
-  const penGoal = penIdx >= 0 ? m.answers[penIdx]?.goal : null;
+  // Lo del arquero y los defensores (sin el penal de la definición).
+  const kindsOf = (type) => m.answers.filter((a, i) => m.moments[i].type === type && !isPenalty(m.moments[i])).map((a) => a.kind);
+  const saves = kindsOf('atajada');
+  const tackles = kindsOf('quite');
+  const nSaves = saves.filter((k) => k === 'tapada').length;
+  const nTackles = tackles.filter((k) => k === 'quite' || k === 'contra').length;
+  const penIdx = m.moments.findIndex(isPenalty);
+  // En la definición: el penal propio entró, o el arquero atajó el del rival.
+  const penGoal = penIdx >= 0 ? (m.moments[penIdx].type === 'penal' ? m.answers[penIdx]?.goal : m.answers[penIdx]?.saved) : null;
 
   // El partido de Primera (el del torneo). Si el jugador estuvo en la Reserva, se simula aparte.
   const velez = teamOf(t, s.velez);
@@ -345,7 +369,13 @@ export function finishMatch(state) {
   fillRound(s, { score, pens: first.pens == null ? null : m.home ? first.pens : !first.pens });
 
   const own = m.side === 'primera' ? first : { v, r: rv };
-  const rating = matchRating({ goals, assists, good, bad, result: Math.sign(own.v - own.r) || (own.pens == null ? 0 : own.pens ? 1 : -1), noise: r() });
+  const keeper = p.pos === 'arq';
+  const clean = (keeper || p.pos === 'def') && own.r === 0; // valla invicta: solo cuenta para arqueros y defensores
+  const penSaved = penIdx >= 0 && m.moments[penIdx].type === 'atajada' && m.answers[penIdx]?.saved;
+  const extra = nSaves * 0.6 + (penSaved ? 1 : 0) - saves.filter((k) => k === 'golrival').length * 0.3 - saves.filter((k) => k === 'desviado').length * 0.1
+    + nTackles * 0.35 + tackles.filter((k) => k === 'contra').length * 0.5 - tackles.filter((k) => k === 'golrival').length * 0.5 - tackles.filter((k) => k === 'salvada').length * 0.15
+    + (clean ? (keeper ? 0.5 : 0.3) : 0);
+  const rating = matchRating({ goals, assists, good, bad, extra, result: Math.sign(own.v - own.r) || (own.pens == null ? 0 : own.pens ? 1 : -1), noise: r() });
   const dtBefore = p.dt;
   const debut = m.side === 'primera' && t.stats.pj === 0 && !s.history.some((h) => h.pj > 0);
   const firstGoal = m.side === 'primera' && goals > 0 && t.stats.g === 0 && !s.history.some((h) => h.g > 0);
@@ -354,7 +384,8 @@ export function finishMatch(state) {
   p.dt = clamp(p.dt + dtDelta, 0, 100);
   // En un partido grande cada gol vale el doble para la tribuna.
   const bigBonus = m.big && m.side === 'primera' ? goals * 3 + (velezWon ? 2 : 0) : 0;
-  p.fans = clamp(p.fans + bigBonus + (m.side === 'primera' ? goals * 3 + assists * 2 + (rating >= 8 ? 2 : 0) + (velezWon ? 1 : 0) : goals + (rating >= 8 ? 1 : 0)), 0, 100);
+  const defFans = nSaves + (penSaved ? 3 : 0) + tackles.filter((k) => k === 'contra').length * 2 + (clean ? 1 : 0);
+  p.fans = clamp(p.fans + bigBonus + (m.side === 'primera' ? goals * 3 + assists * 2 + defFans + (rating >= 8 ? 2 : 0) + (velezWon ? 1 : 0) : goals + (rating >= 8 ? 1 : 0)), 0, 100);
   p.energy = clamp(p.energy - matchCost(p, m.role), 0, 100);
   const doneBefore = new Set(goalProgress(t).filter((g) => g.done).map((g) => g.key));
   if (m.side === 'primera') {
@@ -362,11 +393,16 @@ export function finishMatch(state) {
     if (m.role === 'titular') t.stats.tit += 1;
     t.stats.g += goals;
     t.stats.a += assists;
+    t.stats.at = (t.stats.at ?? 0) + nSaves;
+    t.stats.qt = (t.stats.qt ?? 0) + nTackles;
+    t.stats.vi = (t.stats.vi ?? 0) + (clean ? 1 : 0);
     t.stats.ratings.push(rating);
   } else {
     t.stats.res.pj += 1;
     t.stats.res.g += goals;
     t.stats.res.a += assists;
+    t.stats.res.at = (t.stats.res.at ?? 0) + nSaves;
+    t.stats.res.qt = (t.stats.res.qt ?? 0) + nTackles;
   }
   const newsTop = s.news[0] ?? null;
   p.form = [...(p.form ?? []), { r: rating, side: m.side, res: Math.sign(own.v - own.r) || (own.pens == null ? 0 : own.pens ? 1 : -1) }].slice(-5);
@@ -380,17 +416,17 @@ export function finishMatch(state) {
 
   // Logros del partido: se guardan para siempre con el número de torneo.
   const kinds = m.answers.map((a, i) => ({ type: m.moments[i].type, sub: m.moments[i].kind, choice: a.choice, kind: outcomeKind(m.moments[i].type, a) }));
-  const logros = matchLogros(s.logros ?? {}, { side: m.side, goals, assists, rating, big: !!m.big, kinds, fans: p.fans });
+  const logros = matchLogros(s.logros ?? {}, { side: m.side, goals, assists, rating, big: !!m.big, kinds, fans: p.fans, saves: nSaves, clean });
   s.logros = { ...(s.logros ?? {}), ...Object.fromEntries(logros.map((id) => [id, t.n])) };
 
-  // Cobro de la semana: sueldo más premios por gol y por triunfo (solo en Primera).
-  const prize = m.side === 'primera' ? goals * GOAL_PRIZE + (velezWon ? WIN_PRIZE : 0) : 0;
+  // Cobro de la semana: sueldo más premios por gol, por valla invicta y por triunfo (solo en Primera).
+  const prize = m.side === 'primera' ? goals * GOAL_PRIZE + (clean ? CLEAN_PRIZE : 0) + (velezWon ? WIN_PRIZE : 0) : 0;
   const earned = salaryOf(p) + prize;
   p.money = (p.money ?? 0) + earned;
 
   t.last = {
     label: m.label, kind: m.kind, side: m.side, role: m.role, home: m.home, rival: { id: m.rival.id, name: m.rival.name, logo: m.rival.logo },
-    own: { v: own.v, r: own.r }, first, rating, goals, assists, dtDelta, energy: p.energy, big: !!m.big, figura: rating >= 8, logros, earned, prize,
+    own: { v: own.v, r: own.r }, first, rating, goals, assists, saves: nSaves, tackles: nTackles, clean, penSaved, dtDelta, energy: p.energy, big: !!m.big, figura: rating >= 8, logros, earned, prize,
     // Conferencia de prensa (a veces, solo en Primera): se contesta en el resultado.
     press: pickPress(randOf(s, 'prensa', t.n, weekKey(t)), { side: m.side, goals, result: Math.sign(own.v - own.r) || (own.pens == null ? 0 : own.pens ? 1 : -1) }),
     pressChoice: null,

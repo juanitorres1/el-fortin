@@ -3,12 +3,13 @@
 // así un cuadro perdido no cambia el resultado. Al frenar, la raya queda quieta y aparece el veredicto un instante.
 // Con «reducir movimiento» no hay barra: la ejecución sale del azar.
 import { useEffect, useRef, useState } from 'react';
-import { DRIBBLES, PASSES, kindText, markerAt, quality } from '../../../lib/carrera/match.js';
+import { DRIBBLES, PASSES, TACKLES, isPenalty, kindText, markerAt, quality, tellText } from '../../../lib/carrera/match.js';
 import { buzz } from '../shared.jsx';
-import { Arco, Cancha, Duelo } from './Escena.jsx';
+import { Arco, Cancha, Duelo, Quite } from './Escena.jsx';
 
 const calm = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const AIM_LABEL = { izq: 'al palo izquierdo', medio: 'al medio', der: 'al palo derecho' };
+const DIVE_LABEL = { izq: 'a la izquierda', medio: 'te quedás en el medio', der: 'a la derecha' };
 
 /** Estrellas de la ejecución (0 a 3), como en los juegos de jugadas: se ven al frenar la barra y en el resultado. */
 export const starsOf = (q) => (q >= 0.9 ? 3 : q >= 0.5 ? 2 : q >= 0.25 ? 1 : 0);
@@ -71,25 +72,32 @@ function Bar({ moment, onStop }) {
   );
 }
 
+// Lo que se elige en cada tipo de jugada con botones (remates y atajadas se eligen tocando el arco).
+const OPTIONS = { pase: PASSES, gambeta: DRIBBLES, quite: TACKLES };
+const ASK = { pase: '¿Qué pase das?', gambeta: '¿Cómo lo encarás?', quite: '¿Cómo lo marcás?' };
+const DOING = { pase: 'Pase', gambeta: 'Gambeta', quite: 'Marca', atajada: 'Te tirás', remate: 'Remate', penal: 'Remate' };
+
 export function Momento({ moment, onAnswer }) {
   const [choice, setChoice] = useState(null);
   const [preview, setPreview] = useState(null);
-  const pass = moment.type === 'pase';
-  const dribble = moment.type === 'gambeta';
-  const options = pass ? PASSES : dribble ? DRIBBLES : null;
+  const options = OPTIONS[moment.type] ?? null;
+  const save = moment.type === 'atajada';
+  const tell = tellText(moment);
   const pick = (key) => {
     if (calm()) onAnswer({ choice: key, x: null });
     else setChoice(key);
   };
-  const scene = pass ? <Cancha choice={choice} preview={preview} />
-    : dribble ? <Duelo choice={choice} preview={preview} />
-      : <Arco onAim={choice ? null : pick} choice={choice} />;
+  const scene = moment.type === 'pase' ? <Cancha choice={choice} preview={preview} />
+    : moment.type === 'gambeta' ? <Duelo choice={choice} preview={preview} />
+      : moment.type === 'quite' ? <Quite choice={choice} preview={preview} />
+        : <Arco onAim={choice ? null : pick} choice={choice} mine={save} />;
   return (
-    <div className={`card cr-moment${moment.type === 'penal' ? ' is-penal' : ''}${moment.from ? ' is-chain' : ''}`}>
-      <p className="kicker">{moment.type === 'penal' ? 'Definición por penales' : `Minuto ${moment.min}'`}</p>
+    <div className={`card cr-moment${isPenalty(moment) ? ' is-penal' : ''}${moment.from ? ' is-chain' : ''}${save || moment.type === 'quite' ? ' is-defense' : ''}`}>
+      <p className="kicker">{isPenalty(moment) ? 'Definición por penales' : `Minuto ${moment.min}'`}{save || moment.type === 'quite' ? ' · Te atacan' : ''}</p>
       <h3 className="cr-moment-text">{kindText(moment)}</h3>
+      {tell && <p className="cr-tell"><span aria-hidden="true">👀</span> {tell}</p>}
       {scene}
-      {!choice && options && <p className="muted small">{dribble ? '¿Cómo lo encarás?' : '¿Qué pase das?'}</p>}
+      {!choice && options && <p className="muted small">{ASK[moment.type]}</p>}
       {!choice && (options ? (
         <div className="cr-options is-pass">
           {options.map((o) => (
@@ -102,10 +110,10 @@ export function Momento({ moment, onAnswer }) {
             </button>
           ))}
         </div>
-      ) : <p className="muted small">Tocá el arco: elegí adónde le pegás.</p>)}
+      ) : <p className="muted small">{save ? 'Tocá el arco: elegí adónde te tirás.' : 'Tocá el arco: elegí adónde le pegás.'}</p>)}
       {choice && (
         <>
-          <p className="small"><b>{pass ? 'Pase' : dribble ? 'Gambeta' : 'Remate'}:</b> {options ? options.find((o) => o.key === choice)?.label : AIM_LABEL[choice]}</p>
+          <p className="small"><b>{DOING[moment.type]}:</b> {options ? options.find((o) => o.key === choice)?.label : save ? DIVE_LABEL[choice] : AIM_LABEL[choice]}</p>
           <Bar moment={moment} onStop={(x) => onAnswer({ choice, x })} />
         </>
       )}

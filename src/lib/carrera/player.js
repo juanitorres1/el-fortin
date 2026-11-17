@@ -8,11 +8,43 @@ export const ATTRS = [
   { key: 'fisico', label: 'Físico' },
 ];
 
-/** Puestos: el peso de cada atributo en la media y qué parte de las jugadas son remates (el resto, pases). */
+/**
+ * Puestos: el peso de cada atributo en la media. Los cuatro atributos se guardan con las mismas claves para todos
+ * (así entrenamiento, eventos y guardados no cambian); el arquero los ve con otros nombres (`ATTR_ARQ`).
+ */
 export const POSITIONS = {
-  del: { label: 'Delantero', base: { remate: 52, pase: 44, velocidad: 50, fisico: 46 }, weights: { remate: 0.4, pase: 0.15, velocidad: 0.25, fisico: 0.2 }, shots: 0.7 },
-  vol: { label: 'Volante', base: { remate: 44, pase: 52, velocidad: 46, fisico: 50 }, weights: { remate: 0.15, pase: 0.4, velocidad: 0.2, fisico: 0.25 }, shots: 0.35 },
+  arq: { label: 'Arquero', base: { remate: 53, pase: 44, velocidad: 48, fisico: 46 }, weights: { remate: 0.5, pase: 0.1, velocidad: 0.25, fisico: 0.15 } },
+  def: { label: 'Defensor', base: { remate: 42, pase: 46, velocidad: 48, fisico: 54 }, weights: { remate: 0.1, pase: 0.2, velocidad: 0.3, fisico: 0.4 } },
+  vol: { label: 'Volante', base: { remate: 44, pase: 52, velocidad: 46, fisico: 50 }, weights: { remate: 0.15, pase: 0.4, velocidad: 0.2, fisico: 0.25 } },
+  del: { label: 'Delantero', base: { remate: 52, pase: 44, velocidad: 50, fisico: 46 }, weights: { remate: 0.4, pase: 0.15, velocidad: 0.25, fisico: 0.2 } },
 };
+
+/** Cómo ve los atributos el arquero: reflejos (remate), saque (pase), achique (velocidad) y físico. */
+const ATTR_ARQ = { remate: 'Reflejos', pase: 'Saque', velocidad: 'Achique', fisico: 'Físico' };
+export const attrLabel = (key, pos) => (pos === 'arq' ? ATTR_ARQ[key] : ATTRS.find((a) => a.key === key)?.label) ?? key;
+
+/**
+ * Los once lugares de la formación (4-2-3-1, atacando hacia arriba): `x`, `y` en % de la cancha. `mix` = qué parte
+ * de las jugadas de ese lugar son remates, gambetas, quites, atajadas o pases. El 9 y el enganche juegan igual que
+ * los delanteros y volantes de antes (los guardados sin `spot` usan esos dos).
+ */
+export const SPOTS = [
+  { key: '9', pos: 'del', label: 'Centrodelantero', short: '9', x: 50, y: 13, mix: { remate: 0.5, gambeta: 0.2, pase: 0.3 }, hint: 'Vive del gol: la mayoría de tus jugadas son remates.' },
+  { key: 'ei', pos: 'del', label: 'Extremo izquierdo', short: 'EI', x: 18, y: 31, mix: { remate: 0.35, gambeta: 0.4, pase: 0.25 }, hint: 'Encarás por la banda: muchas gambetas y remates.' },
+  { key: 'mp', pos: 'vol', label: 'Enganche', short: '10', x: 50, y: 35, mix: { remate: 0.25, gambeta: 0.2, pase: 0.55 }, hint: 'El que la piensa: pases filtrados y asistencias.' },
+  { key: 'ed', pos: 'del', label: 'Extremo derecho', short: 'ED', x: 82, y: 31, mix: { remate: 0.35, gambeta: 0.4, pase: 0.25 }, hint: 'Encarás por la banda: muchas gambetas y remates.' },
+  { key: 'mci', pos: 'vol', label: 'Volante central', short: '5', x: 34, y: 55, mix: { remate: 0.15, quite: 0.4, pase: 0.45 }, hint: 'Recuperás y distribuís: quites y pases.' },
+  { key: 'mcd', pos: 'vol', label: 'Volante mixto', short: '8', x: 66, y: 55, mix: { remate: 0.2, gambeta: 0.15, quite: 0.3, pase: 0.35 }, hint: 'Ida y vuelta: un poco de todo.' },
+  { key: 'li', pos: 'def', label: 'Lateral izquierdo', short: 'LI', x: 12, y: 72, mix: { gambeta: 0.15, quite: 0.5, pase: 0.35 }, hint: 'Marcás la banda y pasás al ataque con centros.' },
+  { key: 'dci', pos: 'def', label: 'Central izquierdo', short: 'DC', x: 37, y: 76, mix: { remate: 0.15, quite: 0.65, pase: 0.2 }, hint: 'El último hombre: quites y algún cabezazo en el córner.' },
+  { key: 'dcd', pos: 'def', label: 'Central derecho', short: 'DC', x: 63, y: 76, mix: { remate: 0.15, quite: 0.65, pase: 0.2 }, hint: 'El último hombre: quites y algún cabezazo en el córner.' },
+  { key: 'ld', pos: 'def', label: 'Lateral derecho', short: 'LD', x: 88, y: 72, mix: { gambeta: 0.15, quite: 0.5, pase: 0.35 }, hint: 'Marcás la banda y pasás al ataque con centros.' },
+  { key: 'arq', pos: 'arq', label: 'Arquero', short: 'ARQ', x: 50, y: 91, mix: { atajada: 1 }, hint: 'Te patean y elegís adónde tirarte. Una atajada vale un gol.' },
+];
+const DEFAULT_SPOT = { del: '9', vol: 'mp', def: 'dci', arq: 'arq' };
+
+/** El lugar del jugador en la formación (los guardados viejos no lo tienen: se deduce del puesto). */
+export const spotOf = (player) => SPOTS.find((s) => s.key === player.spot) ?? SPOTS.find((s) => s.key === DEFAULT_SPOT[player.pos]);
 
 export const ATTR_CAP = 88; // techo de un atributo: ni entrenando 15 años se llega a 99
 export const START_POINTS = 6; // puntos para repartir al crear el jugador
@@ -32,7 +64,11 @@ export const TRAINING = [
   { key: 'descanso', label: 'Descansar', attr: null, cost: -35 },
 ];
 
-export const clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
+/** Nombre del entrenamiento para el puesto (el arquero entrena reflejos, saques y achique). */
+const TRAIN_ARQ = { remate: 'Reflejos', pase: 'Saques', velocidad: 'Achique' };
+export const trainLabel = (t, pos) => (pos === 'arq' && TRAIN_ARQ[t.key]) || t.label;
+
+export const clamp =(x, lo, hi) => Math.min(hi, Math.max(lo, x));
 
 /** Nombre limpio: sin espacios de más, sin caracteres de control y con un largo razonable. */
 export function cleanName(text) {
@@ -46,14 +82,18 @@ export function validExtra(extra) {
   return values.reduce((s, [, v]) => s + v, 0) <= START_POINTS;
 }
 
-export function newPlayer({ name, pos, extra = {} }) {
-  const p = POSITIONS[pos];
+/** Jugador nuevo. Con `spot` (un lugar de la formación) el puesto sale de ahí; sin él, el de `pos`. */
+export function newPlayer({ name, pos, spot, extra = {} }) {
+  const where = spot ? SPOTS.find((s) => s.key === spot) : null;
+  if (spot && !where) throw new Error(`lugar desconocido: ${spot}`);
+  const key = where?.pos ?? pos;
+  const p = POSITIONS[key];
   const clean = cleanName(name);
   if (!p) throw new Error(`puesto desconocido: ${pos}`);
   if (!clean) throw new Error('falta el nombre');
   if (!validExtra(extra)) throw new Error('reparto de puntos inválido');
-  const attrs = Object.fromEntries(ATTRS.map(({ key }) => [key, p.base[key] + (extra[key] ?? 0)]));
-  return { name: clean, pos, attrs, age: START_AGE, energy: 100, dt: 30, fans: 10 };
+  const attrs = Object.fromEntries(ATTRS.map(({ key: k }) => [k, p.base[k] + (extra[k] ?? 0)]));
+  return { name: clean, pos: key, spot: where?.key ?? DEFAULT_SPOT[key], attrs, age: START_AGE, energy: 100, dt: 30, fans: 10 };
 }
 
 /** Media del jugador (1–99) según su puesto. */

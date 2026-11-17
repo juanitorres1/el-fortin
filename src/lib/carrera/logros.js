@@ -8,7 +8,7 @@ export const isBigMatch = (rival) => BIG.has(norm(rival?.name ?? ''));
 
 /**
  * Los logros. `match` se revisa al cerrar cada partido (con lo que pasó en él) y `torneo`, al cerrar el torneo.
- * `ctx` del partido: { side, goals, assists, rating, big, kinds: [{ type, kind, choice, sub }], fans }.
+ * `ctx` del partido: { side, goals, assists, rating, big, kinds: [{ type, kind, choice, sub }], fans, saves, clean }.
  */
 export const LOGROS = [
   { id: 'debut', icon: '👕', title: 'Debut', desc: 'Jugá tu primer partido en Primera.', match: (c) => c.side === 'primera' },
@@ -21,6 +21,10 @@ export const LOGROS = [
   { id: 'figura', icon: '⭐', title: 'Figura', desc: 'Sacá 9 o más de puntaje.', match: (c) => c.rating >= 9 },
   { id: 'grande', icon: '🔥', title: 'Partido grande', desc: 'Hacé un gol en un partido grande.', match: (c) => c.big && c.side === 'primera' && c.goals > 0 },
   { id: 'penal', icon: '🥅', title: 'Sangre fría', desc: 'Meté tu penal en una definición.', match: (c) => c.kinds.some((k) => k.type === 'penal' && k.kind === 'gol') },
+  { id: 'muralla', icon: '🧤', title: 'Muralla', desc: 'Atajá 3 remates en un partido de Primera.', match: (c) => c.side === 'primera' && (c.saves ?? 0) >= 3 },
+  { id: 'manos', icon: '🖐️', title: 'Manos de oro', desc: 'Atajá un penal en una definición.', match: (c) => c.kinds.some((k) => k.type === 'atajada' && k.sub === 'penal' && k.kind === 'tapada') },
+  { id: 'valla', icon: '🔒', title: 'Valla invicta', desc: 'Terminá un partido de Primera sin goles en contra (arquero o defensor).', match: (c) => c.side === 'primera' && !!c.clean },
+  { id: 'contra', icon: '🏃', title: 'De contra', desc: 'Recuperá una pelota que termine en gol de Vélez.', match: (c) => c.kinds.some((k) => k.type === 'quite' && k.kind === 'contra') },
   { id: 'idolo', icon: '📣', title: 'Ídolo', desc: 'Llegá a 80 hinchas.', match: (c) => c.fans >= 80 },
   { id: 'goleador', icon: '👟', title: 'Goleador', desc: 'Hacé 10 goles en Primera en un torneo.', torneo: (t) => t.stats.g >= 10 },
   { id: 'titular', icon: '🧱', title: 'Indiscutido', desc: 'Sé titular en 10 partidos de un torneo.', torneo: (t) => t.stats.tit >= 10 },

@@ -12,7 +12,7 @@ export const RETIRE_AT = 38; // a esta edad el retiro es obligatorio
 export function careerTotals(state) {
   const rows = [...state.history];
   const t = state.torneo;
-  if (t && t.phase !== 'fin') rows.push({ pj: t.stats.pj, g: t.stats.g, a: t.stats.a, result: null });
+  if (t && t.phase !== 'fin') rows.push({ pj: t.stats.pj, g: t.stats.g, a: t.stats.a, at: t.stats.at ?? 0, qt: t.stats.qt ?? 0, vi: t.stats.vi ?? 0, result: null });
   else if (t?.summary && !state.history.some((h) => h.n === t.summary.n)) rows.push(t.summary);
   const pj = rows.reduce((s, r) => s + (r.pj ?? 0), 0);
   return {
@@ -20,6 +20,9 @@ export function careerTotals(state) {
     pj,
     g: rows.reduce((s, r) => s + (r.g ?? 0), 0),
     a: rows.reduce((s, r) => s + (r.a ?? 0), 0),
+    at: rows.reduce((s, r) => s + (r.at ?? 0), 0),
+    qt: rows.reduce((s, r) => s + (r.qt ?? 0), 0),
+    vi: rows.reduce((s, r) => s + (r.vi ?? 0), 0),
     titulos: rows.filter((r) => r.result === 'Campeón').length,
   };
 }

@@ -1,6 +1,6 @@
 // Modo Carrera · lo que pasa fuera de la cancha (como en los juegos de carrera): eventos de la semana con una
 // decisión y metas del torneo. Lógica pura: los efectos son fijos (sin azar después de elegir) y quedan en el texto.
-import { ATTR_CAP, ROLE_AT, clamp } from './player.js';
+import { ATTR_CAP, ROLE_AT, attrLabel, clamp } from './player.js';
 
 /** Eventos posibles. `fx`: fans, dt y energy suman o restan; remate, pase, velocidad y fisico suben el atributo. */
 export const EVENTS = [
@@ -12,7 +12,7 @@ export const EVENTS = [
     ],
   },
   {
-    id: 'extra', text: 'El DT te ofrece quedarte después de hora a practicar definición.',
+    id: 'extra', text: 'El DT te ofrece quedarte después de hora a practicar definición.', arq: 'El entrenador de arqueros te ofrece quedarte después de hora a atajar remates.',
     options: [
       { label: 'Quedarme', fx: { remate: 1, energy: -12, dt: 2 }, res: 'Una hora más pateando al arco. El DT lo vio.' },
       { label: 'Irme a casa', fx: {}, res: 'Mañana será otro día.' },
@@ -96,9 +96,9 @@ export function applyFx(player, fx) {
 }
 
 /** Texto corto de los efectos («+1 Remate · −12 energía»), para mostrarlo en el botón. */
-export function fxText(fx) {
-  const names = { fans: 'hinchas', dt: 'DT', energy: 'energía', remate: 'Remate', pase: 'Pase', velocidad: 'Velocidad', fisico: 'Físico' };
-  return Object.entries(fx).map(([k, v]) => (k === 'raise' ? `+${Math.round(v * 100)} % de sueldo` : `${v > 0 ? '+' : '−'}${Math.abs(v)} ${names[k]}`)).join(' · ') || 'sin efecto';
+export function fxText(fx, pos) {
+  const names = { fans: 'hinchas', dt: 'DT', energy: 'energía' };
+  return Object.entries(fx).map(([k, v]) => (k === 'raise' ? `+${Math.round(v * 100)} % de sueldo` : `${v > 0 ? '+' : '−'}${Math.abs(v)} ${names[k] ?? attrLabel(k, pos)}`)).join(' · ') || 'sin efecto';
 }
 
 // ---------- Metas del torneo ----------
@@ -106,6 +106,21 @@ export function fxText(fx) {
 /** Tres metas según cómo arranca el torneo: si está en la Reserva, debutar; si no, rendir en Primera. */
 export function goalsFor(player) {
   const del = player.pos === 'del';
+  if (player.pos === 'arq' || player.pos === 'def') {
+    const arq = player.pos === 'arq';
+    if (player.dt < ROLE_AT.sub) {
+      return [
+        { key: 'pj', text: 'Jugá 3 partidos en Primera', target: 3 },
+        arq ? { key: 'att', text: 'Atajá 6 remates (Primera o Reserva)', target: 6 } : { key: 'qtt', text: 'Ganá 6 quites (Primera o Reserva)', target: 6 },
+        { key: 'avg', text: 'Promediá 7 en Primera (3 partidos o más)', target: 7 },
+      ];
+    }
+    return [
+      arq ? { key: 'at', text: 'Atajá 12 remates en Primera', target: 12 } : { key: 'qt', text: 'Ganá 15 quites en Primera', target: 15 },
+      { key: 'vi', text: `Dejá la valla invicta en ${arq ? 4 : 3} partidos`, target: arq ? 4 : 3 },
+      { key: 'pj', text: 'Jugá 10 partidos en Primera', target: 10 },
+    ];
+  }
   if (player.dt < ROLE_AT.sub) {
     return [
       { key: 'pj', text: 'Jugá 3 partidos en Primera', target: 3 },
@@ -127,7 +142,10 @@ export function goalProgress(torneo) {
   const st = torneo.stats;
   const avg = st.ratings.length ? Math.round((st.ratings.reduce((a, b) => a + b, 0) / st.ratings.length) * 10) / 10 : 0;
   return (torneo.goals ?? []).map((g) => {
-    const value = { pj: st.pj, g: st.g, a: st.a, gt: st.g + st.res.g, avg }[g.key] ?? 0;
+    const value = {
+      pj: st.pj, g: st.g, a: st.a, gt: st.g + st.res.g, avg, at: st.at ?? 0, qt: st.qt ?? 0, vi: st.vi ?? 0,
+      att: (st.at ?? 0) + (st.res.at ?? 0), qtt: (st.qt ?? 0) + (st.res.qt ?? 0),
+    }[g.key] ?? 0;
     const done = g.key === 'avg' ? st.ratings.length >= 3 && value >= g.target : value >= g.target;
     return { ...g, value, done };
   });

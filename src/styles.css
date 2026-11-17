@@ -1557,13 +1557,65 @@ button.btn-ghost { border: 2px solid currentColor; }
 .cr-card-attrs li { display: grid; justify-items: center; }
 .cr-card-attrs b { font-size: 1.25rem; line-height: 1.1; }
 .cr-card-attrs small { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.92; }
-.cr-positions { display: grid; gap: 0.5rem; grid-template-columns: repeat(2, 1fr); }
-.cr-pos {
-  display: grid; grid-template-columns: auto 1fr; column-gap: 0.55rem; align-items: center; min-height: var(--tap); padding: 0.65rem 0.8rem;
-  border: 2px solid var(--line); border-radius: var(--radius-sm); background: var(--card); color: var(--text); font: 600 1rem/1.2 var(--body); text-align: left; cursor: pointer;
+/* Formación para elegir el lugar (4-2-3-1, Vélez ataca hacia arriba): cada lugar es un botón de 44 px. */
+.cr-formation { max-width: 26rem; width: 100%; justify-self: center; aspect-ratio: 100 / 120; }
+.cr-formation svg { position: absolute; inset: 0; height: 100%; }
+.cr-formation .cr-chalk, .cr-formation .cr-chalk * { stroke-width: 0.55; }
+.cr-formation-tag {
+  position: absolute; top: 0.5rem; right: 0.5rem; padding: 0.15rem 0.5rem; border-radius: 999px;
+  background: rgba(10, 20, 35, 0.72); color: #fff; font: 700 0.75rem/1.4 var(--body);
 }
-.cr-pos small { grid-column: 2; font-size: 0.75rem; font-weight: 500; color: var(--text-2); }
-.cr-pos[aria-pressed='true'] { border-color: var(--accent); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
+.cr-spot {
+  position: absolute; width: var(--tap); height: var(--tap); transform: translate(-50%, -50%); padding: 0; border: 0;
+  background: none; display: grid; place-items: center; cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.cr-spot-dot {
+  display: grid; place-items: center; width: 2.15rem; height: 2.15rem; border-radius: 50%;
+  background: #fff; color: #0061a8; font: 800 0.875rem/1 var(--display); letter-spacing: 0.02em;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.25), 0 0 0 2px rgba(0, 97, 168, 0.9);
+  transition: transform 0.18s ease-out, background 0.18s, color 0.18s, box-shadow 0.18s;
+}
+.cr-spot.is-arq .cr-spot-dot { background: #f2c230; color: #1b1f27; box-shadow: 0 2px 0 rgba(0, 0, 0, 0.25), 0 0 0 2px #1b1f27; }
+.cr-spot:hover .cr-spot-dot { transform: scale(1.08); }
+.cr-spot:focus-visible { outline: none; }
+.cr-spot:focus-visible .cr-spot-dot { box-shadow: 0 0 0 3px #fff, 0 0 0 6px #0061a8; }
+.cr-spot[aria-pressed='true'] .cr-spot-dot {
+  background: #0061a8; color: #fff; transform: scale(1.18);
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.3), 0 0 0 3px #ffe36e;
+  animation: cr-spot-on 0.35s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+.cr-spot.is-arq[aria-pressed='true'] .cr-spot-dot { background: #1b1f27; color: #f2c230; }
+.cr-spot[aria-pressed='true']::after {
+  content: ''; position: absolute; inset: -0.35rem; border-radius: 50%; border: 2px solid #ffe36e; opacity: 0;
+  animation: cr-spot-ring 1.6s ease-out infinite;
+}
+@keyframes cr-spot-on { from { transform: scale(0.8); } }
+@keyframes cr-spot-ring { 0% { opacity: 0.9; transform: scale(0.7); } 100% { opacity: 0; transform: scale(1.25); } }
+.cr-spot-info { display: grid; gap: 0.35rem; padding: 0.75rem 0.85rem; border-radius: var(--radius-sm); background: var(--bg-2); }
+.cr-spot-info p { margin: 0; }
+.cr-spot-info > p:first-child { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; font-size: 1.0625rem; }
+.cr-mix { list-style: none; margin: 0.15rem 0 0; padding: 0; display: grid; gap: 0.3rem; }
+.cr-mix li { display: grid; grid-template-columns: 5.5rem 1fr 2.75rem; align-items: center; gap: 0.5rem; font-size: 0.8125rem; }
+.cr-mix li b { text-align: right; }
+.cr-mix .cr-meter-bar i { width: var(--w); }
+.cr-tag.is-arq { background: #f2c230; color: #1b1f27; }
+.cr-tag.is-def { background: var(--velez-deep); color: #fff; }
+.cr-tag.is-del { background: var(--accent); color: var(--bg); }
+.cr-tag.is-vol { background: var(--accent-soft); color: var(--accent); }
+
+/* Jugadas de defensa: la pista del que patea, tu arquero (buzo verde) y la amenaza en el quite */
+.cr-tell { margin: 0; padding: 0.45rem 0.7rem; border-radius: var(--radius-sm); background: var(--warn-bg); color: var(--warn-text); font-weight: 700; font-size: 0.9375rem; }
+.cr-moment.is-defense { border-top-color: var(--loss); }
+.cr-keeper.is-you .cr-k-shirt, .cr-keeper.is-you .cr-k-sock { fill: #2fa35f; }
+.cr-keeper.is-you .cr-k-arm { stroke: #27904f; }
+.cr-keeper.is-you .cr-k-glove { fill: #fff; }
+.cr-arco.is-mine.is-atajada .cr-k-glove { fill: #ffe36e; }
+
+.cr-flash.is-bad { background: radial-gradient(circle at 50% 30%, rgba(220, 40, 40, 0.55), rgba(220, 40, 40, 0) 62%); }
+.cr-tag.is-clean { background: var(--accent-soft); color: var(--accent); }
+@media (prefers-reduced-motion: reduce) {
+  .cr-spot-dot, .cr-spot[aria-pressed='true'] .cr-spot-dot, .cr-spot[aria-pressed='true']::after { animation: none !important; transition: none; }
+}
 .cr-points { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; }
 .cr-pips { display: flex; gap: 0.3rem; }
 .cr-pips i { width: 0.85rem; height: 0.85rem; border-radius: 50%; background: var(--line); transition: background 0.2s, transform 0.2s; }

@@ -63,20 +63,46 @@ export const DRIBBLES = [
   { key: 'enganche', label: 'Enganche', hint: 'término medio', ok: 0.55, next: 'area' },
   { key: 'cano', label: 'Caño', hint: 'arriesgado: te deja solo', ok: 0.4, next: 'mano' },
 ];
-const KINDS = { remate: SHOT_KINDS, pase: PASS_KINDS, gambeta: DRIBBLE_KINDS };
-const ATTR_OF = { remate: 'remate', penal: 'remate', pase: 'pase', gambeta: 'velocidad' };
+// Quite (defensores y volantes centrales): un rival te encara. Si falla, el rival queda de cara al arco.
+export const TACKLE_KINDS = [
+  { key: 'contra', text: 'Contragolpe del rival: sos el último y te encara a toda velocidad.' },
+  { key: 'area', text: 'El 9 rival recibe de espaldas en el borde del área.' },
+  { key: 'banda', text: 'Te encaran por la banda y buscan meterse al área.' },
+];
+// `ok` = chance base de sacarla; `goal` = chance de gol rival si falla; `counter` = chance de gol de Vélez de contra si sale.
+export const TACKLES = [
+  { key: 'aguantar', label: 'Acompañar', hint: 'seguro: lo llevás afuera', ok: 0.7, goal: 0.25, counter: 0 },
+  { key: 'barrida', label: 'Barrida', hint: 'término medio', ok: 0.58, goal: 0.35, counter: 0.08 },
+  { key: 'anticipo', label: 'Anticipo', hint: 'arriesgado: si sale, salís de contra', ok: 0.52, goal: 0.45, counter: 0.3 },
+];
+
+// Atajada (arquero): te patean y elegís adónde tirarte. El delantero perfila el remate (`tell`): casi siempre va ahí.
+export const SAVE_KINDS = [
+  { key: 'mano', text: 'Un delantero se escapa solo y te enfrenta mano a mano.', base: -0.08 },
+  { key: 'tiro', text: 'Remate de afuera del área, fuerte y a media altura.', base: 0.08 },
+  { key: 'cabeza', text: 'Centro al área y cabezazo a quemarropa.', base: -0.04 },
+];
+export const SAVE_PENALTY = { key: 'penal', text: 'Definición por penales: te toca atajar.', base: -0.12 };
+const TELL_TRUE = 0.55;
+
+const KINDS = { remate: SHOT_KINDS, pase: PASS_KINDS, gambeta: DRIBBLE_KINDS, quite: TACKLE_KINDS, atajada: SAVE_KINDS };
+const ATTR_OF = { remate: 'remate', penal: 'remate', pase: 'pase', gambeta: 'velocidad', quite: 'fisico', atajada: 'remate' };
+// Orden en que se reparte el sorteo del tipo: remate y gambeta primero, pase al final (así el 9 y el enganche dan
+// exactamente las mismas jugadas que antes con la misma semilla).
+const TYPE_ORDER = ['remate', 'gambeta', 'quite', 'atajada', 'pase'];
 
 /**
- * Las jugadas del partido. `count` jugadas entre los minutos `from` y `to`; `shots` = parte de remates y
- * `dribbles` = parte de gambetas (el resto, pases). Cada una guarda su zona verde y la velocidad, así recargar la
- * página no cambia nada.
+ * Las jugadas del partido. `count` jugadas entre los minutos `from` y `to`; `mix` = parte de cada tipo (lo que
+ * falte hasta 1 son pases). Los centrales solo rematan de cabeza (`headers`). Cada una guarda su zona verde y la
+ * velocidad, así recargar la página no cambia nada.
  */
-export function makeMoments(rand, { count, from, to, shots, dribbles = 0, player, rivalStr }) {
+export function makeMoments(rand, { count, from, to, mix, headers = false, player, rivalStr }) {
   const mins = Array.from({ length: count }, () => Math.round(from + rand() * (to - from))).sort((a, b) => a - b);
   return mins.map((min) => {
     const x = rand();
-    const type = x < shots ? 'remate' : x < shots + dribbles ? 'gambeta' : 'pase';
-    const kinds = KINDS[type];
+    let acc = 0;
+    const type = TYPE_ORDER.find((k) => k !== 'pase' && x < (acc += mix[k] ?? 0)) ?? 'pase';
+    const kinds = type === 'remate' && headers ? SHOT_KINDS.filter((k) => k.key === 'cabeza') : KINDS[type];
     const kind = kinds[Math.floor(rand() * kinds.length)].key;
     return momentShape(rand, { min, type, kind, player, rivalStr });
   });
@@ -85,13 +111,67 @@ export function makeMoments(rand, { count, from, to, shots, dribbles = 0, player
 export function momentShape(rand, { min, type, kind, player, rivalStr }) {
   const attr = player.attrs[ATTR_OF[type]];
   const video = (player.perks ?? []).includes('video') ? 1.06 : 1; // mejora: analista de video
-  return { min, type, kind, center: Math.round((0.25 + rand() * 0.5) * 1000) / 1000, width: Math.round(zoneWidth(attr, player.energy) * video * 1000) / 1000, sweep: sweepMs(rivalStr) };
+  const shape = { min, type, kind, center: Math.round((0.25 + rand() * 0.5) * 1000) / 1000, width: Math.round(zoneWidth(attr, player.energy) * video * 1000) / 1000, sweep: sweepMs(rivalStr) };
+  if (type === 'atajada') shape.tell = AIMS[Math.floor(rand() * 3)].key; // para dónde perfila el que patea
+  return shape;
 }
+
+const TELL_TEXT = { izq: 'Perfila el remate hacia la izquierda.', medio: 'Parece que le va a pegar al medio.', der: 'Perfila el remate hacia la derecha.' };
 
 export function kindText(m) {
   if (m.type === 'penal') return PENALTY.text;
+  if (m.type === 'atajada' && m.kind === 'penal') return SAVE_PENALTY.text;
   const text = (KINDS[m.type] ?? []).find((k) => k.key === m.kind)?.text ?? '';
   return m.from === 'gambeta' ? `¡Lo dejaste atrás! ${text}` : text;
+}
+
+/** La pista del que patea (solo en las atajadas que no son penal: en el penal no se sabe). */
+export const tellText = (m) => (m.type === 'atajada' && m.kind !== 'penal' && m.tell ? TELL_TEXT[m.tell] : null);
+
+/** ¿La jugada es de una definición por penales (patear o atajar)? */
+export const isPenalty = (m) => m.type === 'penal' || (m.type === 'atajada' && m.kind === 'penal');
+
+/**
+ * Resuelve un quite (pesa el físico). Devuelve { ok, kind, counter, text }; `kind` = quite | salvada | golrival.
+ * `counter` = si la recuperación terminó en gol de Vélez de contra.
+ */
+export function resolveTackle(rand, { q, option, attr, rivalStr, mate }) {
+  const opt = TACKLES.find((o) => o.key === option) ?? TACKLES[0];
+  const okP = clamp(opt.ok * (0.55 + 0.7 * q) + (attr - 50) / 180 - (rivalStr - 60) / 250, 0.05, 0.95);
+  if (rand() < okP) {
+    const counter = rand() < opt.counter;
+    const text = counter ? `¡La recuperaste y salió la contra! ${mate} la mandó a guardar.`
+      : { aguantar: 'Lo llevaste contra la línea y te quedaste con la pelota.', barrida: '¡Barrida limpia! Pelota recuperada.', anticipo: 'Lo anticipaste y saliste jugando.' }[opt.key];
+    return { ok: true, kind: counter ? 'contra' : 'quite', counter, text };
+  }
+  const goal = rand() < opt.goal;
+  if (goal) return { ok: false, kind: 'golrival', counter: false, text: q < 0.15 ? 'Llegaste tarde y te pasó como si nada. Gol de ellos.' : 'Te ganó la posición y la puso en el rincón. Gol de ellos.' };
+  return { ok: false, kind: 'salvada', counter: false, text: 'Te pasó, pero el remate se fue afuera. Se salvó Vélez.' };
+}
+
+/** Probabilidad de atajar según si adivinó el lado (base de cada situación, timing, reflejos y rival). */
+export function saveChance({ q, right, kind, attr, rivalStr, bonus = 0 }) {
+  const base = kind === 'penal' ? SAVE_PENALTY.base : SAVE_KINDS.find((k) => k.key === kind)?.base ?? 0;
+  if (!right) return clamp(0.12 + 0.18 * q + (attr - 50) / 400 + base / 2 + bonus, 0.02, 0.4);
+  return clamp(0.42 + 0.45 * q + base + (attr - 50) / 220 - (rivalStr - 60) / 250 + bonus, 0.05, 0.94);
+}
+
+/**
+ * Resuelve una atajada. `dive` = adónde se tiró. Devuelve { saved, shot, kind, text }; `shot` = adónde pateó el
+ * rival; `kind` = tapada | afuera | golrival. Si no la ataja, puede irse afuera (salvo en el penal, casi siempre gol).
+ */
+export function resolveSave(rand, { q, dive, kind, tell, attr, rivalStr }) {
+  const others = AIMS.map((a) => a.key).filter((k) => k !== tell);
+  const shot = kind === 'penal' || !tell ? AIMS[Math.floor(rand() * 3)].key : rand() < TELL_TRUE ? tell : others[Math.floor(rand() * 2)];
+  const right = shot === dive;
+  const saved = rand() < saveChance({ q, right, kind, attr, rivalStr });
+  const where = AIMS.find((a) => a.key === shot)?.short ?? '';
+  if (saved) {
+    const text = right ? `¡Atajada! Adivinaste: fue ${where} y la sacaste.` : `¡Qué reflejo! Te tiraste para el otro lado y igual la sacaste con el pie.`;
+    return { saved, shot, kind: 'tapada', text };
+  }
+  if (rand() < (kind === 'penal' ? 0.15 : 0.72)) return { saved, shot, kind: 'desviado', text: 'No llegaste, pero pegó en el palo y salió. ¡Se salvó Vélez!' };
+  return { saved, shot, kind: 'golrival', text: right ? `Adivinaste el lado, pero entró ${where}. Gol de ellos.` : `Te tiraste para el otro lado: entró ${where}. Gol de ellos.` };
 }
 
 /** Resuelve una gambeta (pesa la velocidad). Devuelve { ok, kind, next, text }; `kind` = gambeta | perdida. */
@@ -155,6 +235,8 @@ export function outcomeKind(type, a) {
   if (a.kind) return a.kind;
   if (type === 'gambeta') return a.ok ? 'gambeta' : 'perdida';
   if (type === 'pase') return a.assist ? 'asistencia' : a.ok ? 'ok' : 'cortado';
+  if (type === 'quite') return a.ok ? 'quite' : 'golrival';
+  if (type === 'atajada') return a.saved ? 'tapada' : 'golrival';
   if (a.goal) return 'gol';
   if (a.q < 0.15) return 'mal';
   if (a.keeper === a.choice) return 'atajada';
@@ -165,7 +247,8 @@ export function outcomeKind(type, a) {
  * Puntaje del partido (1–10, con un decimal): arranca en 6, suma por goles, asistencias y jugadas buenas, resta por
  * las malas y por el resultado del equipo. `noise` = número de 0 a 1.
  */
-export function matchRating({ goals, assists, good, bad, result, noise }) {
-  const r = 6 + goals * 1.1 + assists * 0.7 + good * 0.25 - bad * 0.3 + (result > 0 ? 0.3 : result < 0 ? -0.3 : 0) + (noise - 0.5) * 0.6;
+export function matchRating({ goals, assists, good, bad, result, noise, extra = 0 }) {
+  // `extra`: lo del arquero y los defensores (atajadas, quites, goles en contra, valla invicta), lo calcula career.js.
+  const r = 6 + goals * 1.1 + assists * 0.7 + good * 0.25 - bad * 0.3 + extra + (result > 0 ? 0.3 : result < 0 ? -0.3 : 0) + (noise - 0.5) * 0.6;
   return Math.round(clamp(r, 3, 10) * 10) / 10;
 }

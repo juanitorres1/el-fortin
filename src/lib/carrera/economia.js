@@ -5,6 +5,7 @@ import { overall, roleOf } from './player.js';
 const BASE = { reserva: 20, suplente: 60, titular: 120 }; // miles por semana
 export const GOAL_PRIZE = 30;
 export const WIN_PRIZE = 20;
+export const CLEAN_PRIZE = 30; // valla invicta (arqueros y defensores)
 
 /** Sueldo de la semana: sube con el rol, la media, los hinchas y los aumentos que haya pedido. */
 export function salaryOf(player) {

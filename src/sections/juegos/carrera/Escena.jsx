@@ -22,6 +22,7 @@ export function shotTarget({ aim, kind }) {
   if (kind === 'gol') return side ? [160 + side * 96, 68] : [160, 66];
   if (kind === 'mal') return [160 + side * 100, 16]; // a la tribuna
   if (kind === 'atajada') return side ? [160 + side * 70, 92] : [160, 70]; // en las manos del arquero
+  if (kind === 'pie') return [160 + side * 34, 126]; // la saca con el pie, tirado para el otro lado
   if (kind === 'palo') return side ? [160 + side * 106, 96] : [160, 58]; // palo o travesaño
   return side ? [160 + side * 128, 72] : [160, 44]; // apenas afuera
 }
@@ -31,9 +32,9 @@ const CROWD = [7, 14, 21].flatMap((y, row) => Array.from({ length: 33 }, (_, i) 
 })));
 
 /** El arquero, parado sobre (0, 0) = sus pies. Genérico: buzo amarillo, guantes verdes. */
-function Keeper({ dive }) {
+function Keeper({ dive, mine }) {
   return (
-    <g className={`cr-keeper${dive ? ` dive-${dive}` : ''}`}>
+    <g className={`cr-keeper${dive ? ` dive-${dive}` : ''}${mine ? ' is-you' : ''}`}>
       <rect className="cr-k-sock" x="-10" y="-17" width="6" height="15" rx="2" />
       <rect className="cr-k-sock" x="4" y="-17" width="6" height="15" rx="2" />
       <rect className="cr-k-boot" x="-12" y="-3.5" width="9" height="4" rx="2" />
@@ -61,16 +62,16 @@ const Ball = ({ r = 7 }) => (
 
 /**
  * `onAim(key)` mientras se elige (las tres partes del arco son botones); `choice` = lo elegido; `result` = cómo salió
- * ({ aim, keeper, kind }).
+ * ({ aim, keeper, kind }). Con `mine` el arquero es el jugador: le patean y elige adónde tirarse.
  */
-export function Arco({ onAim, choice, result }) {
+export function Arco({ onAim, choice, result, mine = false }) {
   const id = cleanId(useId());
   const target = result ? shotTarget(result) : null;
   const ballStyle = target ? { '--bx': target[0] - BALL0[0], '--by': target[1] - BALL0[1] } : undefined;
   const shadowStyle = target ? { '--sx': target[0] - BALL0[0], '--sy': Math.min(target[1] + 40, 137) - (BALL0[1] + 6) } : undefined;
   const state = result ? ` is-${result.kind}${result.kind === 'gol' ? ' is-goal' : ' is-miss'}` : '';
   return (
-    <div className={`cr-pitch cr-arco${state}`}>
+    <div className={`cr-pitch cr-arco${state}${mine ? ' is-mine' : ''}`}>
       <svg viewBox="0 0 320 180" aria-hidden="true" focusable="false">
         <defs>
           <pattern id={`${id}n`} width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
@@ -111,13 +112,14 @@ export function Arco({ onAim, choice, result }) {
           </g>
         ))}
         <ellipse className="cr-k-shadow" cx="160" cy="137" rx="19" ry="3.5" />
-        <g transform="translate(160 136.5)"><Keeper dive={result?.keeper} /></g>
+        <g transform="translate(160 136.5)"><Keeper dive={result?.keeper} mine={mine} /></g>
         <g className="cr-goal-posts">
           <rect x="47" y="52" width="9" height="86" rx="2" fill={`url(#${id}p)`} />
           <rect x="264" y="52" width="9" height="86" rx="2" fill={`url(#${id}p)`} />
           <rect x="47" y="51" width="226" height="8" rx="2" fill={`url(#${id}p)`} />
         </g>
         <rect width="320" height="180" fill={`url(#${id}v)`} pointerEvents="none" />
+        {mine && !result && <Tag at={[160, 64]} text="Vos" on />}
         {/* Pelota, su sombra y la estela */}
         <g transform={`translate(${BALL0[0]} ${BALL0[1] + 6})`}>
           <ellipse className={`cr-ball-shadow${result ? ' is-shot' : ''}`} rx="7.5" ry="2.2" style={shadowStyle} />
@@ -130,7 +132,7 @@ export function Arco({ onAim, choice, result }) {
       {onAim && (
         <div className="cr-aims">
           {AIMS.map((a) => (
-            <button key={a.key} type="button" className="cr-aim" aria-label={a.label} onClick={() => onAim(a.key)}>
+            <button key={a.key} type="button" className="cr-aim" aria-label={mine ? `Tirarte ${a.short}` : a.label} onClick={() => onAim(a.key)}>
               <span aria-hidden="true">{AIM_SHORT[a.key]}</span>
             </button>
           ))}
@@ -321,4 +323,99 @@ export function Duelo({ choice, preview, result }) {
   );
 }
 
-export const passLabel = (key) => PASSES.find((p) => p.key === key)?.label ?? '';
+// ---------- Quite (defensores) ----------
+
+const ATTACKER = [258, 96]; // el rival que viene con la pelota, hacia el arco de Vélez (a la izquierda)
+const MARKER = [146, 96]; // vos
+const OWN_GOAL = [8, 90];
+const TACKLE = {
+  aguantar: { meet: [94, 96], tag: [84, 120], label: 'Acompañar', via: [120, 146], wide: [10, 150] },
+  barrida: { meet: [200, 136], tag: [214, 160], label: 'Barrida', via: [196, 50], wide: [10, 40] },
+  anticipo: { meet: [222, 70], tag: [222, 48], label: 'Anticipo', via: [214, 140], wide: [10, 140] },
+};
+
+/**
+ * Un rival te encara hacia el arco de Vélez (visto de arriba). `result` = { ok, kind }: si sale, te quedás con la
+ * pelota (y con la contra, sale disparada para el otro lado); si no, te pasa y patea: gol o afuera.
+ */
+export function Quite({ choice, preview, result }) {
+  const id = cleanId(useId());
+  const shown = choice ?? preview;
+  const d = choice ? TACKLE[choice] : null;
+  const rel = (p, from) => ({ x: p[0] - from[0], y: p[1] - from[1] });
+  const ballAt = [ATTACKER[0] - 10, ATTACKER[1] + 4];
+  let me;
+  let ball;
+  let rival;
+  let ballCls = '';
+  if (result && d) {
+    const m = rel(d.meet, MARKER);
+    me = { '--x1': m.x, '--y1': m.y };
+    if (result.ok) {
+      const b1 = rel(d.meet, ballAt);
+      const b2 = rel([312, 70], ballAt);
+      ball = { '--x1': b1.x, '--y1': b1.y, '--x2': b2.x, '--y2': b2.y };
+      ballCls = result.kind === 'contra' ? ' is-two' : '';
+    } else {
+      const v = rel(d.via, ATTACKER);
+      const e = rel([70, (d.via[1] + OWN_GOAL[1]) / 2], ATTACKER);
+      rival = { '--x1': v.x, '--y1': v.y, '--x2': e.x, '--y2': e.y };
+      const b1 = rel(d.via, ballAt);
+      const b2 = rel(result.kind === 'golrival' ? OWN_GOAL : d.wide, ballAt);
+      ball = { '--x1': b1.x, '--y1': b1.y, '--x2': b2.x, '--y2': b2.y };
+      ballCls = ' is-two';
+    }
+  }
+  return (
+    <div className={`cr-pitch cr-cancha cr-quite${result ? (result.ok ? ' is-ok' : ' is-miss') : ''}`}>
+      <svg viewBox="0 0 320 180" aria-hidden="true" focusable="false">
+        <defs>
+          <pattern id={`${id}n`} width="3" height="3" patternUnits="userSpaceOnUse"><path d="M0 0H3M0 0V3" className="cr-mesh" /></pattern>
+          <marker id={`${id}a`} viewBox="0 0 8 8" refX="6" refY="4" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+            <path d="M0 0L8 4L0 8Z" className="cr-arrow-head" />
+          </marker>
+          <radialGradient id={`${id}v`} cx="0.5" cy="0.5" r="0.75">
+            <stop offset="0.6" stopColor="#000" stopOpacity="0" />
+            <stop offset="1" stopColor="#000" stopOpacity="0.3" />
+          </radialGradient>
+        </defs>
+        {Array.from({ length: 10 }, (_, i) => <rect key={i} className={i % 2 ? 'cr-g2' : 'cr-g1'} x={i * 32} y="0" width="32" height="180" />)}
+        <g className="cr-chalk">
+          <rect x="4" y="6" width="312" height="168" />
+          <rect x="4" y="38" width="70" height="104" />
+          <rect x="4" y="66" width="24" height="48" />
+          <path d="M74 72A22 22 0 0 1 74 108" />
+          <path d="M316 60A30 30 0 0 0 316 120" />
+        </g>
+        <circle className="cr-chalk-dot" cx="48" cy="90" r="1.8" />
+        <rect className="cr-goalmouth" x="0" y="76" width="4" height="28" fill={`url(#${id}n)`} />
+        <Tag at={[66, 22]} text="Arco de Vélez" />
+        {Object.entries(TACKLE).map(([key, s]) => {
+          const [x2, y2] = short(MARKER, s.meet, 4);
+          return (
+            <line
+              key={key} x1={MARKER[0]} y1={MARKER[1]} x2={x2} y2={y2} markerEnd={`url(#${id}a)`}
+              className={`cr-path${shown === key ? ' is-on' : ''}${choice && choice !== key ? ' is-off' : ''}`}
+            />
+          );
+        })}
+        <g transform={`translate(${ATTACKER[0]} ${ATTACKER[1]})`}>
+          <g className={`cr-runner${rival ? ' is-run is-two' : ''}`} style={rival}><Token at={[0, 0]} kind="rival" /></g>
+        </g>
+        <g transform={`translate(${MARKER[0]} ${MARKER[1]})`}>
+          <g className={`cr-runner${me ? ' is-run' : ''}`} style={me}><Token at={[0, 0]} kind="you" /></g>
+        </g>
+        <g transform={`translate(${ballAt[0]} ${ballAt[1]})`}>
+          <g className={`cr-ball${ball ? ` is-pass${ballCls}` : ''}`} style={ball}><Ball r={5} /></g>
+        </g>
+        {result && !result.ok && d && <g transform={`translate(${d.meet[0]} ${d.meet[1] - 14})`}><path className="cr-cut" d="M-6 -6L6 6M6 -6L-6 6" /></g>}
+        {!result && Object.entries(TACKLE).map(([key, s]) => <Tag key={key} at={s.tag} text={s.label} on={shown === key} />)}
+        {!result && <Tag at={[MARKER[0], MARKER[1] - 24]} text="Vos" on />}
+        {!result && <Tag at={[ATTACKER[0], ATTACKER[1] + 24]} text="Rival" />}
+        <rect width="320" height="180" fill={`url(#${id}v)`} pointerEvents="none" />
+      </svg>
+    </div>
+  );
+}
+
+export const passLabel =(key) => PASSES.find((p) => p.key === key)?.label ?? '';

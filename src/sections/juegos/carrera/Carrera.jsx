@@ -4,9 +4,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { load, save } from '../../../lib/storage.js';
 import { VELEZ_ID } from '../../../lib/espn.js';
-import { ATTRS, MAX_EXTRA, NAME_MAX, POSITIONS, ROLE_LABEL, START_AGE, START_POINTS, TRAINING, cleanName, objective, overall, roleOf, trainOdds } from '../../../lib/carrera/player.js';
+import { ATTRS, MAX_EXTRA, NAME_MAX, POSITIONS, ROLE_LABEL, SPOTS, START_AGE, START_POINTS, TRAINING, attrLabel, cleanName, objective, overall, roleOf, spotOf, trainLabel, trainOdds } from '../../../lib/carrera/player.js';
 import { PLAYOFF_SPOTS, roundName } from '../../../lib/carrera/season.js';
-import { outcomeKind } from '../../../lib/carrera/match.js';
+import { isPenalty, outcomeKind } from '../../../lib/carrera/match.js';
 import {
   answerMoment, answerPress, buyPerk, chooseEvent, currentGame, retire, retireState, dismissLast, eventsAt, finishMatch, matchDone, newCareer, nextTorneo, skipWeek, startMatch, torneoLabel, trainWeek,
   velezCalendar, weekEvent, weekTitle, zoneTables,
@@ -20,19 +20,25 @@ import { SAVE_KEY, exportCode, importCode, migrate } from '../../../lib/carrera/
 import { Crest, Empty, Segmented, Skeletons } from '../../../components/ui.jsx';
 import { Confetti, ShareResult, useCountUp } from '../shared.jsx';
 import { Momento, Stars, verdict } from './Momento.jsx';
-import { Arco, Cancha, Duelo } from './Escena.jsx';
+import { Arco, Cancha, Duelo, Quite } from './Escena.jsx';
 
-const ATTR_LABEL = Object.fromEntries(ATTRS.map((a) => [a.key, a.label]));
+// Las estadísticas que importan según el puesto: [clave, nombre, abreviatura].
+const STAT_COLS = {
+  arq: [['at', 'Atajadas', 'At'], ['vi', 'Vallas invictas', 'VI']],
+  def: [['qt', 'Quites', 'Qt'], ['vi', 'Vallas invictas', 'VI'], ['g', 'Goles', 'G']],
+  vol: [['g', 'Goles', 'G'], ['a', 'Asistencias', 'A']],
+  del: [['g', 'Goles', 'G'], ['a', 'Asistencias', 'A']],
+};
+const statCols = (pos) => STAT_COLS[pos] ?? STAT_COLS.del;
+/** Lo principal para compartir según el puesto: [valor, unidad]. */
+const headline = (pos, x) => (pos === 'arq' ? [x.at ?? 0, 'atajadas'] : pos === 'def' ? [x.qt ?? 0, 'quites'] : [x.g, 'goles']);
+const statsText = (pos, x) => statCols(pos).map(([k, label]) => `${x[k] ?? 0} ${label.toLowerCase()}`).join(', ');
 const ZONE = ['Zona A', 'Zona B'];
 const fmtAge = (age) => `${Math.floor(age)} años`;
 const ratingClass = (r) => (r >= 7.5 ? 'is-good' : r < 5.5 ? 'is-bad' : '');
 
 // ---------- Crear ----------
 
-const POS_INFO = {
-  del: { icon: '⚽', hint: 'Más remates al arco. Vive del gol.' },
-  vol: { icon: '🧭', hint: 'Más pases: asistencias y juego.' },
-};
 const HOW = [
   ['💪', 'Entrená', 'Cada semana subís un atributo o descansás.'],
   ['🎯', 'Jugá las jugadas', 'Elegís qué hacer y frenás la barra en la zona verde.'],
@@ -40,29 +46,90 @@ const HOW = [
 ];
 
 /** La carta del jugador que se va armando mientras se elige (como en los juegos de carrera). */
-function PlayerCard({ name, pos, attrs }) {
-  const ov = overall({ pos, attrs });
+function PlayerCard({ name, spot, attrs }) {
+  const ov = overall({ pos: spot.pos, attrs });
   return (
     <div className="cr-card" aria-hidden="true">
       <span className="cr-ov" style={{ '--p': ov }}><b className="num">{ov}</b><small>media</small></span>
       <div className="cr-card-main">
         <strong className="cr-name">{name || 'Tu nombre'}</strong>
-        <span className="cr-card-pos">{POSITIONS[pos].label} · {START_AGE} años · Inferiores</span>
+        <span className="cr-card-pos">{spot.label} · {START_AGE} años · Inferiores</span>
         <ul className="cr-card-attrs">
-          {ATTRS.map(({ key, label }) => <li key={key}><b className="num">{attrs[key]}</b><small>{label.slice(0, 3)}</small></li>)}
+          {ATTRS.map(({ key }) => <li key={key}><b className="num">{attrs[key]}</b><small>{attrLabel(key, spot.pos).slice(0, 3)}</small></li>)}
         </ul>
       </div>
     </div>
   );
 }
 
+const MIX_LABEL = { remate: 'Remates', gambeta: 'Gambetas', quite: 'Quites', atajada: 'Atajadas', pase: 'Pases' };
+
+/** Qué jugadas le tocan a cada lugar (en %), en el orden del más frecuente. */
+function mixOf(spot) {
+  const rest = 1 - Object.entries(spot.mix).filter(([k]) => k !== 'pase').reduce((a, [, v]) => a + v, 0);
+  const all = { ...spot.mix, ...(rest > 0.001 ? { pase: rest } : {}) };
+  return Object.entries(all).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+}
+
+/**
+ * La formación (4-2-3-1, Vélez ataca hacia arriba): se toca el lugar donde se quiere jugar. Cada lugar es un botón
+ * de 44 px; abajo, el detalle del elegido y qué jugadas le van a tocar.
+ */
+function Formacion({ value, onChange }) {
+  const spot = SPOTS.find((s) => s.key === value);
+  return (
+    <>
+      <div className="cr-pitch cr-formation" role="group" aria-labelledby="cr-pos-l">
+        <svg viewBox="0 0 100 120" aria-hidden="true" focusable="false">
+          {Array.from({ length: 8 }, (_, i) => <rect key={i} className={i % 2 ? 'cr-g2' : 'cr-g1'} x="0" y={i * 15} width="100" height="15" />)}
+          <g className="cr-chalk">
+            <rect x="3" y="3" width="94" height="114" />
+            <path d="M3 60H97" />
+            <circle cx="50" cy="60" r="11" />
+            <rect x="24" y="3" width="52" height="18" />
+            <rect x="38" y="3" width="24" height="7" />
+            <path d="M41 21A10 10 0 0 0 59 21" />
+            <rect x="24" y="99" width="52" height="18" />
+            <rect x="38" y="110" width="24" height="7" />
+            <path d="M41 99A10 10 0 0 1 59 99" />
+          </g>
+          <circle className="cr-chalk-dot" cx="50" cy="60" r="0.9" />
+        </svg>
+        <span className="cr-formation-tag" aria-hidden="true">Vélez ataca ↑</span>
+        {SPOTS.map((s) => (
+          <button
+            key={s.key} type="button" className={`cr-spot is-${s.pos}`} aria-pressed={value === s.key} aria-label={`${s.label} (${POSITIONS[s.pos].label})`}
+            style={{ left: `${s.x}%`, top: `${s.y}%` }} onClick={() => onChange(s.key)}
+          >
+            <span className="cr-spot-dot" aria-hidden="true">{s.short}</span>
+          </button>
+        ))}
+      </div>
+      <div className="cr-spot-info" aria-live="polite">
+        <p><b>{spot.label}</b> {spot.label !== POSITIONS[spot.pos].label && <span className={`cr-tag is-${spot.pos}`}>{POSITIONS[spot.pos].label}</span>}</p>
+        <p className="small">{spot.hint}</p>
+        <ul className="cr-mix" aria-label="Tus jugadas en cada partido">
+          {mixOf(spot).map(([k, v]) => (
+            <li key={k} style={{ '--w': `${Math.round(v * 100)}%` }}>
+              <span>{MIX_LABEL[k]}</span>
+              <span className="cr-meter-bar" aria-hidden="true"><i /></span>
+              <b className="num">{Math.round(v * 100)} %</b>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </>
+  );
+}
+
 function Crear({ standings, roster, onCreate, onImport }) {
   const [name, setName] = useState('');
-  const [pos, setPos] = useState('del');
+  const [spotKey, setSpot] = useState('9');
   const [extra, setExtra] = useState({});
+  const spot = SPOTS.find((s) => s.key === spotKey);
   const used = Object.values(extra).reduce((a, b) => a + b, 0);
   const left = START_POINTS - used;
-  const base = POSITIONS[pos].base;
+  const base = POSITIONS[spot.pos].base;
   const attrs = Object.fromEntries(ATTRS.map(({ key }) => [key, base[key] + (extra[key] ?? 0)]));
   const clean = cleanName(name);
   const bump = (key, d) => setExtra((e) => ({ ...e, [key]: Math.max(0, Math.min(MAX_EXTRA, (e[key] ?? 0) + d)) }));
@@ -70,7 +137,7 @@ function Crear({ standings, roster, onCreate, onImport }) {
     e.preventDefault();
     if (!clean) return;
     const seed = Math.floor(Math.random() * 2 ** 32);
-    onCreate(newCareer({ name: clean, pos, extra, standings, roster, velezId: VELEZ_ID, seed }));
+    onCreate(newCareer({ name: clean, spot: spotKey, extra, standings, roster, velezId: VELEZ_ID, seed }));
   };
   if (standings === undefined) return <Skeletons className="sk-card" />;
   if (!standings?.groups?.some((g) => g.rows?.some((r) => String(r.id) === String(VELEZ_ID)))) {
@@ -86,19 +153,11 @@ function Crear({ standings, roster, onCreate, onImport }) {
       <form className="card cr-create" onSubmit={submit}>
         <p className="kicker">Inferiores de Vélez</p>
         <h3 className="cr-title">Armá a tu jugador</h3>
-        <PlayerCard name={clean} pos={pos} attrs={attrs} />
+        <PlayerCard name={clean} spot={spot} attrs={attrs} />
         <label className="psearch-label" htmlFor="cr-name">Nombre</label>
         <input id="cr-name" className="psearch-input" type="text" value={name} maxLength={NAME_MAX} placeholder="Nombre y apellido" autoComplete="off" onChange={(e) => setName(e.target.value)} />
-        <p className="psearch-label" id="cr-pos-l">Puesto</p>
-        <div className="cr-positions" role="group" aria-labelledby="cr-pos-l">
-          {Object.entries(POSITIONS).map(([key, p]) => (
-            <button key={key} type="button" className="cr-pos" aria-pressed={pos === key} onClick={() => setPos(key)}>
-              <span className="cr-icon" aria-hidden="true">{POS_INFO[key].icon}</span>
-              <b>{p.label}</b>
-              <small>{POS_INFO[key].hint}</small>
-            </button>
-          ))}
-        </div>
+        <p className="psearch-label" id="cr-pos-l">Tocá tu lugar en la cancha</p>
+        <Formacion value={spotKey} onChange={setSpot} />
         <div className="cr-points">
           <p className="psearch-label">Repartí tus puntos</p>
           <p className="cr-pips" aria-label={`Te quedan ${left} de ${START_POINTS}`}>
@@ -106,14 +165,17 @@ function Crear({ standings, roster, onCreate, onImport }) {
           </p>
         </div>
         <ul className="cr-attrs">
-          {ATTRS.map(({ key, label }) => (
-            <li key={key}>
-              <span>{label}{extra[key] ? <small className="cr-plus"> +{extra[key]}</small> : null}</span>
-              <button type="button" className="cr-step" aria-label={`Sacar un punto de ${label}`} disabled={!extra[key]} onClick={() => bump(key, -1)}>−</button>
-              <b className="num">{attrs[key]}</b>
-              <button type="button" className="cr-step" aria-label={`Sumar un punto a ${label}`} disabled={!left || (extra[key] ?? 0) >= MAX_EXTRA} onClick={() => bump(key, 1)}>+</button>
-            </li>
-          ))}
+          {ATTRS.map(({ key }) => {
+            const label = attrLabel(key, spot.pos);
+            return (
+              <li key={key}>
+                <span>{label}{extra[key] ? <small className="cr-plus"> +{extra[key]}</small> : null}</span>
+                <button type="button" className="cr-step" aria-label={`Sacar un punto de ${label}`} disabled={!extra[key]} onClick={() => bump(key, -1)}>−</button>
+                <b className="num">{attrs[key]}</b>
+                <button type="button" className="cr-step" aria-label={`Sumar un punto a ${label}`} disabled={!left || (extra[key] ?? 0) >= MAX_EXTRA} onClick={() => bump(key, 1)}>+</button>
+              </li>
+            );
+          })}
         </ul>
         <p className="muted small">Hasta {MAX_EXTRA} puntos en un mismo atributo.</p>
         <button type="submit" className="btn btn-solid cr-cta" disabled={!clean}>{clean ? 'Firmar el primer contrato' : 'Escribí tu nombre para firmar'}</button>
@@ -177,7 +239,7 @@ function Header({ state }) {
         <span className="cr-ov" style={{ '--p': overall(p) }} aria-label={`Media ${overall(p)}`}><b className="num">{overall(p)}</b><small>media</small></span>
         <div>
           <strong className="cr-name">{p.name}</strong>
-          <span className="muted small">{POSITIONS[p.pos].label} · {fmtAge(p.age)} · <span className={`cr-role is-${role}`}>{ROLE_LABEL[role]}</span></span>
+          <span className="muted small">{spotOf(p).label} · {fmtAge(p.age)} · <span className={`cr-role is-${role}`}>{ROLE_LABEL[role]}</span></span>
           <span className="cr-money"><span aria-hidden="true">💰</span> <b className="num">{money(p.money)}</b> <small>(cobrás {money(salaryOf(p))} por semana)</small></span>
           <Form form={p.form} />
         </div>
@@ -257,8 +319,8 @@ function Ficha({ state, onReset }) {
       <div className="card">
         <p className="kicker">Atributos</p>
         <ul className="cr-bars">
-          {ATTRS.map(({ key, label }) => (
-            <li key={key}><span>{label}</span><span className="cr-meter-bar" aria-hidden="true"><i style={{ width: `${p.attrs[key]}%` }} /></span><b className="num">{p.attrs[key]}</b></li>
+          {ATTRS.map(({ key }) => (
+            <li key={key}><span>{attrLabel(key, p.pos)}</span><span className="cr-meter-bar" aria-hidden="true"><i style={{ width: `${p.attrs[key]}%` }} /></span><b className="num">{p.attrs[key]}</b></li>
           ))}
         </ul>
       </div>
@@ -267,10 +329,9 @@ function Ficha({ state, onReset }) {
         <dl className="cr-stats">
           <div><dt>Partidos en Primera</dt><dd className="num">{st.pj}</dd></div>
           <div><dt>Titular</dt><dd className="num">{st.tit}</dd></div>
-          <div><dt>Goles</dt><dd className="num">{st.g}</dd></div>
-          <div><dt>Asistencias</dt><dd className="num">{st.a}</dd></div>
+          {statCols(p.pos).map(([k, label]) => <div key={k}><dt>{label}</dt><dd className="num">{st[k] ?? 0}</dd></div>)}
           <div><dt>Puntaje promedio</dt><dd className="num">{avg}</dd></div>
-          <div><dt>En Reserva</dt><dd className="num">{st.res.pj} PJ · {st.res.g} G</dd></div>
+          <div><dt>En Reserva</dt><dd className="num">{st.res.pj} PJ · {p.pos === 'arq' ? `${st.res.at ?? 0} At` : p.pos === 'def' ? `${st.res.qt ?? 0} Qt` : `${st.res.g} G`}</dd></div>
         </dl>
       </div>
       {state.history.length > 0 && (
@@ -278,10 +339,10 @@ function Ficha({ state, onReset }) {
           <p className="kicker">Tu carrera</p>
           <div className="cr-scroll">
             <table className="cr-table">
-              <thead><tr><th scope="col">Torneo</th><th scope="col">PJ</th><th scope="col">G</th><th scope="col">A</th><th scope="col">Vélez</th></tr></thead>
+              <thead><tr><th scope="col">Torneo</th><th scope="col">PJ</th>{statCols(p.pos).map(([k, label, ab]) => <th key={k} scope="col"><abbr title={label}>{ab}</abbr></th>)}<th scope="col">Vélez</th></tr></thead>
               <tbody>
                 {state.history.map((h) => (
-                  <tr key={h.n}><th scope="row">{h.label}</th><td className="num">{h.pj}</td><td className="num">{h.g}</td><td className="num">{h.a}</td><td>{h.result}</td></tr>
+                  <tr key={h.n}><th scope="row">{h.label}</th><td className="num">{h.pj}</td>{statCols(p.pos).map(([k]) => <td key={k} className="num">{h[k] ?? 0}</td>)}<td>{h.result}</td></tr>
                 ))}
               </tbody>
             </table>
@@ -377,7 +438,8 @@ const TRAIN_ICON = { remate: '🎯', pase: '🧭', velocidad: '⚡', fisico: '�
 const ODDS_TEXT = { alta: 'chance alta', media: 'chance media', baja: 'chance baja', fundido: 'estás fundido', tope: 'al máximo' };
 
 function TrainResult({ trained, player }) {
-  const label = TRAINING.find((x) => x.key === trained.key)?.label;
+  const t = TRAINING.find((x) => x.key === trained.key);
+  const label = t && trainLabel(t, player.pos);
   if (trained.key === 'descanso') return <p className="small cr-note is-rest"><span aria-hidden="true">🛌</span> Descansaste: recuperaste energía.</p>;
   if (trained.tired) return <p className="small cr-note cr-bad"><span aria-hidden="true">🥵</span> {label}: estabas fundido y no te sirvió. Descansá.</p>;
   const value = player.attrs[trained.attr];
@@ -386,7 +448,7 @@ function TrainResult({ trained, player }) {
       <span className="cr-icon" aria-hidden="true">{TRAIN_ICON[trained.key]}</span>
       <span>
         <b>{label}</b>
-        <span className="small">{trained.gain ? `${ATTR_LABEL[trained.attr]} sube a ${value}` : 'esta vez no subiste. Seguí metiéndole.'}</span>
+        <span className="small">{trained.gain ? `${attrLabel(trained.attr, player.pos)} sube a ${value}` : 'esta vez no subiste. Seguí metiéndole.'}</span>
         <span className="cr-meter-bar" aria-hidden="true"><i style={{ width: `${value}%` }} /></span>
       </span>
       {trained.gain > 0 && <b className="cr-gain num" aria-hidden="true">+{trained.gain}</b>}
@@ -410,10 +472,10 @@ function Evento({ state, act }) {
   return (
     <div className="card cr-week cr-event">
       <p className="kicker"><span aria-hidden="true">🗞️</span> Fuera de la cancha</p>
-      <h3 className="cr-moment-text">{event.text}</h3>
+      <h3 className="cr-moment-text">{(state.player.pos === 'arq' && event.arq) || event.text}</h3>
       {opt ? (
         <div className="cr-note cr-event-res" role="status">
-          <b>{opt.label}.</b> {opt.res} <span className="cr-fx">{fxText(opt.fx)}</span>
+          <b>{opt.label}.</b> {opt.res} <span className="cr-fx">{fxText(opt.fx, state.player.pos)}</span>
           <LevelUp ov={state.torneo.event?.ov} />
         </div>
       ) : (
@@ -421,7 +483,7 @@ function Evento({ state, act }) {
           {event.options.map((o, i) => (
             <button key={o.label} type="button" className="cr-opt" onClick={() => act(chooseEvent, i)}>
               <b>{o.label}</b>
-              <small>{fxText(o.fx)}</small>
+              <small>{fxText(o.fx, state.player.pos)}</small>
             </button>
           ))}
         </div>
@@ -533,8 +595,8 @@ function Semana({ state, act }) {
                 return (
                   <button key={x.key} type="button" className={`cr-opt cr-train-opt${x.attr ? '' : ' is-rest'}${odds === 'fundido' ? ' is-tired' : ''}`} onClick={() => act(trainWeek, x.key)}>
                     <span className="cr-icon" aria-hidden="true">{TRAIN_ICON[x.key]}</span>
-                    <b>{x.label}</b>
-                    <small>{x.attr ? <>{ATTR_LABEL[x.attr]} <b className="cr-train-val num">{p.attrs[x.attr]}</b> · {ODDS_TEXT[odds]} · −{x.cost} ⚡</> : `Recuperás ${-x.cost} de energía`}</small>
+                    <b>{trainLabel(x, p.pos)}</b>
+                    <small>{x.attr ? <>{attrLabel(x.attr, p.pos)} <b className="cr-train-val num">{p.attrs[x.attr]}</b> · {ODDS_TEXT[odds]} · −{x.cost} ⚡</> : `Recuperás ${-x.cost} de energía`}</small>
                   </button>
                 );
               })}
@@ -609,7 +671,14 @@ const REACT = {
   cortado: { word: '¡CORTADA!', tone: 'is-bad', buzz: null },
   gambeta: { word: '¡QUÉ JUGADA!', tone: 'is-good', buzz: [20, 30, 20] },
   perdida: { word: '¡TE LA SACARON!', tone: 'is-bad', buzz: null },
+  tapada: { word: '¡QUÉ ATAJADA!', tone: 'is-save', buzz: [40, 30, 60] },
+  desviado: { word: '¡SE SALVÓ VÉLEZ!', tone: 'is-near', buzz: [25] },
+  quite: { word: '¡LIMPITO!', tone: 'is-good', buzz: [30] },
+  salvada: { word: '¡SE SALVÓ VÉLEZ!', tone: 'is-near', buzz: [25] },
+  golrival: { word: 'GOL DE ELLOS', tone: 'is-bad', buzz: [90] },
 };
+// Cómo se dibuja una atajada en el arco: lo que pasó con la pelota (atajada, gol, palo o con el pie).
+const SAVE_SHOT = { tapada: 'atajada', golrival: 'gol', desviado: 'palo' };
 const GOAL_BUZZ = [60, 40, 60, 40, 140];
 
 const Letters = ({ text, className }) => (
@@ -617,12 +686,12 @@ const Letters = ({ text, className }) => (
 );
 
 /** El festejo: destello, letras que saltan de a una, papelitos, quién la hizo y cómo lo gritó. */
-function GolBanner({ mine, mate, name, celebration }) {
+function GolBanner({ mine, mate, name, celebration, counter }) {
   return (
     <div className="cr-gol">
       <Confetti />
       <p className="cr-gol-word" aria-label="¡Gol!">{GOL.map((c, k) => <span key={k} style={{ '--i': k }} aria-hidden="true">{c}</span>)}</p>
-      <p className="cr-gol-who">{mine ? `Gol de ${name}` : `Gol de ${mate} · asistencia tuya`}</p>
+      <p className="cr-gol-who">{mine ? `Gol de ${name}` : `Gol de ${mate} · ${counter ? 'la recuperaste vos' : 'asistencia tuya'}`}</p>
       {mine && <p className="muted small">{celebration}</p>}
     </div>
   );
@@ -641,23 +710,32 @@ function Outcome({ state, match, i, onNext }) {
   const mo = match.moments[i];
   const a = match.answers[i];
   const kind = outcomeKind(mo.type, a);
-  const goal = kind === 'gol' || kind === 'asistencia';
-  const penal = mo.type === 'penal';
+  const goal = kind === 'gol' || kind === 'asistencia' || kind === 'contra';
+  const penal = isPenalty(mo);
+  const good = goal || a.ok || kind === 'tapada' || kind === 'desviado';
   const [word, cls] = verdict(a.q);
-  const react = REACT[kind];
+  const react = penal && kind === 'tapada' ? { word: '¡LO ATAJASTE!', tone: 'is-save', buzz: GOAL_BUZZ } : REACT[kind];
   useEffect(() => {
     const t = setTimeout(() => vibrate(goal ? GOAL_BUZZ : react?.buzz), 550); // cuando la pelota llega
     return () => clearTimeout(t);
   }, [goal, react]);
+  let scene;
+  if (mo.type === 'pase') scene = <Cancha choice={a.choice} result={a} />;
+  else if (mo.type === 'gambeta') scene = <Duelo choice={a.choice} result={a} />;
+  else if (mo.type === 'quite') scene = <Quite choice={a.choice} result={{ ok: a.ok, kind }} />;
+  else if (mo.type === 'atajada') {
+    // Te tirás para un lado; la pelota va adonde pateó el rival. Si la sacaste tirado para el otro lado, fue con el pie.
+    const shot = a.saved && a.shot !== a.choice ? 'pie' : SAVE_SHOT[kind];
+    scene = <Arco mine choice={a.choice} result={{ keeper: a.choice, aim: a.shot, kind: shot }} />;
+  } else scene = <Arco choice={a.choice} result={{ keeper: a.keeper, aim: a.choice, kind }} />;
   return (
-    <div className={`card cr-moment cr-outcome is-${kind} ${goal ? 'is-goal' : a.ok ? 'is-ok' : 'is-miss'}`} role="status">
+    <div className={`card cr-moment cr-outcome is-${kind} ${goal ? 'is-goal' : good ? 'is-ok' : 'is-miss'}`} role="status">
       {goal && <span className="cr-flash" aria-hidden="true" />}
+      {kind === 'golrival' && <span className="cr-flash is-bad" aria-hidden="true" />}
       <p className="kicker">{penal ? 'Definición por penales' : `Minuto ${mo.min}'`}</p>
-      {mo.type === 'pase' ? <Cancha choice={a.choice} result={a} />
-        : mo.type === 'gambeta' ? <Duelo choice={a.choice} result={a} />
-          : <Arco choice={a.choice} result={{ keeper: a.keeper, aim: a.choice, kind }} />}
+      {scene}
       <div className="cr-after">
-        {goal && !penal && <GolBanner mine={kind === 'gol'} mate={a.mate} name={state.player.name} celebration={CELEBRATIONS[(mo.min + i) % CELEBRATIONS.length]} />}
+        {goal && !penal && <GolBanner mine={kind === 'gol'} mate={a.mate} counter={kind === 'contra'} name={state.player.name} celebration={CELEBRATIONS[(mo.min + i) % CELEBRATIONS.length]} />}
         {goal && penal && <Letters text="¡ADENTRO!" className="cr-react-word is-goal" />}
         {!goal && react && <Letters text={react.word} className={`cr-react-word ${react.tone}`} />}
         {kind !== 'asistencia' && <h3 className="cr-moment-text">{goal && !penal ? a.text.replace(/^¡Gol! /, '') : a.text}</h3>}
@@ -708,8 +786,9 @@ function Timeline({ match, i, through, done }) {
       {match.moments.map((mo, k) => {
         const a = match.answers[k];
         const kind = a && outcomeKind(mo.type, a);
-        const cls = !a ? (k === i && !done ? 'is-now' : '') : kind === 'gol' || kind === 'asistencia' ? 'is-goal' : a.ok || kind === 'atajada' || kind === 'palo' ? 'is-ok' : 'is-miss';
-        return <span key={`m${k}`} className={`cr-tl-move ${cls}`} style={{ left: mo.type === 'penal' ? '100%' : pos(mo.min) }} />;
+        const cls = !a ? (k === i && !done ? 'is-now' : '') : kind === 'gol' || kind === 'asistencia' || kind === 'contra' ? 'is-goal'
+          : a.ok || ['atajada', 'palo', 'tapada', 'desviado', 'salvada'].includes(kind) ? 'is-ok' : 'is-miss';
+        return <span key={`m${k}`} className={`cr-tl-move ${cls}`} style={{ left: isPenalty(mo) ? '100%' : pos(mo.min) }} />;
       })}
       <small className="cr-tl-l" style={{ left: 0 }}>0'</small>
       <small className="cr-tl-l" style={{ left: '50%' }}>ET</small>
@@ -825,14 +904,27 @@ function Resultado({ state, act }) {
         <span className={`cr-badge ${outcome[1]}`}>{outcome[0]}</span>
         {l.big && <span className="cr-tag is-big">🔥 Partido grande</span>}
         {l.figura && <span className="cr-tag is-figura">⭐ Figura del partido</span>}
+        {l.clean && <span className="cr-tag is-clean">🔒 Valla invicta</span>}
+        {l.penSaved && <span className="cr-tag is-figura">🖐️ Atajaste en los penales</span>}
       </p>
       <h3 className="cr-title">{reserva ? 'Reserva: ' : ''}{line(l.own.v, l.own.r)}{reserva ? '' : pens}</h3>
       {reserva && <p className="small muted">En Primera: {line(l.first.v, l.first.r)}{pens}.</p>}
       <div className="cr-result-main">
         <RatingRing rating={l.rating} />
         <ul className="cr-chips">
-          <li><b className="num">{l.goals}</b> {l.goals === 1 ? 'gol' : 'goles'}</li>
-          <li><b className="num">{l.assists}</b> {l.assists === 1 ? 'asistencia' : 'asistencias'}</li>
+          {state.player.pos === 'arq' ? (
+            <li><b className="num">{l.saves ?? 0}</b> {l.saves === 1 ? 'atajada' : 'atajadas'}</li>
+          ) : state.player.pos === 'def' ? (
+            <>
+              <li><b className="num">{l.tackles ?? 0}</b> {l.tackles === 1 ? 'quite' : 'quites'}</li>
+              {l.goals > 0 && <li><b className="num">{l.goals}</b> {l.goals === 1 ? 'gol' : 'goles'}</li>}
+            </>
+          ) : (
+            <>
+              <li><b className="num">{l.goals}</b> {l.goals === 1 ? 'gol' : 'goles'}</li>
+              <li><b className="num">{l.assists}</b> {l.assists === 1 ? 'asistencia' : 'asistencias'}</li>
+            </>
+          )}
           <li className={l.dtDelta >= 0 ? 'is-up' : 'is-down'}><b className="num">{l.dtDelta >= 0 ? `▲ ${l.dtDelta}` : `▼ ${-l.dtDelta}`}</b> confianza del DT</li>
           {l.earned > 0 && <li className="is-money"><b className="num">+{money(l.earned)}</b>{l.prize ? ` (${money(l.prize)} de premio)` : ''}</li>}
         </ul>
@@ -874,7 +966,9 @@ function Fin({ state, act }) {
   const s = state.torneo.summary;
   const champ = s.result === 'Campeón';
   const next = torneoLabel(state.startYear, state.torneo.n + 1);
-  const text = `El Fortín · Carrera · ${state.player.name}\n${s.label}: ${s.pj} PJ, ${s.g} goles, ${s.a} asistencias${s.avg ? `, puntaje ${s.avg}` : ''}\nVélez: ${s.result}`;
+  const pos = state.player.pos;
+  const [big, unit] = headline(pos, s);
+  const text = `El Fortín · Carrera · ${state.player.name}\n${s.label}: ${s.pj} PJ, ${statsText(pos, s)}${s.avg ? `, puntaje ${s.avg}` : ''}\nVélez: ${s.result}`;
   return (
     <div className={`card cr-result game-end is-fresh${champ ? ' is-win cr-champ' : ''}`} role="status">
       {champ && <Confetti />}
@@ -884,15 +978,14 @@ function Fin({ state, act }) {
       {!champ && s.champion && <p className="small muted">Campeón: {s.champion}. Vélez terminó {s.pos}.º en su zona.</p>}
       <dl className="cr-stats">
         <div><dt>Partidos en Primera</dt><dd className="num">{s.pj}</dd></div>
-        <div><dt>Goles</dt><dd className="num">{s.g}</dd></div>
-        <div><dt>Asistencias</dt><dd className="num">{s.a}</dd></div>
+        {statCols(pos).map(([k, label]) => <div key={k}><dt>{label}</dt><dd className="num">{s[k] ?? 0}</dd></div>)}
         <div><dt>Puntaje</dt><dd className="num">{s.avg ?? '–'}</dd></div>
         {s.goals && <div><dt>Metas cumplidas</dt><dd className="num">{s.goals.done}/{s.goals.total}</dd></div>}
       </dl>
       <Badges ids={s.logros} fresh />
       <ShareResult
         anchor="carrera" file="carrera-velez.png" text={text}
-        card={() => ({ kicker: `Carrera · ${s.label}`, headline: state.player.name, big: true, center: `${s.g}`, sub: `goles en ${s.pj} partidos · Vélez: ${s.result}`, lines: ['Armá tu carrera en Vélez en El Fortín.'] })}
+        card={() => ({ kicker: `Carrera · ${s.label}`, headline: state.player.name, big: true, center: `${big}`, sub: `${unit} en ${s.pj} partidos · Vélez: ${s.result}`, lines: ['Armá tu carrera en Vélez en El Fortín.'] })}
       />
       <Retiro state={state} act={act} next={next} />
     </div>
@@ -925,17 +1018,18 @@ function Historia({ state }) {
   const club = useJson('data/club.json');
   const tot = careerTotals(state);
   const rec = club?.records;
+  const arq = state.player.pos === 'arq';
   const rows = rec ? [
-    { label: 'Goleadores', unit: 'goles', value: tot.g, r: historicRank(rec.goleadores, 'goles', tot.g) },
+    !arq && { label: 'Goleadores', unit: 'goles', value: tot.g, r: historicRank(rec.goleadores, 'goles', tot.g) },
     { label: 'Partidos', unit: 'partidos', value: tot.pj, r: historicRank(rec.presencias, 'partidos', tot.pj) },
-  ] : [];
+  ].filter(Boolean) : [];
   return (
     <div className="card cr-historia">
       <p className="kicker"><span aria-hidden="true">📜</span> Tu lugar en la historia de Vélez</p>
       <dl className="cr-stats">
         <div><dt>Torneos</dt><dd className="num">{tot.torneos}</dd></div>
         <div><dt>Partidos en Primera</dt><dd className="num">{tot.pj}</dd></div>
-        <div><dt>Goles</dt><dd className="num">{tot.g}</dd></div>
+        {arq ? <div><dt>Vallas invictas</dt><dd className="num">{tot.vi}</dd></div> : <div><dt>Goles</dt><dd className="num">{tot.g}</dd></div>}
         <div><dt>Títulos</dt><dd className="num">{tot.titulos}</dd></div>
       </dl>
       {rows.map(({ label, unit, value, r }) => r && (
@@ -958,7 +1052,9 @@ function Despedida({ state, onReset }) {
   const tot = careerTotals(state);
   const logros = Object.keys(state.logros ?? {}).length;
   const [confirm, setConfirm] = useState(false);
-  const text = `El Fortín · Carrera · ${state.player.name}\n${tot.torneos} torneos en Vélez: ${tot.pj} partidos, ${tot.g} goles, ${tot.a} asistencias, ${tot.titulos} títulos`;
+  const pos = state.player.pos;
+  const [big, unit] = headline(pos, tot);
+  const text = `El Fortín · Carrera · ${state.player.name}\n${tot.torneos} torneos en Vélez: ${tot.pj} partidos, ${statsText(pos, tot)}, ${tot.titulos} títulos`;
   return (
     <>
       <div className="card cr-result cr-champ cr-farewell game-end is-fresh" role="status">
@@ -969,12 +1065,11 @@ function Despedida({ state, onReset }) {
         <dl className="cr-stats">
           <div><dt>Torneos</dt><dd className="num">{tot.torneos}</dd></div>
           <div><dt>Partidos</dt><dd className="num">{tot.pj}</dd></div>
-          <div><dt>Goles</dt><dd className="num">{tot.g}</dd></div>
-          <div><dt>Asistencias</dt><dd className="num">{tot.a}</dd></div>
+          {statCols(pos).map(([k, label]) => <div key={k}><dt>{label}</dt><dd className="num">{tot[k] ?? 0}</dd></div>)}
         </dl>
         <ShareResult
           anchor="carrera" file="carrera-velez.png" text={text}
-          card={() => ({ kicker: 'Carrera completa', headline: state.player.name, big: true, center: `${tot.g}`, sub: `goles en ${tot.pj} partidos · ${tot.titulos} títulos`, lines: ['Armá tu carrera en Vélez en El Fortín.'] })}
+          card={() => ({ kicker: 'Carrera completa', headline: state.player.name, big: true, center: `${big}`, sub: `${unit} en ${tot.pj} partidos · ${tot.titulos} títulos`, lines: ['Armá tu carrera en Vélez en El Fortín.'] })}
         />
         {!confirm
           ? <button type="button" className="btn btn-outline" onClick={() => setConfirm(true)}>Empezar otra carrera</button>

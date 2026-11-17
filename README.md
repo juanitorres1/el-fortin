@@ -130,8 +130,11 @@ Si ESPN no responde, la página usa el último `snapshot.json` y lo indica.
   `dailyPick` recorre a todos los candidatos antes de repetir. La racha cuenta los días con algún juego terminado.
 - **Modo Carrera** (`src/lib/carrera/`, tests en `tests/carrera.test.js`): todo el azar sale de la semilla de la
   carrera más la semana, así recargar no cambia ningún resultado. Cada semana: entrenar o descansar, a veces un evento
-  fuera de la cancha (efectos fijos y a la vista) y el partido, donde se juegan 2 o 3 jugadas (remate, pase, gambeta y
-  penal en playoffs) frenando una barra; el resto se simula con goles de Poisson según la fuerza de cada equipo. La
+  fuera de la cancha (efectos fijos y a la vista) y el partido, donde se juegan 2 o 3 jugadas (remate, pase, gambeta,
+  quite, atajada y penal en playoffs) frenando una barra. El lugar se elige tocando la cancha (4-2-3-1, `SPOTS` en
+  `player.js`): cada lugar tiene su mezcla de jugadas; el arquero y los defensores juegan las chances del rival (si
+  fallan, es gol de ellos) y el arquero ve hacia dónde perfila el que patea. El resto se simula con goles de Poisson
+  según la fuerza de cada equipo. La
   fuerza es una inferencia (puntos y diferencia de gol por partido de la tabla real, comprimidos a 50–72). El rol lo da
   la confianza del DT: menos de 50, Reserva; 70 o más, titular. Torneo: las dos zonas reales todos contra todos y
   playoffs de 16. También hay metas por torneo, 16 logros, partidos grandes (River, Boca, San Lorenzo, Racing,

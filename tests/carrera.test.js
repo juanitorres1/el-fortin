@@ -494,3 +494,127 @@ test('plata: sueldo por semana según el rol, premios, mejoras que se compran un
   assert.ok(pool({ ...p, dt: 80, fans: 50 }).has('oferta'));
   assert.equal(EVENTS.find((e) => e.id === 'oferta').options.length, 2);
 });
+
+test('puestos: once lugares en la formación (con arquero y defensores), cada uno con su mezcla de jugadas', async () => {
+  const { SPOTS, spotOf, attrLabel } = await import('../src/lib/carrera/player.js');
+  assert.equal(SPOTS.length, 11);
+  assert.equal(new Set(SPOTS.map((s) => s.key)).size, 11);
+  const count = (pos) => SPOTS.filter((s) => s.pos === pos).length;
+  assert.deepEqual([count('arq'), count('def'), count('vol'), count('del')], [1, 4, 3, 3], '4-2-3-1');
+  for (const s of SPOTS) {
+    assert.ok(s.x >= 0 && s.x <= 100 && s.y >= 0 && s.y <= 100, s.key);
+    const sum = Object.values(s.mix).reduce((a, b) => a + b, 0);
+    assert.ok(sum <= 1.0001, `${s.key}: la mezcla pasa de 1`);
+  }
+  // El lugar fija el puesto; los guardados viejos (sin lugar) juegan de 9 o de enganche, como antes.
+  const arq = newPlayer({ name: 'X', spot: 'arq' });
+  assert.equal(arq.pos, 'arq');
+  assert.equal(spotOf({ pos: 'del' }).key, '9');
+  assert.equal(spotOf({ pos: 'vol' }).key, 'mp');
+  assert.equal(attrLabel('remate', 'arq'), 'Reflejos');
+  assert.equal(attrLabel('remate', 'del'), 'Remate');
+  assert.throws(() => newPlayer({ name: 'X', spot: 'xx' }));
+});
+
+/** Juega una semana eligiendo bien en defensa: el arquero sigue la pista del que patea; el defensor, `tackle`. */
+function playDefense(state, { r, aim, tell = true, tackle = 'aguantar' }) {
+  let s = trainWeek(state, state.player.energy < 45 ? 'descanso' : 'remate');
+  const g = currentGame(s);
+  if (!g) return s;
+  if (g.kind === 'libre') return dismissLast(skipWeek(s));
+  s = startMatch(s);
+  while (!matchDone(s.torneo.match)) {
+    const mo = s.torneo.match.moments[s.torneo.match.answers.length];
+    const choice = mo.type === 'quite' ? tackle : mo.type === 'pase' ? 'corto' : mo.type === 'atajada' && tell && mo.tell ? mo.tell : AIMS[Math.floor(r() * 3)].key;
+    s = answerMoment(s, { choice, x: Math.min(1, Math.max(0, aim(mo, r))) });
+  }
+  return finishMatch(s);
+}
+
+test('arquero: solo ataja; el gol en contra cuenta en el marcador y las atajadas, en la ficha', () => {
+  let s = newCareer({ name: 'Arquerito', spot: 'arq', extra: { remate: 4, velocidad: 2 }, standings, roster, velezId: '21', seed: 31 });
+  assert.equal(s.player.pos, 'arq');
+  assert.ok(goalsFor(s.player).some((g) => g.key === 'att'), 'metas de arquero');
+  if (currentGame(s).kind === 'libre') s = dismissLast(skipWeek(s));
+  s = startMatch(s);
+  assert.ok(s.torneo.match.moments.every((m) => m.type === 'atajada' && m.tell), 'todas atajadas, con pista');
+  // Tirándose siempre al lado contrario de la pista y frenando mal: alguna vez es gol de ellos y suma al rival.
+  let seen = false;
+  for (let seed = 1; seed < 40 && !seen; seed++) {
+    let k = newCareer({ name: 'Arquerito', spot: 'arq', standings, roster, velezId: '21', seed });
+    if (currentGame(k).kind === 'libre') k = dismissLast(skipWeek(k));
+    k = startMatch(k);
+    const before = scoreAt(k.torneo.match)[1];
+    const mo = k.torneo.match.moments[0];
+    k = answerMoment(k, { choice: mo.tell === 'izq' ? 'der' : 'izq', x: 0 });
+    const a = k.torneo.match.answers[0];
+    assert.ok(['tapada', 'desviado', 'golrival'].includes(a.kind));
+    assert.equal(outcomeKind('atajada', { ...a, kind: undefined }), a.saved ? 'tapada' : 'golrival');
+    if (a.kind === 'golrival') {
+      seen = true;
+      assert.equal(eventsAt(k.torneo.match).filter((e) => e.team === 'r' && e.mi === 0).length, 1);
+      assert.ok(scoreAt(k.torneo.match)[1] >= before);
+    }
+  }
+  assert.ok(seen, 'algún gol en contra');
+  // Un torneo bien jugado: atajadas y vallas invictas en el resumen.
+  s = newCareer({ name: 'Arquerito', spot: 'arq', extra: { remate: 4, velocidad: 2 }, standings, roster, velezId: '21', seed: 31 });
+  const r = rng(4);
+  for (let w = 0; w < 40 && s.torneo.phase !== 'fin'; w++) s = dismissLast(playDefense(s, { r, aim: (m) => m.center }));
+  assert.ok(s.torneo.summary.at > 0, 'atajó algo');
+  assert.equal(s.torneo.summary.g, 0, 'el arquero no hace goles');
+});
+
+test('defensor: quites; la contra termina en gol de Vélez y el quite fallado puede ser gol de ellos', async () => {
+  const { TACKLES, resolveTackle } = await import('../src/lib/carrera/match.js');
+  assert.deepEqual(TACKLES.map((t) => t.key), ['aguantar', 'barrida', 'anticipo']);
+  const kinds = new Set();
+  for (let i = 0; i < 400; i++) {
+    const res = resolveTackle(rng(i), { q: (i % 10) / 10, option: TACKLES[i % 3].key, attr: 55, rivalStr: 60, mate: 'Uno' });
+    kinds.add(res.kind);
+    if (res.kind === 'contra') assert.ok(res.ok && res.counter);
+    if (!res.ok) assert.ok(!res.counter);
+  }
+  assert.deepEqual([...kinds].sort(), ['contra', 'golrival', 'quite', 'salvada']);
+  let s = newCareer({ name: 'Zaguero', spot: 'dci', standings, roster, velezId: '21', seed: 12 });
+  assert.equal(s.player.pos, 'def');
+  const r = rng(5);
+  for (let w = 0; w < 40 && s.torneo.phase !== 'fin'; w++) s = dismissLast(playDefense(s, { r, aim: (m) => m.center, tackle: 'anticipo' }));
+  assert.ok(s.torneo.summary.qt > 0, 'ganó quites');
+  // Los centrales solo rematan de cabeza.
+  const head = newCareer({ name: 'Zaguero', spot: 'dcd', standings, roster, velezId: '21', seed: 3 });
+  let found = false;
+  for (let seed = 1; seed < 30; seed++) {
+    let k = { ...head, seed };
+    if (currentGame(k).kind === 'libre') k = dismissLast(skipWeek(k));
+    for (const mo of startMatch(k).torneo.match.moments) if (mo.type === 'remate') { found = true; assert.equal(mo.kind, 'cabeza'); }
+  }
+  assert.ok(found);
+});
+
+test('balance de los puestos de defensa: jugar bien se nota y se llega a titular', () => {
+  const run = (spot, opts) => {
+    let gc = 0;
+    let pj = 0;
+    let titular = false;
+    for (let seed = 1; seed <= 3; seed++) {
+      let s = newCareer({ name: 'X', spot, extra: { remate: 3, fisico: 3 }, standings, roster, velezId: '21', seed });
+      const r = rng(seed * 11);
+      for (let n = 0; n < 2; n++) {
+        for (let w = 0; w < 40 && s.torneo.phase !== 'fin'; w++) {
+          s = playDefense(s, { r, ...opts });
+          const l = s.torneo.last;
+          if (l && !l.libre && l.side === 'primera') { gc += l.first.r; pj += 1; titular ||= l.role === 'titular'; }
+          s = dismissLast(s);
+        }
+        s = nextTorneo(s);
+      }
+    }
+    return { gc: gc / pj, titular };
+  };
+  const good = run('arq', { aim: (m) => m.center, tell: true });
+  const bad = run('arq', { aim: (m, r) => m.center + (r() - 0.5) * 0.5, tell: false });
+  assert.ok(good.titular, 'el arquero que juega bien llega a titular');
+  assert.ok(good.gc < bad.gc, `leer al que patea ataja más: ${good.gc.toFixed(2)} vs ${bad.gc.toFixed(2)}`);
+  assert.ok(run('dci', { aim: (m) => m.center }).titular, 'el central que juega bien llega a titular');
+});
