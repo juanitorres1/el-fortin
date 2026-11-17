@@ -9,6 +9,7 @@ import { Arco, Cancha, Duelo, Quite } from './Escena.jsx';
 
 const calm = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const AIM_LABEL = { izq: 'al palo izquierdo', medio: 'al medio', der: 'al palo derecho' };
+const FREE_LABEL = { izq: 'por encima de la barrera', medio: 'al medio', der: 'al palo del arquero' };
 const DIVE_LABEL = { izq: 'a la izquierda', medio: 'te quedás en el medio', der: 'a la derecha' };
 
 /** Estrellas de la ejecución (0 a 3), como en los juegos de jugadas: se ven al frenar la barra y en el resultado. */
@@ -77,7 +78,7 @@ const OPTIONS = { pase: PASSES, gambeta: DRIBBLES, quite: TACKLES };
 const ASK = { pase: '¿Qué pase das?', gambeta: '¿Cómo lo encarás?', quite: '¿Cómo lo marcás?' };
 const DOING = { pase: 'Pase', gambeta: 'Gambeta', quite: 'Marca', atajada: 'Te tirás', remate: 'Remate', penal: 'Remate' };
 
-export function Momento({ moment, onAnswer }) {
+export function Momento({ moment, onAnswer, tip = null }) {
   const [choice, setChoice] = useState(null);
   const [preview, setPreview] = useState(null);
   const options = OPTIONS[moment.type] ?? null;
@@ -90,11 +91,12 @@ export function Momento({ moment, onAnswer }) {
   const scene = moment.type === 'pase' ? <Cancha choice={choice} preview={preview} />
     : moment.type === 'gambeta' ? <Duelo choice={choice} preview={preview} />
       : moment.type === 'quite' ? <Quite choice={choice} preview={preview} />
-        : <Arco onAim={choice ? null : pick} choice={choice} mine={save} />;
+        : <Arco onAim={choice ? null : pick} choice={choice} mine={save} free={moment.kind === 'libre'} />;
   return (
     <div className={`card cr-moment${isPenalty(moment) ? ' is-penal' : ''}${moment.from ? ' is-chain' : ''}${save || moment.type === 'quite' ? ' is-defense' : ''}`}>
       <p className="kicker">{isPenalty(moment) ? 'Definición por penales' : `Minuto ${moment.min}'`}{save || moment.type === 'quite' ? ' · Te atacan' : ''}</p>
       <h3 className="cr-moment-text">{kindText(moment)}</h3>
+      {tip && <p className="cr-coach"><span aria-hidden="true">🧑‍🏫</span> <b>El DT te dice:</b> {tip}</p>}
       {tell && <p className="cr-tell"><span aria-hidden="true">👀</span> {tell}</p>}
       {scene}
       {!choice && options && <p className="muted small">{ASK[moment.type]}</p>}
@@ -113,7 +115,7 @@ export function Momento({ moment, onAnswer }) {
       ) : <p className="muted small">{save ? 'Tocá el arco: elegí adónde te tirás.' : 'Tocá el arco: elegí adónde le pegás.'}</p>)}
       {choice && (
         <>
-          <p className="small"><b>{DOING[moment.type]}:</b> {options ? options.find((o) => o.key === choice)?.label : save ? DIVE_LABEL[choice] : AIM_LABEL[choice]}</p>
+          <p className="small"><b>{DOING[moment.type]}:</b> {options ? options.find((o) => o.key === choice)?.label : save ? DIVE_LABEL[choice] : moment.kind === 'libre' ? FREE_LABEL[choice] : AIM_LABEL[choice]}</p>
           <Bar moment={moment} onStop={(x) => onAnswer({ choice, x })} />
         </>
       )}

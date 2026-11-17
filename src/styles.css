@@ -1872,3 +1872,24 @@ p.cr-tag.is-big { justify-self: center; margin: 0; }
 }
 .cr-ideal small { font-size: 0.8125rem; opacity: 0.95; }
 @media (prefers-reduced-motion: reduce) { .cr-ideal { animation: none; } }
+
+/* Carrera · tiro libre (barrera), consejos del DT, lesiones y capitán */
+.cr-wall-body { fill: #3a3f4b; stroke: #1b1f27; stroke-width: 0.8; }
+.cr-wall-head { fill: #b98256; }
+.cr-wall.is-jump { transform: translateY(-6px); animation: cr-from 0.3s 0.05s ease-out backwards; }
+.cr-coach {
+  margin: 0; padding: 0.55rem 0.75rem; border-radius: var(--radius-sm); border-left: 4px solid var(--accent);
+  background: var(--accent-soft); color: var(--text); font-size: 0.9375rem;
+}
+.cr-tag.is-injury, .cr-role.is-injury { color: var(--loss); }
+.cr-tag.is-injury { background: var(--bg-2); }
+.cr-injury { border-top-color: var(--loss); }
+.cr-injury .cr-meter-bar i { background: var(--loss); }
+.cr-injury-note { margin: 0; }
+.cr-captain {
+  display: inline-grid; place-items: center; width: 1.25rem; height: 1.25rem; margin-left: 0.35rem; border-radius: 0.3rem;
+  background: #ffe36e; color: #1b1f27; font: 800 0.75rem/1 var(--display); vertical-align: 0.05rem;
+}
+@media (prefers-reduced-motion: reduce) { .cr-wall.is-jump { animation: none; } }
+/* En pantallas anchas la escena no ocupa todo: queda centrada con un ancho cómodo */
+.cr-moment > .cr-pitch { width: 100%; max-width: 36rem; justify-self: center; }

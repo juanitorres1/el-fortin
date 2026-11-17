@@ -137,9 +137,11 @@ Si ESPN no responde, la página usa el último `snapshot.json` y lo indica.
   según la fuerza de cada equipo. La
   fuerza es una inferencia (puntos y diferencia de gol por partido de la tabla real, comprimidos a 50–72). El rol lo da
   la confianza del DT: menos de 50, Reserva; 70 o más, titular. Torneo: las dos zonas reales todos contra todos y
-  playoffs de 16. También hay metas por torneo, 16 logros, partidos grandes (River, Boca, San Lorenzo, Racing,
-  Independiente y Huracán), conferencias de prensa, plata de ficción con mejoras para comprar (sin apuestas), edad
-  (desde los 31 baja el físico) y retiro (desde los 33; a los 38, obligatorio). **Balance:** medido simulando carreras
+  playoffs de 16. También hay metas por torneo, 23 logros, partidos grandes (River, Boca, San Lorenzo, Racing,
+  Independiente y Huracán), conferencias de prensa, plata de ficción con mejoras para comprar (sin apuestas), tiro
+  libre con barrera cuando te hacen falta, lesiones (más probables jugando fundido), cinta de capitán, equipo ideal del
+  torneo, consejos del DT la primera vez de cada jugada, edad (desde los 31 baja el físico) y retiro (desde los 33; a
+  los 38, obligatorio). **Balance:** medido simulando carreras
   completas, pasar a Bianchi (206 goles) exige frenar la barra casi siempre en el centro durante 15 años; un test lo
   controla. El lugar en la historia no cuenta a Cubero, como la trivia.
 - **Jugadores históricos:** `data/jugadores.json` sale de Wikidata y tiene errores y omisiones (lo edita cualquiera).

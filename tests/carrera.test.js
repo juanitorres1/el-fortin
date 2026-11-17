@@ -7,7 +7,7 @@ import { expectedGoals, playoffPairs, roundRobin, schedule, simMatch, strengthOf
 import { AIMS, DRIBBLES, PASSES, kindText, markerAt, outcomeKind, quality, resolveDribble, resolvePass, resolveShot, shotChance } from '../src/lib/carrera/match.js';
 import { EVENTS, applyFx, fxText, goalProgress, goalsFor } from '../src/lib/carrera/extras.js';
 import {
-  answerMoment, answerPress, buyPerk, chooseEvent, currentGame, dismissLast, eventsAt, finishMatch, velezCalendar, weekEvent, matchDone, newCareer, nextTorneo, retire, retireState, scoreAt, skipWeek, startMatch, torneoLabel, trainWeek, zoneTables,
+  injuredWeek, answerMoment, answerPress, buyPerk, chooseEvent, currentGame, dismissLast, eventsAt, finishMatch, velezCalendar, weekEvent, matchDone, newCareer, nextTorneo, retire, retireState, scoreAt, skipWeek, startMatch, torneoLabel, trainWeek, zoneTables,
 } from '../src/lib/carrera/career.js';
 import { exportCode, importCode, isCareer, migrate } from '../src/lib/carrera/save.js';
 import { rng } from '../src/lib/trivia.js';
@@ -29,6 +29,7 @@ function playWeek(state, { trainKey = 'remate', aim = (m) => m.center, r = Math.
   let s = state;
   const g = currentGame(s);
   if (!g) return s;
+  if (s.player.injury) return dismissLast(injuredWeek(s));
   s = trainWeek(s, s.player.energy < 45 ? 'descanso' : trainKey);
   if (g.kind === 'libre') return dismissLast(skipWeek(s));
   s = startMatch(s);
@@ -521,6 +522,7 @@ function playDefense(state, { r, aim, tell = true, tackle = 'aguantar' }) {
   let s = trainWeek(state, state.player.energy < 45 ? 'descanso' : 'remate');
   const g = currentGame(s);
   if (!g) return s;
+  if (s.player.injury) return injuredWeek(s);
   if (g.kind === 'libre') return dismissLast(skipWeek(s));
   s = startMatch(s);
   while (!matchDone(s.torneo.match)) {
@@ -658,4 +660,101 @@ test('equipo ideal: con buen promedio y partidos suficientes, al cerrar el torne
     }
   }
   assert.ok(found, 'un arquero que juega perfecto entra alguna vez');
+});
+
+test('tiro libre: si te bajan en la gambeta sigue un tiro libre; por arriba de la barrera pide frenar muy bien', async () => {
+  const { FREE_KICK, TIPS, tipKey } = await import('../src/lib/carrera/match.js');
+  // La barrera: por el palo izquierdo, con la barra floja, siempre pega en la barrera.
+  for (let i = 0; i < 50; i++) {
+    const res = resolveShot(rng(i), { q: FREE_KICK.over - 0.05, aim: 'izq', kind: 'libre', attr: 60, rivalStr: 60 });
+    assert.equal(res.kind, 'barrera');
+    assert.equal(res.goal, false);
+  }
+  const goals = Array.from({ length: 400 }, (_, i) => resolveShot(rng(i), { q: 1, aim: 'izq', kind: 'libre', attr: 70, rivalStr: 60 }).goal).filter(Boolean).length;
+  assert.ok(goals > 60, `por arriba y perfecto, a veces entra: ${goals}/400`);
+  // Una falta en una partida real: aparece el tiro libre en el mismo minuto, con su consejo.
+  let found = false;
+  for (let seed = 1; seed < 400 && !found; seed++) {
+    let s = create(seed);
+    s.player.dt = 80;
+    if (currentGame(s).kind === 'libre') continue;
+    s = startMatch(s);
+    const i = s.torneo.match.moments.findIndex((m) => m.type === 'gambeta');
+    if (i < 0) continue;
+    for (let k = 0; k < i; k++) s = answerMoment(s, { choice: 'corto', x: 0 });
+    const after = answerMoment(s, { choice: 'cano', x: s.torneo.match.moments[i].center + s.torneo.match.moments[i].width * 1.5 });
+    const a = after.torneo.match.answers[i];
+    if (a.kind !== 'falta') continue;
+    found = true;
+    const next = after.torneo.match.moments[i + 1];
+    assert.equal(next.kind, 'libre');
+    assert.equal(next.min, s.torneo.match.moments[i].min);
+    assert.equal(kindText(next), FREE_KICK.text);
+    assert.equal(tipKey(next), 'libre');
+    assert.ok(TIPS.libre);
+    assert.ok(after.tips.gambeta, 'ya vio el consejo de la gambeta');
+  }
+  assert.ok(found, 'alguna falta');
+});
+
+test('lesiones: más probables fundido; te perdés partidos, no entrenás y la pretemporada cura', async () => {
+  const { injuryChance, injuredWeek: hurt } = await import('../src/lib/carrera/career.js');
+  const p = newPlayer({ name: 'X', pos: 'del' });
+  assert.ok(injuryChance({ ...p, energy: 20 }) > injuryChance({ ...p, energy: 80 }) * 3);
+  assert.ok(injuryChance({ ...p, energy: 20, perks: ['kinesiologo'] }) < injuryChance({ ...p, energy: 20 }));
+  let s = create(5);
+  s.player.dt = 80;
+  if (currentGame(s).kind === 'libre') s = dismissLast(skipWeek(s));
+  s.player.injury = { weeks: 2, total: 2, what: 'un esguince de tobillo' };
+  assert.equal(trainWeek(s, 'remate'), s, 'lesionado no entrena');
+  assert.equal(startMatch(s), s, 'lesionado no juega');
+  const pjBefore = s.torneo.stats.pj;
+  const week = currentGame(s).kind === 'libre' ? 'libre' : 'partido';
+  let a = hurt(s);
+  assert.equal(a.player.injury.weeks, 1);
+  if (week === 'partido') {
+    assert.ok(a.torneo.last.injured);
+    assert.equal(a.torneo.stats.pj, pjBefore, 'no suma partido');
+    assert.ok(a.player.dt < s.player.dt);
+  }
+  a = dismissLast(a);
+  a = hurt(a);
+  assert.equal(a.player.injury, undefined, 'se recuperó');
+  assert.ok(a.news.some((n) => n.text.includes('Te recuperaste')));
+  // Un torneo jugando siempre fundido (sin descansar): alguna lesión aparece y el torneo termina igual.
+  let t = create(8);
+  const r = rng(3);
+  let injuries = 0;
+  for (let w = 0; w < 60 && t.torneo.phase !== 'fin'; w++) {
+    if (t.player.injury) { t = dismissLast(hurt(t)); continue; }
+    t = trainWeek(t, 'fisico');
+    if (currentGame(t).kind === 'libre') { t = dismissLast(skipWeek(t)); continue; }
+    t = startMatch(t);
+    while (!matchDone(t.torneo.match)) t = answerMoment(t, { choice: 'izq', x: r() });
+    t = finishMatch(t);
+    if (t.torneo.last.injury) injuries += 1;
+    t = dismissLast(t);
+  }
+  assert.equal(t.torneo.phase, 'fin');
+  assert.ok(injuries >= 1, 'fundido, alguna vez se lesiona');
+  t.player.injury = { weeks: 3, total: 3, what: 'x' };
+  assert.equal(nextTorneo(t).player.injury, undefined, 'la pretemporada cura');
+});
+
+test('capitán: con 25 partidos de titular y 50 hinchas te dan la cinta (y un logro)', async () => {
+  const { CAPTAIN } = await import('../src/lib/carrera/career.js');
+  let s = create(21);
+  s.player.dt = 85;
+  s.player.fans = CAPTAIN.fans + 10;
+  s.history = [{ n: 0, label: 'x', pj: 30, tit: CAPTAIN.tit, g: 0, a: 0, result: 'Fase regular' }];
+  s = playWeek(s, { r: rng(1) });
+  if (!s.torneo.stats.tit) s = playWeek(s, { r: rng(2) });
+  assert.ok(s.captain, 'tiene la cinta');
+  assert.ok(s.logros.capitan);
+  assert.ok(s.news.some((n) => n.text.includes('capitán')));
+  const once = create(22);
+  once.player.dt = 85;
+  once.player.fans = 5;
+  once.history = [{ n: 0, label: 'x', pj: 30, tit: 40, g: 0, a: 0, result: 'Fase regular' }];
+  assert.ok(!playWeek(once, { r: rng(1) }).captain, 'sin hinchas no hay cinta');
 });

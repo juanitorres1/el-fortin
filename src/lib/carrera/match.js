@@ -121,6 +121,7 @@ const TELL_TEXT = { izq: 'Perfila el remate hacia la izquierda.', medio: 'Parece
 export function kindText(m) {
   if (m.type === 'penal') return PENALTY.text;
   if (m.type === 'atajada' && m.kind === 'penal') return SAVE_PENALTY.text;
+  if (m.kind === 'libre') return FREE_KICK.text;
   const text = (KINDS[m.type] ?? []).find((k) => k.key === m.kind)?.text ?? '';
   return m.from === 'gambeta' ? `¡Lo dejaste atrás! ${text}` : text;
 }
@@ -184,9 +185,14 @@ export function resolveDribble(rand, { q, option, attr, rivalStr }) {
   return { ok, kind: 'gambeta', next: opt.next, text };
 }
 
+// Tiro libre (sale de una falta en la gambeta): la barrera tapa el palo izquierdo y el arquero cuida el suyo.
+export const FREE_KICK = { key: 'libre', text: 'Tiro libre en la puerta del área. La barrera tapa el palo izquierdo.', base: 0.04, over: 0.6 };
+const KEEPER_FREE = [['izq', 0.15], ['medio', 0.2], ['der', 0.65]];
+const FREE_WHERE = { izq: 'por encima de la barrera', medio: 'al medio', der: 'al palo del arquero' };
+
 /** Probabilidad de gol de un remate antes de saber adónde se tiró el arquero. */
 export function shotChance({ q, kind, attr, rivalStr, bonus = 0 }) {
-  const base = kind === 'penal' ? PENALTY.base : SHOT_KINDS.find((k) => k.key === kind)?.base ?? 0;
+  const base = kind === 'penal' ? PENALTY.base : kind === 'libre' ? FREE_KICK.base : SHOT_KINDS.find((k) => k.key === kind)?.base ?? 0;
   // El timing pesa más que el atributo: frenar la barra en el centro es lo que hace goles.
   return clamp(base + 0.34 * q - 0.16 + (attr - 50) / 300 - (rivalStr - 60) / 200 + bonus, 0.02, 0.9);
 }
@@ -199,17 +205,27 @@ const pickWeighted = (rand, pairs) => {
   return pairs[pairs.length - 1][0];
 };
 
-/** Resuelve un remate. Devuelve { goal, keeper, kind, text }; `kind` = gol | atajada | palo | afuera | mal. */
+/**
+ * Resuelve un remate. Devuelve { goal, keeper, kind, text }; `kind` = gol | atajada | palo | afuera | mal | barrera.
+ * En el tiro libre la barrera tapa el palo izquierdo: pasarla por arriba pide frenar la barra muy bien.
+ */
 export function resolveShot(rand, { q, aim, kind, attr, rivalStr, bonus = 0 }) {
-  const keeper = kind === 'penal' ? AIMS[Math.floor(rand() * 3)].key : pickWeighted(rand, KEEPER);
+  const libre = kind === 'libre';
+  const keeper = kind === 'penal' ? AIMS[Math.floor(rand() * 3)].key : pickWeighted(rand, libre ? KEEPER_FREE : KEEPER);
   let p = shotChance({ q, kind, attr, rivalStr, bonus });
   if (keeper === aim) p *= kind === 'penal' ? 0.3 : 0.35;
+  const wall = libre && aim === 'izq' && q < FREE_KICK.over;
+  if (wall) p = 0;
   const goal = rand() < p;
-  const where = AIMS.find((a) => a.key === aim)?.short ?? '';
+  const where = libre ? FREE_WHERE[aim] : AIMS.find((a) => a.key === aim)?.short ?? '';
   let text;
   let out;
   if (goal) out = 'gol';
-  else if (q < 0.15) out = 'mal';
+  else if (wall) {
+    out = 'barrera';
+    text = 'Le pegaste a la barrera. Te faltó levantarla.';
+    return { goal, keeper, kind: out, text };
+  } else if (q < 0.15) out = 'mal';
   else if (keeper === aim) out = 'atajada';
   else out = rand() < 0.5 ? 'afuera' : 'palo'; // mismo sorteo que antes: no cambia ningún resultado
   if (goal) text = keeper === aim ? `¡Gol! El arquero adivinó pero no llegó: ${where}.` : `¡Gol! La pusiste ${where} y el arquero se tiró para el otro lado.`;
@@ -252,3 +268,19 @@ export function matchRating({ goals, assists, good, bad, result, noise, extra = 
   const r = 6 + goals * 1.1 + assists * 0.7 + good * 0.25 - bad * 0.3 + extra + (result > 0 ? 0.3 : result < 0 ? -0.3 : 0) + (noise - 0.5) * 0.6;
   return Math.round(clamp(r, 3, 10) * 10) / 10;
 }
+
+// ---------- Consejos del DT ----------
+
+/** Un consejo por tipo de jugada: se muestra la primera vez que le toca (career.js guarda cuáles ya vio en `tips`). */
+export const TIPS = {
+  remate: 'Elegí un palo: el arquero casi nunca se queda en el medio. Después frená la raya en la zona verde.',
+  pase: 'El pase corto casi siempre llega; el filtrado arriesga más, pero puede terminar en asistencia.',
+  gambeta: 'Por afuera es lo más seguro. El caño cuesta, pero si sale quedás solo frente al arco.',
+  quite: 'Acompañar es lo más seguro. El anticipo arriesga, pero si sale salís de contra.',
+  atajada: 'Fijate hacia dónde perfila el que patea: casi siempre le pega para ese lado.',
+  penal: 'En los penales nadie da pistas: cualquier lado vale, lo que importa es frenar bien la barra.',
+  libre: 'Por encima de la barrera es el más lindo, pero pide frenar la barra casi en el centro. Al palo del arquero, él la espera.',
+};
+
+/** Qué consejo corresponde a una jugada. */
+export const tipKey = (m) => (m.kind === 'libre' ? 'libre' : isPenalty(m) ? 'penal' : m.type);

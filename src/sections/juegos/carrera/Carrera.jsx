@@ -6,10 +6,10 @@ import { load, save } from '../../../lib/storage.js';
 import { VELEZ_ID } from '../../../lib/espn.js';
 import { ATTRS, MAX_EXTRA, NAME_MAX, POSITIONS, ROLE_LABEL, SPOTS, START_AGE, START_POINTS, TRAINING, attrLabel, cleanName, objective, overall, roleOf, spotOf, trainLabel, trainOdds } from '../../../lib/carrera/player.js';
 import { PLAYOFF_SPOTS, roundName } from '../../../lib/carrera/season.js';
-import { isPenalty, outcomeKind } from '../../../lib/carrera/match.js';
+import { TIPS, isPenalty, outcomeKind, tipKey } from '../../../lib/carrera/match.js';
 import { lineupOf, shortName } from '../../../lib/carrera/lineup.js';
 import {
-  IDEAL, answerMoment, answerPress, buyPerk, chooseEvent, currentGame, retire, retireState, dismissLast, eventsAt, finishMatch, matchDone, newCareer, nextTorneo, skipWeek, startMatch, torneoLabel, trainWeek,
+  IDEAL, injuredWeek, answerMoment, answerPress, buyPerk, chooseEvent, currentGame, retire, retireState, dismissLast, eventsAt, finishMatch, matchDone, newCareer, nextTorneo, skipWeek, startMatch, torneoLabel, trainWeek,
   velezCalendar, weekEvent, weekTitle, zoneTables,
 } from '../../../lib/carrera/career.js';
 import { GOAL_REWARD, fxText, goalProgress } from '../../../lib/carrera/extras.js';
@@ -240,7 +240,7 @@ function Header({ state }) {
         <span className="cr-ov" style={{ '--p': overall(p) }} aria-label={`Media ${overall(p)}`}><b className="num">{overall(p)}</b><small>media</small></span>
         <div>
           <strong className="cr-name">{p.name}</strong>
-          <span className="muted small">{spotOf(p).label} · {fmtAge(p.age)} · <span className={`cr-role is-${role}`}>{ROLE_LABEL[role]}</span></span>
+          <span className="muted small">{spotOf(p).label} · {fmtAge(p.age)} · <span className={`cr-role is-${role}`}>{ROLE_LABEL[role]}</span>{state.captain ? <span className="cr-captain" title="Capitán"><span aria-hidden="true">C</span><span className="sr-only">, capitán</span></span> : null}{p.injury ? <span className="cr-role is-injury"> · 🤕 Lesionado</span> : null}</span>
           <span className="cr-money"><span aria-hidden="true">💰</span> <b className="num">{money(p.money)}</b> <small>(cobrás {money(salaryOf(p))} por semana)</small></span>
           <Form form={p.form} />
         </div>
@@ -464,6 +464,20 @@ function LevelUp({ ov }) {
   return <span className="cr-levelup" role="status"><span aria-hidden="true">⬆️</span> ¡Tu media sube a <b className="num">{ov[1]}</b>!</span>;
 }
 
+/** La lesión: qué es, cuántas semanas faltan y una barra de recuperación (en vez del entrenamiento). */
+function Lesion({ injury }) {
+  const total = Math.max(injury.total ?? injury.weeks, injury.weeks);
+  return (
+    <div className="card cr-week cr-injury" role="status">
+      <p className="kicker"><span aria-hidden="true">🤕</span> Lesionado</p>
+      <h3 className="cr-moment-text">Tenés {injury.what}.</h3>
+      <p className="small">{injury.weeks === 1 ? 'Te perdés este partido: la semana que viene volvés.' : `Te faltan ${injury.weeks} semanas para volver.`} Esta semana no entrenás: hacés kinesiología.</p>
+      <span className="cr-meter-bar" aria-hidden="true"><i style={{ width: `${Math.round(((total - injury.weeks + 1) / (total + 1)) * 100)}%` }} /></span>
+      <p className="muted small">Jugar fundido (poca energía) es lo que más lesiones trae. El kinesiólogo de la tienda ayuda.</p>
+    </div>
+  );
+}
+
 /** El evento de la semana fuera de la cancha: dos opciones con sus efectos a la vista. */
 function Evento({ state, act }) {
   const ev = weekEvent(state);
@@ -578,13 +592,14 @@ function Semana({ state, act }) {
             <Matchup state={state} rival={game.rival} home={game.home} reserva={reserva} />
             <p className="cr-tags">
               <span className="cr-tag">{game.home ? 'Local · José Amalfitani' : 'Visitante'}</span>
-              <span className={`cr-tag is-${role}`}>{reserva ? 'Jugás en la Reserva' : role === 'titular' ? 'Sos titular' : 'Arrancás en el banco'}</span>
+              {p.injury ? <span className="cr-tag is-injury">🤕 Lesionado: no jugás</span> : <span className={`cr-tag is-${role}`}>{reserva ? 'Jugás en la Reserva' : role === 'titular' ? 'Sos titular' : 'Arrancás en el banco'}</span>}
               {game.kind === 'playoff' && <span className="cr-tag is-ko">Mata-mata</span>}
               {isBigMatch(game.rival) && <span className="cr-tag is-big">🔥 Partido grande</span>}
             </p>
           </>
         )}
       </div>
+      {p.injury ? <Lesion injury={p.injury} /> : (
       <div className="card cr-week">
         <p className="kicker">Entrenamiento de la semana</p>
         {t.trained ? <TrainResult trained={t.trained} player={p} /> : (
@@ -605,11 +620,12 @@ function Semana({ state, act }) {
           </>
         )}
       </div>
+      )}
       <Evento state={state} act={act} />
       <Metas torneo={t} />
       <div className="cr-cta-bar">
-        <button type="button" className="btn btn-solid cr-cta" onClick={() => act(libre ? skipWeek : startMatch)}>
-          {libre ? 'Pasar a la fecha siguiente' : t.trained ? 'Salir a la cancha ⚽' : 'Jugar sin entrenar'}
+        <button type="button" className="btn btn-solid cr-cta" onClick={() => act(p.injury ? injuredWeek : libre ? skipWeek : startMatch)}>
+          {p.injury ? (libre ? 'Seguir con la recuperación' : 'Ver el partido desde la tribuna') : libre ? 'Pasar a la fecha siguiente' : t.trained ? 'Salir a la cancha ⚽' : 'Jugar sin entrenar'}
         </button>
       </div>
     </>
@@ -677,6 +693,8 @@ const REACT = {
   quite: { word: '¡LIMPITO!', tone: 'is-good', buzz: [30] },
   salvada: { word: '¡SE SALVÓ VÉLEZ!', tone: 'is-near', buzz: [25] },
   golrival: { word: 'GOL DE ELLOS', tone: 'is-bad', buzz: [90] },
+  falta: { word: '¡FALTA!', tone: 'is-post', buzz: [50] },
+  barrera: { word: '¡EN LA BARRERA!', tone: 'is-near', buzz: [30] },
 };
 // Cómo se dibuja una atajada en el arco: lo que pasó con la pelota (atajada, gol, palo o con el pie).
 const SAVE_SHOT = { tapada: 'atajada', golrival: 'gol', desviado: 'palo' };
@@ -713,7 +731,7 @@ function Outcome({ state, match, i, onNext }) {
   const kind = outcomeKind(mo.type, a);
   const goal = kind === 'gol' || kind === 'asistencia' || kind === 'contra';
   const penal = isPenalty(mo);
-  const good = goal || a.ok || kind === 'tapada' || kind === 'desviado';
+  const good = goal || a.ok || kind === 'tapada' || kind === 'desviado' || kind === 'falta';
   const [word, cls] = verdict(a.q);
   const react = penal && kind === 'tapada' ? { word: '¡LO ATAJASTE!', tone: 'is-save', buzz: GOAL_BUZZ } : REACT[kind];
   useEffect(() => {
@@ -728,7 +746,7 @@ function Outcome({ state, match, i, onNext }) {
     // Te tirás para un lado; la pelota va adonde pateó el rival. Si la sacaste tirado para el otro lado, fue con el pie.
     const shot = a.saved && a.shot !== a.choice ? 'pie' : SAVE_SHOT[kind];
     scene = <Arco mine choice={a.choice} result={{ keeper: a.choice, aim: a.shot, kind: shot }} />;
-  } else scene = <Arco choice={a.choice} result={{ keeper: a.keeper, aim: a.choice, kind }} />;
+  } else scene = <Arco choice={a.choice} free={mo.kind === 'libre'} result={{ keeper: a.keeper, aim: a.choice, kind }} />;
   return (
     <div className={`card cr-moment cr-outcome is-${kind} ${goal ? 'is-goal' : good ? 'is-ok' : 'is-miss'}`} role="status">
       {goal && <span className="cr-flash" aria-hidden="true" />}
@@ -741,7 +759,7 @@ function Outcome({ state, match, i, onNext }) {
         {!goal && react && <Letters text={react.word} className={`cr-react-word ${react.tone}`} />}
         {kind !== 'asistencia' && <h3 className="cr-moment-text">{goal && !penal ? a.text.replace(/^¡Gol! /, '') : a.text}</h3>}
         <p className="small cr-exec"><Stars q={a.q} /> <span className={`cr-verdict is-inline ${cls}`}>{word}</span> <span className="muted">· ejecución {Math.round(a.q * 100)}/100</span></p>
-        <button type="button" className="btn btn-solid" autoFocus onClick={onNext}>{kind === 'gambeta' ? 'Seguir la jugada' : 'Seguir'}</button>
+        <button type="button" className="btn btn-solid" autoFocus onClick={onNext}>{kind === 'gambeta' ? 'Seguir la jugada' : kind === 'falta' ? 'Patear el tiro libre' : 'Seguir'}</button>
       </div>
     </div>
   );
@@ -769,7 +787,7 @@ function Once({ state, match }) {
         {once.map(({ spot, name, n, you }) => (
           <span key={spot.key} className={`cr-once-p is-${spot.pos}${you ? ' is-you' : ''}`} style={{ left: `${spot.x}%`, top: `${4 + spot.y * 0.86}%` }}>
             <span className="cr-spot-dot">{you ? '★' : reserva ? spot.short : n ?? spot.short}</span>
-            <small>{you ? 'Vos' : reserva ? '' : shortName(name)}</small>
+            <small>{you ? (state.captain ? 'Vos · C' : 'Vos') : reserva ? '' : shortName(name)}</small>
           </span>
         ))}
       </div>
@@ -824,7 +842,7 @@ function Timeline({ match, i, through, done }) {
         const a = match.answers[k];
         const kind = a && outcomeKind(mo.type, a);
         const cls = !a ? (k === i && !done ? 'is-now' : '') : kind === 'gol' || kind === 'asistencia' || kind === 'contra' ? 'is-goal'
-          : a.ok || ['atajada', 'palo', 'tapada', 'desviado', 'salvada'].includes(kind) ? 'is-ok' : 'is-miss';
+          : a.ok || ['atajada', 'palo', 'tapada', 'desviado', 'salvada', 'falta'].includes(kind) ? 'is-ok' : 'is-miss';
         return <span key={`m${k}`} className={`cr-tl-move ${cls}`} style={{ left: isPenalty(mo) ? '100%' : pos(mo.min) }} />;
       })}
       <small className="cr-tl-l" style={{ left: 0 }}>0'</small>
@@ -882,7 +900,7 @@ function Partido({ state, act }) {
       {!pending && !done && (
         <>
           <Relato key={`r${i}`} match={m} i={i} />
-          <Momento key={i} moment={m.moments[i]} onAnswer={(a) => act(answerMoment, a)} />
+          <Momento key={i} moment={m.moments[i]} tip={state.tips?.[tipKey(m.moments[i])] ? null : TIPS[tipKey(m.moments[i])]} onAnswer={(a) => act(answerMoment, a)} />
         </>
       )}
       {done && (
@@ -924,6 +942,18 @@ function Resultado({ state, act }) {
   const reserva = l.side === 'reserva';
   const line = (v, r) => (l.home ? `Vélez ${v} - ${r} ${l.rival.name}` : `${l.rival.name} ${r} - ${v} Vélez`);
   const pens = l.first.pens == null ? '' : l.first.pens ? ' (ganó por penales)' : ' (perdió por penales)';
+  if (l.injured) {
+    const left = l.injury.weeks - 1;
+    return (
+      <div className="card cr-result" role="status">
+        <p className="kicker">{l.label} · Lo viste desde la tribuna</p>
+        <h3 className="cr-title">{line(l.first.v, l.first.r)}{pens}</h3>
+        <p className="small">{left > 0 ? `Seguís en recuperación: te ${left === 1 ? 'falta 1 semana' : `faltan ${left} semanas`}.` : '¡Ya estás recuperado! La semana que viene volvés a jugar.'}</p>
+        {l.earned > 0 && <p className="small">Cobraste el sueldo: <b>+{money(l.earned)}</b>.</p>}
+        <button type="button" className="btn btn-solid" autoFocus onClick={() => act(dismissLast)}>Seguir</button>
+      </div>
+    );
+  }
   const won = l.own.v > l.own.r || (!reserva && l.first.pens === true);
   const lost = l.own.v < l.own.r || (!reserva && l.first.pens === false);
   const outcome = won ? ['Ganó Vélez', 'is-win'] : lost ? ['Perdió Vélez', 'is-loss'] : ['Empate', 'is-draw'];
@@ -935,6 +965,11 @@ function Resultado({ state, act }) {
         <ul className="cr-milestones">
           {l.news.map((n) => <li key={n}><span aria-hidden="true">🎉</span> {n}</li>)}
         </ul>
+      )}
+      {l.injury && (
+        <p className="cr-note cr-bad cr-injury-note">
+          <span aria-hidden="true">🤕</span> Saliste lesionado: {l.injury.what}. {l.injury.weeks === 1 ? 'Te perdés el próximo partido.' : `Te perdés los próximos ${l.injury.weeks} partidos.`}
+        </p>
       )}
       <Badges ids={l.logros} fresh />
       <p className="cr-tags is-left">

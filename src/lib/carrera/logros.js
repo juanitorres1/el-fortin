@@ -17,6 +17,7 @@ export const LOGROS = [
   { id: 'hat-trick', icon: '🎩', title: 'Hat-trick', desc: 'Hacé 3 goles en un partido de Primera.', match: (c) => c.side === 'primera' && c.goals >= 3 },
   { id: 'asistidor', icon: '🧭', title: 'Asistidor', desc: 'Da 2 asistencias en un partido de Primera.', match: (c) => c.side === 'primera' && c.assists >= 2 },
   { id: 'golazo', icon: '🚀', title: 'Golazo', desc: 'Hacé un gol de afuera del área.', match: (c) => c.kinds.some((k) => k.type === 'remate' && k.sub === 'afuera' && k.kind === 'gol') },
+  { id: 'comba', icon: '🌀', title: 'Comba perfecta', desc: 'Hacé un gol de tiro libre.', match: (c) => c.kinds.some((k) => k.type === 'remate' && k.sub === 'libre' && k.kind === 'gol') },
   { id: 'cano', icon: '🪄', title: 'Caño', desc: 'Tirá un caño que salga bien.', match: (c) => c.kinds.some((k) => k.type === 'gambeta' && k.choice === 'cano' && k.kind === 'gambeta') },
   { id: 'figura', icon: '⭐', title: 'Figura', desc: 'Sacá 9 o más de puntaje.', match: (c) => c.rating >= 9 },
   { id: 'grande', icon: '🔥', title: 'Partido grande', desc: 'Hacé un gol en un partido grande.', match: (c) => c.big && c.side === 'primera' && c.goals > 0 },
@@ -32,6 +33,7 @@ export const LOGROS = [
   { id: 'ideal', icon: '🌟', title: 'Equipo ideal', desc: 'Entrá en el equipo ideal de un torneo (promedio 7 o más en 8 partidos de Primera).', torneo: (t, x) => !!x.ideal },
   { id: 'campeon', icon: '🏆', title: 'Campeón', desc: 'Salí campeón con Vélez.', torneo: (t, x) => x.result === 'Campeón' },
   // Se gana al elegir quedarse ante la oferta del exterior (career.js › chooseEvent).
+  { id: 'capitan', icon: '©️', title: 'Capitán', desc: 'Recibí la cinta de capitán (25 partidos de titular y 50 hinchas).', special: true },
   { id: 'leal', icon: '💙', title: 'Corazón de Vélez', desc: 'Rechazá una oferta de Europa para quedarte.', special: true },
 ];
 

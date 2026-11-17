@@ -19,6 +19,7 @@ export const PERKS = [
   { id: 'nutricionista', icon: '🥗', title: 'Nutricionista', desc: 'Entrenar te cansa menos: −5 de energía por sesión.', cost: 3000 },
   { id: 'botines', icon: '👟', title: 'Botines a medida', desc: 'Un poco más de chance de gol en cada remate.', cost: 5000 },
   { id: 'preparador', icon: '🏋️', title: 'Preparador físico personal', desc: 'Recuperás 6 de energía más por semana.', cost: 6000 },
+  { id: 'kinesiologo', icon: '🩺', title: 'Kinesiólogo personal', desc: 'Te lesionás menos y volvés una semana antes.', cost: 7000 },
   { id: 'psicologo', icon: '🧠', title: 'Psicólogo deportivo', desc: 'Un mal partido te baja menos la confianza del DT.', cost: 8000 },
   { id: 'video', icon: '🎬', title: 'Analista de video', desc: 'La zona verde de la barra es un poco más ancha.', cost: 12000 },
   { id: 'casa', icon: '🏠', title: 'Casa en Liniers', desc: 'Vivís a cuadras del Amalfitani: +10 hinchas.', cost: 20000, fx: { fans: 10 } },

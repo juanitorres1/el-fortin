@@ -14,6 +14,9 @@ const BANDS = [42, 50, 59, 70, 83, 98, 116, 137, 161, 180];
 
 const BALL0 = [160, 166]; // punto del penal
 const AIM_SHORT = { izq: 'Izquierda', medio: 'Al medio', der: 'Derecha' };
+const AIM_FREE = { izq: 'Por arriba', medio: 'Al medio', der: 'Al palo' };
+const AIM_FREE_LONG = { izq: 'Por encima de la barrera', medio: 'Al medio', der: 'Al palo del arquero' };
+const WALL = [86, 106, 126, 146]; // la barrera tapa el palo izquierdo
 export const AIM_SPOTS = { izq: [92, 84], medio: [160, 78], der: [228, 84] };
 
 /** Dónde termina la pelota según qué pasó (coordenadas del SVG). `kind` sale de lib/carrera/match.js › outcomeKind. */
@@ -22,6 +25,7 @@ export function shotTarget({ aim, kind }) {
   if (kind === 'gol') return side ? [160 + side * 96, 68] : [160, 66];
   if (kind === 'mal') return [160 + side * 100, 16]; // a la tribuna
   if (kind === 'atajada') return side ? [160 + side * 70, 92] : [160, 70]; // en las manos del arquero
+  if (kind === 'barrera') return [118, 112]; // pega en la barrera
   if (kind === 'pie') return [160 + side * 34, 126]; // la saca con el pie, tirado para el otro lado
   if (kind === 'palo') return side ? [160 + side * 106, 96] : [160, 58]; // palo o travesaño
   return side ? [160 + side * 128, 72] : [160, 44]; // apenas afuera
@@ -80,7 +84,7 @@ const Ball = ({ r = 7 }) => (
  * `onAim(key)` mientras se elige (las tres partes del arco son botones); `choice` = lo elegido; `result` = cómo salió
  * ({ aim, keeper, kind }). Con `mine` el arquero es el jugador: le patean y elige adónde tirarse.
  */
-export function Arco({ onAim, choice, result, mine = false }) {
+export function Arco({ onAim, choice, result, mine = false, free = false }) {
   const id = cleanId(useId());
   const target = result ? shotTarget(result) : null;
   const ballStyle = target ? { '--bx': target[0] - BALL0[0], '--by': target[1] - BALL0[1] } : undefined;
@@ -129,6 +133,17 @@ export function Arco({ onAim, choice, result, mine = false }) {
         ))}
         <ellipse className="cr-k-shadow" cx="160" cy="137" rx="19" ry="3.5" />
         <g transform="translate(160 136.5)" className={mine && choice && !result ? `cr-lean is-${choice}` : undefined}><Keeper dive={result?.keeper} mine={mine} /></g>
+        {free && (
+          <g className={`cr-wall${result ? ' is-jump' : ''}`}>
+            {WALL.map((x) => (
+              <g key={x} transform={`translate(${x} 158) scale(1.35)`}>
+                <ellipse className="cr-k-shadow" cx="0" cy="0" rx="9" ry="2.4" />
+                <path className="cr-wall-body" d="M-7.5 0V-20H7.5V0ZM-8.5 -20Q0 -46 8.5 -20Z" />
+                <circle className="cr-wall-head" cx="0" cy="-41" r="5.5" />
+              </g>
+            ))}
+          </g>
+        )}
         <g className="cr-goal-posts">
           <rect x="47" y="52" width="9" height="86" rx="2" fill={`url(#${id}p)`} />
           <rect x="264" y="52" width="9" height="86" rx="2" fill={`url(#${id}p)`} />
@@ -149,8 +164,8 @@ export function Arco({ onAim, choice, result, mine = false }) {
       {onAim && (
         <div className="cr-aims">
           {AIMS.map((a) => (
-            <button key={a.key} type="button" className="cr-aim" aria-label={mine ? `Tirarte ${a.short}` : a.label} onClick={() => onAim(a.key)}>
-              <span aria-hidden="true">{AIM_SHORT[a.key]}</span>
+            <button key={a.key} type="button" className="cr-aim" aria-label={mine ? `Tirarte ${a.short}` : free ? AIM_FREE_LONG[a.key] : a.label} onClick={() => onAim(a.key)}>
+              <span aria-hidden="true">{(free ? AIM_FREE : AIM_SHORT)[a.key]}</span>
             </button>
           ))}
         </div>

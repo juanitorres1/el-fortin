@@ -4,9 +4,9 @@
 // carrera más la semana: recargar la página no cambia ningún resultado.
 import { rng } from '../trivia.js';
 import { hash } from '../daily.js';
-import { WEEK_REST, clamp, matchCost, newPlayer, overall, roleOf, spotOf, train } from './player.js';
+import { ROLE_AT, WEEK_REST, clamp, matchCost, newPlayer, overall, roleOf, spotOf, train } from './player.js';
 import { PLAYOFF_SPOTS, expectedGoals, nextPairs, playoffPairs, poisson, roundName, schedule, shootout, simMatch, table, teamsFrom } from './season.js';
-import { isPenalty, makeMoments, matchRating, momentShape, outcomeKind, quality, resolveDribble, resolvePass, resolveSave, resolveShot, resolveTackle } from './match.js';
+import { isPenalty, tipKey, makeMoments, matchRating, momentShape, outcomeKind, quality, resolveDribble, resolvePass, resolveSave, resolveShot, resolveTackle } from './match.js';
 import { isBigMatch, matchLogros, torneoLogros } from './logros.js';
 import { CLEAN_PRIZE, GOAL_PRIZE, WIN_PRIZE, hasPerk, perkOf, salaryOf } from './economia.js';
 import { EVENTS, GOAL_REWARD, applyFx, goalProgress, goalsFor, pickEvent } from './extras.js';
@@ -16,6 +16,10 @@ import { PRESS, RETIRE_AT, RETIRE_FROM, ageAttrs, pickPress } from './historia.j
 export const SAVE_VERSION = 1;
 const NEWS_MAX = 6;
 /** Equipo ideal del torneo: partidos en Primera y promedio mínimos, y los hinchas que suma. */
+/** Chance de que te hagan falta cuando perdés una gambeta encarando bien (tiro libre). */
+export const FOUL_CHANCE = 0.35;
+/** Cinta de capitán: partidos de titular en la carrera e hinchas mínimos (y ser titular). */
+export const CAPTAIN = { tit: 25, fans: 50 };
 export const IDEAL = { pj: 8, avg: 7, fans: 5 };
 
 const randOf = (state, ...keys) => rng(hash(`${state.seed}:${keys.join(':')}`));
@@ -84,7 +88,7 @@ export function weekTitle(state) {
 
 /** Entrenamiento de la semana (una vez por semana). */
 export function trainWeek(state, key) {
-  if (state.torneo.trained || state.torneo.match || !currentGame(state)) return state;
+  if ((state.player.injury && key !== 'descanso') || state.torneo.trained || state.torneo.match || !currentGame(state)) return state;
   const s = copy(state);
   const before = overall(s.player);
   const r = train(s.player, key, randOf(s, 'train', s.torneo.n, weekKey(s.torneo)));
@@ -122,7 +126,7 @@ export function chooseEvent(state, i) {
 /** Arma el partido de la semana: rol, fuerzas, goles del resto del equipo (con su minuto) y las jugadas. */
 export function startMatch(state) {
   const game = currentGame(state);
-  if (!game || game.kind === 'libre' || state.torneo.match) return state;
+  if (!game || game.kind === 'libre' || state.torneo.match || state.player.injury) return state;
   const s = copy(state);
   const t = s.torneo;
   const r = randOf(s, 'match', t.n, weekKey(t));
@@ -186,6 +190,7 @@ export function answerMoment(state, { choice, x }) {
   const r = randOf(s, 'moment', t.n, weekKey(t), i);
   const q = x == null ? 0.35 + r() * 0.45 : quality(clamp(x, 0, 1), mo.center, mo.width);
   const rq = Math.round(q * 100) / 100;
+  s.tips = { ...(s.tips ?? {}), [tipKey(mo)]: true }; // ya vio el consejo de esta jugada
   if (mo.type === 'pase') {
     const mate = s.mates[Math.floor(r() * s.mates.length)];
     const res = resolvePass(r, { q, option: choice, attr: s.player.attrs.pase, rivalStr: m.rival.str, mate });
@@ -193,9 +198,14 @@ export function answerMoment(state, { choice, x }) {
     if (res.assist) m.events.push({ min: mo.min, mi: i, team: 'v', who: mate, assist: true });
   } else if (mo.type === 'gambeta') {
     const res = resolveDribble(r, { q, option: choice, attr: s.player.attrs.velocidad, rivalStr: m.rival.str });
-    m.answers.push({ q: rq, choice, ok: res.ok, kind: res.kind, text: res.text });
+    // Si no la pasó pero llegó a encarar bien, a veces lo bajan: tiro libre en la puerta del área (sorteo aparte,
+    // así no cambia nada de lo que ya salía con la misma semilla).
+    const foul = !res.ok && q >= 0.25 && randOf(s, 'falta', t.n, weekKey(t), i)() < FOUL_CHANCE;
+    const out = foul ? { ...res, kind: 'falta', text: '¡Te bajaron! El árbitro cobra tiro libre.' } : res;
+    m.answers.push({ q: rq, choice, ok: res.ok, kind: out.kind, text: out.text });
     // Si la pasó, la jugada sigue: queda de frente al arco en el mismo minuto.
     if (res.ok) m.moments.splice(i + 1, 0, { ...momentShape(r, { min: mo.min, type: 'remate', kind: res.next, player: s.player, rivalStr: m.rival.str }), from: 'gambeta' });
+    if (foul) m.moments.splice(i + 1, 0, { ...momentShape(r, { min: mo.min, type: 'remate', kind: 'libre', player: s.player, rivalStr: m.rival.str }), from: 'falta' });
   } else if (mo.type === 'quite') {
     const mate = s.mates[Math.floor(r() * s.mates.length)];
     const res = resolveTackle(r, { q, option: choice, attr: s.player.attrs.fisico, rivalStr: m.rival.str, mate });
@@ -306,6 +316,14 @@ function closeTorneo(s) {
 /** Pasa a la semana siguiente: la próxima fecha, los playoffs o el cierre del torneo. */
 function advance(s) {
   const t = s.torneo;
+  // Una semana menos de lesión (la de esta semana ya la pasó afuera).
+  if (s.player.injury) {
+    s.player.injury.weeks -= 1;
+    if (s.player.injury.weeks <= 0) {
+      delete s.player.injury;
+      pushNews(s, 'Te recuperaste de la lesión: ya podés volver a jugar.');
+    }
+  }
   s.player.energy = clamp(s.player.energy + WEEK_REST + (hasPerk(s.player, 'preparador') ? 6 : 0), 0, 100);
   t.trained = null;
   t.match = null;
@@ -347,7 +365,7 @@ export function finishMatch(state) {
   const assists = passes.filter((a) => a.assist).length;
   const dribbles = m.answers.filter((a, i) => m.moments[i].type === 'gambeta');
   const good = passes.filter((a) => a.ok && !a.assist).length + shots.filter((a) => !a.goal && a.q >= 0.5).length + dribbles.filter((a) => a.ok).length;
-  const bad = passes.filter((a) => !a.ok).length + shots.filter((a) => a.q < 0.15).length + dribbles.filter((a) => !a.ok).length;
+  const bad = passes.filter((a) => !a.ok).length + shots.filter((a) => a.q < 0.15).length + dribbles.filter((a) => !a.ok && a.kind !== 'falta').length;
   // Lo del arquero y los defensores (sin el penal de la definición).
   const kindsOf = (type) => m.answers.filter((a, i) => m.moments[i].type === type && !isPenalty(m.moments[i])).map((a) => a.kind);
   const saves = kindsOf('atajada');
@@ -386,7 +404,8 @@ export function finishMatch(state) {
   const debut = m.side === 'primera' && t.stats.pj === 0 && !s.history.some((h) => h.pj > 0);
   const firstGoal = m.side === 'primera' && goals > 0 && t.stats.g === 0 && !s.history.some((h) => h.g > 0);
   const rawDt = m.side === 'primera' ? (rating - 6.2) * 6 : (rating - 6.2) * 5 + 2;
-  const dtDelta = Math.round(rawDt < 0 && hasPerk(p, 'psicologo') ? rawDt * 0.6 : rawDt); // mejora: psicólogo
+  // Mejora psicólogo y cinta de capitán: un mal partido baja menos la confianza.
+  const dtDelta = Math.round(rawDt < 0 ? rawDt * (hasPerk(p, 'psicologo') ? 0.6 : 1) * (s.captain ? 0.8 : 1) : rawDt);
   p.dt = clamp(p.dt + dtDelta, 0, 100);
   // En un partido grande cada gol vale el doble para la tribuna.
   const bigBonus = m.big && m.side === 'primera' ? goals * 3 + (velezWon ? 2 : 0) : 0;
@@ -419,6 +438,13 @@ export function finishMatch(state) {
   if (dtBefore >= 70 && p.dt < 70) pushNews(s, 'Perdiste el puesto: volvés al banco.');
   if (dtBefore >= 50 && p.dt < 50) pushNews(s, 'El DT te mandó a jugar a la Reserva.');
   for (const g of goalProgress(t)) if (g.done && !doneBefore.has(g.key)) pushNews(s, `Meta cumplida: ${g.text.charAt(0).toLowerCase()}${g.text.slice(1)}.`);
+  // La cinta de capitán: titular con trayectoria, hinchas y la confianza del DT. Queda para siempre.
+  const titTotal = s.history.reduce((a, h) => a + (h.tit ?? 0), 0) + t.stats.tit;
+  if (!s.captain && m.role === 'titular' && titTotal >= CAPTAIN.tit && p.fans >= CAPTAIN.fans && p.dt >= ROLE_AT.start) {
+    s.captain = t.n;
+    s.logros = { ...(s.logros ?? {}), capitan: s.logros?.capitan ?? t.n };
+    pushNews(s, '¡Te dieron la cinta de capitán de Vélez!');
+  }
 
   // Logros del partido: se guardan para siempre con el número de torneo.
   const kinds = m.answers.map((a, i) => ({ type: m.moments[i].type, sub: m.moments[i].kind, choice: a.choice, kind: outcomeKind(m.moments[i].type, a) }));
@@ -437,10 +463,57 @@ export function finishMatch(state) {
     press: pickPress(randOf(s, 'prensa', t.n, weekKey(t)), { side: m.side, goals, result: Math.sign(own.v - own.r) || (own.pens == null ? 0 : own.pens ? 1 : -1) }),
     pressChoice: null,
   };
+  // ¿Se lesionó? Más probable si terminó fundido (sorteo aparte: no cambia nada de lo demás).
+  const ri = randOf(s, 'lesion', t.n, weekKey(t));
+  let injury = null;
+  if (ri() < injuryChance(p)) {
+    const weeks = Math.max(1, 1 + Math.floor(ri() * 3) - (hasPerk(p, 'kinesiologo') ? 1 : 0));
+    injury = { weeks, total: weeks, what: INJURIES[Math.floor(ri() * INJURIES.length)] };
+  }
   advance(s);
   // Los hitos de este partido (debut, primer gol, titularidad, playoffs, título): se festejan en el resultado.
   const until = newsTop ? s.news.indexOf(newsTop) : -1;
   t.last.news = s.news.slice(0, until < 0 ? s.news.length : until).map((x) => x.text);
+  if (injury) {
+    s.player.injury = injury;
+    t.last.injury = injury;
+    pushNews(s, `Te lesionaste: ${injury.what}. ${injury.weeks === 1 ? 'Te perdés el próximo partido' : `Te perdés los próximos ${injury.weeks} partidos`}.`);
+  }
+  return s;
+}
+
+/** Lesiones posibles (genéricas) y la chance de lesionarse en un partido según cómo terminó. */
+export const INJURIES = ['un desgarro en el isquiotibial', 'un esguince de tobillo', 'una contractura en el gemelo', 'un golpe en la rodilla'];
+export function injuryChance(player) {
+  const tired = player.energy < 25 ? 0.07 : player.energy < 40 ? 0.03 : 0;
+  const c = 0.015 + tired + (player.age >= 31 ? 0.01 : 0);
+  return hasPerk(player, 'kinesiologo') ? c * 0.6 : c; // mejora: kinesiólogo
+}
+
+/** Semana lesionado: Vélez juega sin él (se simula), cobra el sueldo y el DT lo extraña un poco menos. */
+export function injuredWeek(state) {
+  const game = currentGame(state);
+  if (!state.player.injury || !game || state.torneo.match) return state;
+  if (game.kind === 'libre') return skipWeek(state);
+  const s = copy(state);
+  const t = s.torneo;
+  const p = s.player;
+  const r = randOf(s, 'baja', t.n, weekKey(t));
+  const velez = teamOf(t, s.velez);
+  const [gh, ga] = game.home ? simMatch(r, velez.str, game.rival.str) : simMatch(r, game.rival.str, velez.str);
+  const [v, rv] = game.home ? [gh, ga] : [ga, gh];
+  const pens = game.kind === 'playoff' && v === rv ? shootout(r, velez.str, game.rival.str) : null;
+  fillRound(s, { score: velezScore(v, rv, game.home), pens: pens == null ? null : game.home ? pens : !pens });
+  const earned = salaryOf(p);
+  p.money = (p.money ?? 0) + earned;
+  const dtBefore = p.dt;
+  p.dt = clamp(p.dt - 2, 0, 100);
+  if (dtBefore >= ROLE_AT.start && p.dt < ROLE_AT.start) pushNews(s, 'Mientras estabas lesionado, el que te reemplazó se ganó el puesto.');
+  t.last = {
+    label: game.label, kind: game.kind, injured: true, home: game.home, rival: { id: game.rival.id, name: game.rival.name, logo: game.rival.logo },
+    first: { v, r: rv, pens }, earned, injury: { ...p.injury },
+  };
+  advance(s);
   return s;
 }
 
@@ -544,6 +617,7 @@ export function nextTorneo(state) {
   s.player.age += 0.5;
   s.player.attrs = ageAttrs(s.player.attrs, s.player.age);
   s.player.energy = 100;
+  delete s.player.injury; // la pretemporada cura todo
   // Vuelven un poco hacia la media y se mueven al azar: ningún equipo queda arriba para siempre.
   const teams = t.teams.map((x) => ({ ...x, str: Math.round(clamp(x.str * 0.85 + 61 * 0.15 + (r() - 0.5) * 6, 50, 72)) }));
   s.torneo = newTorneo(s, t.n + 1, teams);
