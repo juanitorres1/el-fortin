@@ -1,9 +1,9 @@
 // «Así terminó»: el resumen del último partido en el Inicio, durante unos días después de jugarse. Goles con sus
 // minutos, expulsados, cambios, las estadísticas de los dos equipos y la figura estadística de Vélez. Todo sale del
 // detalle del partido de ESPN, que se pide en el navegador; si no responde, la sección no se muestra.
-import { fetchSummary, keyEvents, matchFigure, playersFromSummary, teamStats, velezView } from '../lib/espn.js';
-import { capitalize, fmt } from '../lib/core.js';
-import { useCached, useNow } from '../hooks/data.js';
+import { keyEvents, matchFigure, playersFromSummary, teamStats, velezView } from '../lib/espn.js';
+import { capitalize, fmt, num } from '../lib/core.js';
+import { loadSummary, useCached, useNow } from '../hooks/data.js';
 import { Crest, ResultBadge } from '../components/ui.jsx';
 
 const SHOW_DAYS = 4; // después, el resumen ya no es noticia: queda el último resultado en «Juega Vélez»
@@ -13,7 +13,7 @@ const HEADLINE = { G: 'Ganó Vélez', E: 'Empate', P: 'Perdió Vélez' };
 function StatRow({ s, velezHome }) {
   const total = s.home + s.away || 1;
   const pct = (n) => `${(n / total) * 100}%`;
-  const fmtN = (n) => `${Number.isInteger(n) ? n : n.toFixed(1)}${s.unit}`;
+  const fmtN = (n) => `${Number.isInteger(n) ? n : num(n, 1)}${s.unit}`;
   return (
     <li className="rs-stat">
       <span className={`num${velezHome ? ' is-velez' : ''}`}>{fmtN(s.home)}</span>
@@ -32,7 +32,7 @@ export function Resumen({ match }) {
   const now = useNow();
   const recent = match && now - Date.parse(match.date) < SHOW_DAYS * 864e5;
   const detail = useCached(recent ? `resumen-${match.id}` : null, async () => {
-    const summary = await fetchSummary(match);
+    const summary = await loadSummary(match);
     return { events: keyEvents(summary).reverse(), stats: teamStats(summary, match), figure: matchFigure(playersFromSummary(summary)) };
   });
   if (!recent || !detail) return null;

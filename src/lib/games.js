@@ -1,5 +1,5 @@
 // Prode y «Adiviná el once»: cuentas puras (lo que eligió cada hincha se guarda en su navegador, ver lib/storage.js).
-import { velezView } from './espn.js';
+import { tournamentOf, velezView } from './espn.js';
 
 export const ONCE_SIZE = 11;
 export const PRODE_POINTS = { exacto: 3, resultado: 1, errado: 0 };
@@ -35,6 +35,25 @@ export function prodeSummary(preds, results) {
     exact: list.filter((x) => x.score.kind === 'exacto').length,
     hits: list.filter((x) => x.score.kind !== 'errado').length,
   };
+}
+
+/**
+ * ¿Es un partido de eliminación (playoffs de la Liga o Copa Argentina)? Ahí, si se pronostica empate, se pregunta
+ * quién pasa. Las copas internacionales no entran: la ida y vuelta puede terminar empatada sin que nadie pase.
+ */
+export const isKnockout = (m) => Boolean(m) && (tournamentOf(m).playoff || /Copa Argentina/i.test(m.comp ?? ''));
+
+/** ¿El pronóstico está completo? Los dos goles y, si es empate en un partido de eliminación, quién pasa. */
+export const prodeReady = (p, m) => Boolean(p) && Number.isInteger(p.v) && Number.isInteger(p.r) && (p.v !== p.r || !isKnockout(m) || p.pass === 'v' || p.pass === 'r');
+
+/**
+ * Ids de los jugadores que (probablemente) no pueden jugar el partido `m`: los de players.json › discipline con roja
+ * o con el ciclo de amarillas cumplido en el mismo torneo. Es una estimación (la sanción la define el Tribunal).
+ */
+export function suspendedFor(discipline, m) {
+  if (!m) return new Map();
+  const label = tournamentOf(m).label;
+  return new Map((discipline ?? []).filter((d) => (d.kind === 'roja' || d.kind === 'amarillas') && d.tournament === label).map((d) => [d.id, d]));
 }
 
 /** Aciertos del once: `picked` = ids elegidos; `game` = partido de games.json. null si el partido no está. */

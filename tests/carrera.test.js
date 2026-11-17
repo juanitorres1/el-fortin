@@ -758,3 +758,16 @@ test('capitán: con 25 partidos de titular y 50 hinchas te dan la cinta (y un lo
   once.history = [{ n: 0, label: 'x', pj: 30, tit: 40, g: 0, a: 0, result: 'Fase regular' }];
   assert.ok(!playWeek(once, { r: rng(1) }).captain, 'sin hinchas no hay cinta');
 });
+
+// ---------- Modo asistido (informe nov-2026) ----------
+import { ASSIST_Q, FREE_KICK, assistX } from '../src/lib/carrera/match.js';
+
+test('modo asistido: frena siempre en «Bien» (ni perfecto ni mal) y no pasa la barrera por arriba', () => {
+  for (const m of [{ center: 0.25, width: 0.1 }, { center: 0.75, width: 0.18 }, { center: 0.5, width: 0.05 }, { center: 0.95, width: 0.12 }]) {
+    const x = assistX(m);
+    assert.ok(x >= 0 && x <= 1, `x ${x}`);
+    assert.ok(Math.abs(quality(x, m.center, m.width) - ASSIST_Q) < 1e-9);
+  }
+  assert.ok(ASSIST_Q >= 0.5 && ASSIST_Q < 0.7, 'zona verde, pero no «Muy bien»');
+  assert.ok(ASSIST_Q < FREE_KICK.over);
+});

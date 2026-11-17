@@ -88,3 +88,49 @@ export function markPlayed(log, day, game) {
 export function gameStreak(log, day, extraDays = []) {
   return playStreak([...Object.keys(log ?? {}).map(Number), ...extraDays], day);
 }
+
+/**
+ * Guarda el resultado de una partida en el historial de un juego: `hist` = { [día]: valor } (los últimos 400 días).
+ * El valor es el puntaje (trivia, duelos, grilla, once) o, en los de adivinar, los intentos que usó (0 = no lo sacó).
+ */
+export function recordResult(hist, day, value) {
+  const next = { ...(hist ?? {}), [day]: value };
+  for (const d of Object.keys(next)) if (Number(d) < day - 400) delete next[d];
+  return next;
+}
+
+/**
+ * Números de un historial para la pantalla final. `kind`: 'score' (puntaje de `of`) → { played, avg, best, perfect };
+ * 'guess' (intentos, 0 = no lo sacó) → { played, wins, pct, avg } (`avg` = intentos promedio cuando lo sacó).
+ */
+export function resultStats(hist, kind, of) {
+  const values = Object.values(hist ?? {}).filter((v) => typeof v === 'number');
+  const played = values.length;
+  const mean = (l) => (l.length ? Math.round((l.reduce((a, b) => a + b, 0) / l.length) * 10) / 10 : null);
+  if (kind === 'guess') {
+    const wins = values.filter((v) => v > 0);
+    return { played, wins: wins.length, pct: played ? Math.round((wins.length / played) * 100) : 0, avg: mean(wins) };
+  }
+  return { played, avg: mean(values), best: played ? Math.max(...values) : null, perfect: values.filter((v) => v === of).length };
+}
+
+/**
+ * Cuánto falta para el próximo juego: a las 00:00 de la Argentina (UTC−3, sin horario de verano) del día siguiente o,
+ * con `weekly`, del domingo siguiente. Devuelve los milisegundos (siempre > 0).
+ */
+export function untilNext(now, weekly = false) {
+  const AR = 3 * 3600e3;
+  const day = Math.floor((now - AR) / 864e5); // día argentino (mismo número que dayNumber)
+  const next = weekly ? 3 + (weekNumber(day) + 1) * 7 : day + 1;
+  return next * 864e5 + AR - now;
+}
+
+/** «5 h 12 min» o «2 días y 3 h». */
+export function fmtWait(ms) {
+  const min = Math.max(1, Math.ceil(ms / 60e3));
+  const d = Math.floor(min / 1440);
+  const h = Math.floor((min % 1440) / 60);
+  const m = min % 60;
+  if (d) return `${d} ${d === 1 ? 'día' : 'días'}${h ? ` y ${h} h` : ''}`;
+  return h ? `${h} h${m ? ` ${m} min` : ''}` : `${m} min`;
+}

@@ -1,0 +1,77 @@
+<!doctype html>
+<!--
+  Página de «no existe» de El Fortín. GitHub Pages la sirve (con estado 404) para cualquier dirección inexistente
+  dentro de /el-fortin/, a cualquier profundidad: por eso lleva <base> y no rutas relativas a la página pedida.
+  Es estática y liviana a propósito (sin React ni datos) y no va en la precarga del service worker.
+  Los links del menú tienen que coincidir con src/site.js (lo revisa tests/seo.test.js).
+-->
+<html lang="es-AR">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <base href="/el-fortin/">
+    <title>Página no encontrada · El Fortín</title>
+    <meta name="robots" content="noindex">
+    <meta name="color-scheme" content="light dark">
+    <meta name="theme-color" content="#0061a8">
+    <link rel="icon" href="assets/icons/icon.svg" type="image/svg+xml">
+    <link rel="icon" href="assets/icons/favicon-32.png" sizes="32x32" type="image/png">
+    <style>
+      :root {
+        --bg: #ffffff; --text: #1b1d21; --text-2: #5b6270; --accent: #0061a8; --accent-soft: #e6f0f8;
+        --velez: #0061a8; --velez-deep: #004476; --navy: #00335a;
+        --display: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+        --body: 'Montserrat', system-ui, -apple-system, 'Segoe UI', sans-serif;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root { --bg: #0f1115; --text: #eceef2; --text-2: #a3aab7; --accent: #4ea3f0; --accent-soft: #14273b; }
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; background: var(--bg); color: var(--text); font: 1rem/1.5 var(--body); }
+      .top { background: var(--velez); color: #fff; }
+      .wrap { width: min(100% - 2rem, 60rem); margin-inline: auto; }
+      .brand { display: inline-flex; align-items: center; gap: 0.6rem; min-height: 4rem; color: inherit; text-decoration: none; font: 800 1.6rem/1 var(--display); text-transform: uppercase; letter-spacing: 0.02em; }
+      .brand img { background: #fff; border-radius: 50%; padding: 2px; }
+      /* La V de la camiseta, como en las bandas de título */
+      .band { background: var(--velez-deep); color: #fff; padding: 2.5rem 0 4rem; clip-path: polygon(0 0, 100% 0, 100% calc(100% - 2rem), 50% 100%, 0 calc(100% - 2rem)); }
+      h1 { margin: 0; font: 800 clamp(2.75rem, 8vw, 5rem)/0.9 var(--display); text-transform: uppercase; }
+      .band p { margin: 0.75rem 0 0; font-size: 1.0625rem; }
+      main { flex: 1; padding: 2rem 0 3rem; }
+      .btn { display: inline-flex; align-items: center; justify-content: center; min-height: 2.75rem; padding: 0 1.25rem; border-radius: 999px; background: var(--velez); color: #fff; font: 700 0.9375rem/1 var(--body); text-decoration: none; }
+      h2 { font: 800 1.75rem/1 var(--display); text-transform: uppercase; margin: 2rem 0 0.5rem; }
+      ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.5rem; }
+      ul a { display: inline-flex; align-items: center; min-height: 2.75rem; padding: 0 1rem; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-weight: 700; text-decoration: none; }
+      a:hover { text-decoration: underline; }
+      :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+      .top :focus-visible { outline-color: #fff; }
+      .btn:focus-visible { outline-color: var(--text); }
+      footer { background: var(--navy); color: #fff; padding: 1.5rem 0; font-size: 0.875rem; }
+      footer p { margin: 0; }
+    </style>
+  </head>
+  <body>
+    <header class="top">
+      <div class="wrap"><a class="brand" href="./"><img src="assets/v.svg" alt="" width="28" height="28"><span>El Fortín</span></a></div>
+    </header>
+    <div class="band">
+      <div class="wrap">
+        <h1>Esta página no existe</h1>
+        <p>Puede que el link esté mal escrito o que la página se haya movido.</p>
+      </div>
+    </div>
+    <main class="wrap">
+      <a class="btn" href="./">Ir al inicio</a>
+      <h2>O andá a</h2>
+      <ul>
+        <li><a href="partidos.html">Partidos</a></li>
+        <li><a href="plantel.html">Plantel</a></li>
+        <li><a href="historial.html">Historial</a></li>
+        <li><a href="juegos.html">Juegos</a></li>
+        <li><a href="club.html">Club</a></li>
+      </ul>
+    </main>
+    <footer>
+      <div class="wrap"><p><strong>El Fortín</strong> es un sitio de hinchas, no oficial. No está afiliado al Club Atlético Vélez Sarsfield.</p></div>
+    </footer>
+  </body>
+</html>

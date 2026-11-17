@@ -8,6 +8,7 @@ export const SITE = {
   url: 'https://juanitorres1.github.io/el-fortin/',
   ogImage: 'assets/og.png',
   ogImageAlt: 'El Fortín, sitio de hinchas de Vélez Sarsfield',
+  repo: 'https://github.com/juanitorres1/el-fortin',
   sources:
     'Partidos, tablas, plantel y estadísticas: ESPN. Noticias: velez.com.ar. Pronóstico: Open-Meteo (CC BY 4.0). Historial 1931–2000: dataset «Liga Argentina 1931–2023» (dominio público); Primera División 1919–1930 (era amateur) y copas 1970–2000: RSSSF (rsssf.org, P. Ciullini, P. Wally, O. J. Gorgazzi, J. P. Andrés, K. Stokkermans y otros). Récords: Wikipedia (CC BY-SA). Juegos: jugadores de Wikidata (CC0) y fotos de Wikimedia Commons (autor y licencia junto a cada foto). Alrededores del estadio en 3D: © colaboradores de OpenStreetMap (ODbL).',
 };
@@ -30,7 +31,9 @@ export const PAGES = [
   { key: 'juegos', file: 'juegos.html', href: 'juegos.html', label: 'Juegos', title: 'Juegos · El Fortín', description: 'Trivia diaria de Vélez, prode del próximo partido y adiviná el once titular.' },
   { key: 'club', file: 'club.html', href: 'club.html', label: 'Club', title: 'El club · El Fortín', description: 'Historia, estadio, Don Pepe Amalfitani, momentos, palmarés, ídolos y récords de Vélez Sarsfield.' },
   // Páginas fuera del menú (`parent` = la sección que queda marcada).
-  { key: 'jugador', file: 'jugador.html', href: 'jugador.html', label: 'Jugador', parent: 'plantel', nav: false, title: 'Jugador · El Fortín', description: 'Partido por partido de cada jugador del plantel de Vélez Sarsfield.' },
+  // `query`: la página muestra otra cosa según ese parámetro (jugador.html?id=…). No lleva canonical ni og:url fijos
+  // (colapsarían todas las fichas en jugador.html): el canonical con el id lo pone Layout.jsx al abrir.
+  { key: 'jugador', file: 'jugador.html', href: 'jugador.html', label: 'Jugador', parent: 'plantel', nav: false, query: 'id', title: 'Jugador · El Fortín', description: 'Partido por partido de cada jugador del plantel de Vélez Sarsfield.' },
   { key: 'vivo', file: 'vivo.html', href: 'vivo.html', label: 'En la cancha', parent: 'partidos', nav: false, title: 'En la cancha · El Fortín', description: 'Modo cancha: el partido de Vélez, los otros resultados de la fecha y la tabla en vivo.' },
 ].map((p) => ({ nav: true, ...p, icon: ICONS[p.key], url: SITE.url + (p.file === 'index.html' ? '' : p.file) }));
 
@@ -43,10 +46,10 @@ export function headTags(page) {
     '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">',
     `<title>${attr(page.title)}</title>`,
     `<meta name="description" content="${attr(page.description)}">`,
-    `<link rel="canonical" href="${page.url}">`,
+    ...(page.query ? [] : [`<link rel="canonical" href="${page.url}">`]),
     `<meta property="og:title" content="${attr(page.title)}">`,
     `<meta property="og:description" content="${attr(page.description)}">`,
-    `<meta property="og:url" content="${page.url}">`,
+    ...(page.query ? [] : [`<meta property="og:url" content="${page.url}">`]),
     '<meta property="og:type" content="website">',
     `<meta property="og:site_name" content="${SITE.name}">`,
     '<meta property="og:locale" content="es_AR">',

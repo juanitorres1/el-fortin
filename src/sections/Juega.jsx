@@ -6,7 +6,7 @@ import { capitalize, fmt, nextMatch, standingsNow, withTimeout } from '../lib/co
 import { goalText, kickoffChange, kickoffChangeText } from '../lib/alerts.js';
 import { streakLines } from '../lib/facts.js';
 import { previaCard, resultCard, scorersLine } from '../lib/card.js';
-import { useCached, useNow } from '../hooks/data.js';
+import { loadSummary, useCached, useNow } from '../hooks/data.js';
 import { useGoalAlert, useKickoffs } from '../hooks/page.js';
 import { Crest, ResultBadge, Skeletons } from '../components/ui.jsx';
 import { ShareCardButton } from '../components/ShareCard.jsx';
@@ -20,8 +20,10 @@ export function Countdown({ date }) {
   const diff = Math.max(0, date - now);
   const parts = [[Math.floor(diff / 864e5), 'días'], [Math.floor(diff / 36e5) % 24, 'horas'], [Math.floor(diff / 6e4) % 60, 'min']];
   return (
-    <div className="countdown" role="timer" aria-label="Falta para el partido">
-      {parts.map(([n, l]) => <div key={l}><b className="num">{String(n).padStart(2, '0')}</b><span>{l}</span></div>)}
+    <div className="countdown" role="timer">
+      {/* Se lee como frase («Faltan 3 días, 17 horas y 32 minutos»), no como «03días17horas32min». */}
+      <span className="sr-only">{`Faltan ${parts[0][0]} días, ${parts[1][0]} horas y ${parts[2][0]} minutos para el partido`}</span>
+      {parts.map(([n, l]) => <div key={l} aria-hidden="true"><b className="num">{String(n).padStart(2, '0')}</b><span>{l}</span></div>)}
     </div>
   );
 }
@@ -112,7 +114,7 @@ function Share({ last, next, results, facts, zone, row }) {
   const rival = next && (next.home.id === VELEZ_ID ? next.away : next.home);
   const lastCard = async () => {
     // Los goleadores salen del detalle del partido (ESPN); si no responde, la tarjeta va sin ellos.
-    const events = await withTimeout(fetchSummary(last), 5000).then(keyEvents).catch(() => null);
+    const events = await withTimeout(loadSummary(last), 5000).then(keyEvents).catch(() => null);
     const position = row && zone ? `${row.rank}.º en la ${zone.name} con ${row.pts} puntos` : null;
     return resultCard(last, { scorers: scorersLine(events), streak, position });
   };

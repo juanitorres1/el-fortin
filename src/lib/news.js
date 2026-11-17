@@ -10,8 +10,26 @@ export const isOfficialNoteUrl = (url) => /^https:\/\/velez\.com\.ar\/[a-z-]+\/n
 /** Imágenes: solo las que sirve la web oficial (se muestran directo desde velez.com.ar, con link a la nota). */
 export const isOfficialImageUrl = (url) => /^https:\/\/velez\.com\.ar\/img\/[\w/.-]+\.(?:jpe?g|png|webp|gif)$/i.test(url ?? '');
 
-/** Miniaturas generadas por el deploy (data/generated/img/news/…) o, si no hubo ImageMagick, la imagen oficial. */
-export const isNewsImage = (src) => /^data\/generated\/img\/news\/[a-f0-9]{16}-[tf]\.jpg$/.test(src ?? '') || isOfficialImageUrl(src);
+/**
+ * Miniaturas generadas por el deploy (data/generated/img/news/…: «-f» 720 px, «-m» 400 px, en JPEG o WebP; «-t» es
+ * de copias viejas) o, si no hubo ImageMagick, la imagen oficial.
+ */
+export const isNewsImage = (src) => /^data\/generated\/img\/news\/[a-f0-9]{16}-[tfm]\.(?:jpg|webp)$/.test(src ?? '') || isOfficialImageUrl(src);
+
+/**
+ * Fuentes de la foto de una tarjeta: `src` (JPEG de 720 o la imagen oficial), `srcSet` en JPEG si hay versión de
+ * 400 px y `webp` (srcset WebP) si el deploy pudo generarlo. Solo rutas que pasan `isNewsImage`.
+ */
+export function newsPhotoSources(h) {
+  if (!isNewsImage(h?.photo)) return null;
+  const set = (big, small) => {
+    const parts = [isNewsImage(small) && `${small} 400w`, isNewsImage(big) && `${big} 720w`].filter(Boolean);
+    return parts.length ? parts.join(', ') : null;
+  };
+  // Sin la de 400 no hay nada que elegir en JPEG: «720w» sobre la imagen oficial (≈ 700 px) daría lo mismo.
+  // El WebP necesita su versión de 720: con solo la de 400, un celular la estiraría.
+  return { src: h.photo, srcSet: isNewsImage(h.photoSm) ? set(h.photo, h.photoSm) : null, webp: isNewsImage(h.photoWebp) ? set(h.photoWebp, h.photoSmWebp) : null };
+}
 
 const TZ = 'America/Argentina/Buenos_Aires';
 

@@ -2,18 +2,18 @@
 // hacia la respuesta) y qué no. Dos partidas por día: el plantel de hoy (ESPN) y los históricos (Wikidata).
 import { useMemo, useState } from 'react';
 import { DATA } from '../../lib/core.js';
-import { squares } from '../../lib/daily.js';
-import { POS_NAME, TAPADO_TRIES, historicPlayers, squadPlayers, tapadoOfDay, tapadoPools, tapadoRow } from '../../lib/players.js';
+import { resultStats, squares } from '../../lib/daily.js';
+import { POS_NAME, TAPADO_TRIES, historicPlayers, squadAnswers, squadPlayers, tapadoOfDay, tapadoPools, tapadoRow } from '../../lib/players.js';
 import { useJson } from '../../hooks/data.js';
 import { Empty, Segmented, Skeletons } from '../../components/ui.jsx';
-import { Avatar, GameEnd, PlayerSearch, ShareResult, buzz, useDaily, useFlash } from './shared.jsx';
+import { Announcer, Avatar, DailyStats, GameEnd, PlayerSearch, ShareResult, buzz, useAnnounce, useDaily, useFlash, useResults } from './shared.jsx';
 
 const MODES = [{ value: 'hoy', label: 'Plantel de hoy' }, { value: 'historia', label: 'Históricos' }];
 const STATE_TEXT = { ok: 'coincide', near: 'cerca', no: 'no coincide' };
 const STATE_MARK = { ok: '✓', near: '≈', no: '' };
 const DIR = { up: ['↑', 'la respuesta es más'], down: ['↓', 'la respuesta es menos'] };
 
-function Board({ mode, day, label, guessList, answers, onDone }) {
+function Board({ mode, day, label, guessList, answers, onDone, streak }) {
   const tries = TAPADO_TRIES[mode];
   const [game, setGame] = useDaily(`tapado-${mode}`, day, { guesses: [], answer: null });
   // La respuesta queda fija al primer intento: si el plantel cambia a mitad del día, la partida empezada no cambia.
@@ -21,6 +21,8 @@ function Board({ mode, day, label, guessList, answers, onDone }) {
   const guesses = game.guesses.map((id) => guessList.find((p) => p.id === id)).filter(Boolean);
   const [flash, fire] = useFlash(1400); // la fila recién jugada da vuelta sus casillas de a una
   const [fresh, setFresh] = useState(false);
+  const [hist, record] = useResults(`tapado-${mode}`);
+  const [said, say] = useAnnounce();
   if (!target) return <Empty>El Tapado no está disponible ahora.</Empty>;
   const won = guesses.some((p) => p.id === target.id);
   const done = won || guesses.length >= tries;
@@ -35,18 +37,26 @@ function Board({ mode, day, label, guessList, answers, onDone }) {
     setGame({ guesses: next, answer: target.id });
     buzz(p.id === target.id);
     fire(p.id);
+    // Lo que dio el intento, para el lector de pantalla (la fila nueva se dibuja arriba de todo).
+    if (p.id !== target.id && next.length < tries) {
+      const row = tapadoRow(p, target, mode);
+      say(`${p.n}: no es. ${row.map((c) => `${c.label} ${c.text}, ${STATE_TEXT[c.state]}${c.dir ? `, ${DIR[c.dir][1]}` : ''}`).join('; ')}. Te quedan ${tries - next.length} intentos.`);
+    }
     if (p.id === target.id || next.length >= tries) {
+      record(day, p.id === target.id ? next.length : 0);
       setFresh(true);
       onDone('tapado');
     }
   };
 
+  const st = resultStats(hist, 'guess');
   return (
     <>
+      <Announcer text={said} />
       {!done && (
         <div className="card">
           <p className="tries" aria-hidden="true">{Array.from({ length: tries }, (_, i) => <i key={i} className={i < guesses.length ? 'is-used' : undefined} />)}</p>
-          <PlayerSearch list={guessList} onPick={guess} exclude={new Set(game.guesses)} label={`Intento ${guesses.length + 1} de ${tries}`} />
+          <PlayerSearch list={guessList} onPick={guess} exclude={new Set(game.guesses)} label={mode === 'hoy' ? 'Escribí el nombre de un jugador del plantel' : 'Escribí el nombre de un jugador histórico'} detail={`Intento ${guesses.length + 1} de ${tries}`} />
         </div>
       )}
       {rows.length > 0 && (
@@ -66,7 +76,9 @@ function Board({ mode, day, label, guessList, answers, onDone }) {
         </div>
       )}
       {done && flash == null && (
-        <GameEnd fresh={fresh} win={won} player={target} sub={sub} kicker={`${title} del ${label}`} score={won ? `${guesses.length}/${tries}` : 'X'} phrase={won ? `¡Era ${target.n}!` : `Era ${target.n}. Mañana hay otro.`} marks={marks}>
+        <GameEnd fresh={fresh} win={won} player={target} sub={sub} kicker={`${title} del ${label}`} score={won ? `${guesses.length}/${tries}` : 'X'} phrase={won ? `¡Era ${target.n}!` : `Era ${target.n}. Mañana hay otro.`} marks={marks}
+          stats={<DailyStats streak={streak} stats={[['Jugados', st.played], ['Acertados', st.played ? `${st.wins} (${st.pct} %)` : null], ['Intentos promedio', st.avg != null ? String(st.avg).replace('.', ',') : null]]} />}
+        >
           <ShareResult
             anchor="tapado" file="tapado-velez.png" text={`El Fortín · ${title} ${label} · ${won ? guesses.length : 'X'}/${tries}\n${marks}`}
             card={() => ({ kicker: `${title} del ${label}`, headline: title, big: true, center: won ? `${guesses.length}/${tries}` : 'X', sub: won ? 'intentos' : 'no lo saqué', lines: ['¿Vos lo sacás? Un jugador de Vélez por día en El Fortín.'] })}
@@ -80,8 +92,9 @@ function Board({ mode, day, label, guessList, answers, onDone }) {
 function Hoy({ roster, ...rest }) {
   const stats = useJson(`${DATA}players.json`);
   const squad = useMemo(() => squadPlayers(roster, stats), [roster, stats]);
+  const answers = useMemo(() => squadAnswers(squad), [squad]);
   if (roster === undefined || stats === undefined) return <Skeletons className="sk-card" />;
-  return <Board mode="hoy" guessList={squad} answers={squad} {...rest} />;
+  return <Board mode="hoy" guessList={squad} answers={answers} {...rest} />;
 }
 
 function Historia(props) {
@@ -91,12 +104,12 @@ function Historia(props) {
   return <Board mode="historia" guessList={pools.guess} answers={pools.answers} {...props} />;
 }
 
-export function Tapado({ day, label, roster, onDone }) {
+export function Tapado({ day, label, roster, onDone, streak }) {
   const [mode, setMode] = useState('hoy');
   return (
     <>
       <Segmented options={MODES} value={mode} onChange={setMode} label="Qué jugadores" />
-      {mode === 'hoy' ? <Hoy roster={roster} day={day} label={label} onDone={onDone} /> : <Historia day={day} label={label} onDone={onDone} />}
+      {mode === 'hoy' ? <Hoy roster={roster} day={day} label={label} onDone={onDone} streak={streak} /> : <Historia day={day} label={label} onDone={onDone} streak={streak} />}
       <p className="muted small">
         <b>✓</b> coincide · <b>≈</b> cerca · <b>↑ ↓</b> la respuesta es más alta o más baja.{' '}
         {mode === 'hoy'

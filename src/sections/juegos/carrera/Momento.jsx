@@ -1,9 +1,11 @@
 // Una jugada del partido: elegir qué hacer (adónde patear, tocando el arco, o qué pase dar) y frenar la barra en la
 // zona verde. La barra se mueve con CSS; la posición al tocar sale del tiempo de la animación (no de lo dibujado),
 // así un cuadro perdido no cambia el resultado. Al frenar, la raya queda quieta y aparece el veredicto un instante.
-// Con «reducir movimiento» no hay barra: la ejecución sale del azar.
+// Con «reducir movimiento» no hay barra: la ejecución sale del azar. Con el modo asistido (lector de pantalla o
+// movilidad reducida) la barra frena sola en un lugar fijo de la zona verde («Bien»: ver ASSIST_Q en match.js) y el
+// veredicto se anuncia por una región viva.
 import { useEffect, useRef, useState } from 'react';
-import { DRIBBLES, PASSES, TACKLES, isPenalty, kindText, markerAt, quality, tellText } from '../../../lib/carrera/match.js';
+import { DRIBBLES, PASSES, TACKLES, assistX, isPenalty, kindText, markerAt, quality, tellText } from '../../../lib/carrera/match.js';
 import { buzz } from '../shared.jsx';
 import { Arco, Cancha, Duelo, Quite } from './Escena.jsx';
 
@@ -33,17 +35,31 @@ export function verdict(q) {
   return ['Mal', 'is-bad'];
 }
 
-function Bar({ moment, onStop }) {
+function Bar({ moment, onStop, auto }) {
   const marker = useRef(null);
   const start = useRef(0);
   const button = useRef(null);
+  const box = useRef(null);
   const timer = useRef(null);
   const [stopped, setStopped] = useState(null); // { x, q }
   useEffect(() => {
     start.current = performance.now();
-    button.current?.focus();
-    return () => clearTimeout(timer.current);
-  }, []);
+    if (!auto) {
+      button.current?.focus();
+      return () => clearTimeout(timer.current);
+    }
+    // Asistido: la región viva ya está montada (vacía); un instante después frena sola y se anuncia.
+    box.current?.focus();
+    const x = assistX(moment);
+    const t = setTimeout(() => {
+      setStopped({ x, q: quality(x, moment.center, moment.width) });
+      timer.current = setTimeout(() => onStop(x), 1400);
+    }, 250);
+    return () => {
+      clearTimeout(t);
+      clearTimeout(timer.current);
+    };
+  }, []); // solo al montar: la jugada no cambia mientras se ve la barra
   const stop = () => {
     if (stopped) return;
     const anim = marker.current?.getAnimations?.()[0];
@@ -57,18 +73,22 @@ function Bar({ moment, onStop }) {
   const left = Math.max(0, moment.center - moment.width);
   const right = Math.min(1, moment.center + moment.width);
   const [word, cls] = stopped ? verdict(stopped.q) : [];
+  const n = stopped ? starsOf(stopped.q) : 0;
   return (
-    <div className="cr-timing">
+    <div className="cr-timing" ref={box} tabIndex={-1}>
+      {/* Siempre montada: el veredicto se anuncia al cambiar el texto. */}
+      <p className="sr-only" role="status" aria-live="polite">{stopped ? `${auto ? 'Modo asistido: la barra frenó sola. ' : ''}${word}, ${n} de 3 estrellas.` : auto ? 'Modo asistido: la barra frena sola.' : ''}</p>
       <div className={`cr-bar${stopped ? ` is-stopped ${cls}` : ''}`} aria-hidden="true">
         <span className="cr-ticks" />
         <span className="cr-zone" style={{ left: `${left * 100}%`, width: `${(right - left) * 100}%` }} />
         <span className="cr-sweet" style={{ left: `${moment.center * 100}%` }} />
-        <i ref={marker} className="cr-marker" style={stopped ? { left: `${stopped.x * 100}%`, animation: 'none' } : { animationDuration: `${moment.sweep}ms` }} />
+        <i ref={marker} className="cr-marker" style={stopped ? { left: `${stopped.x * 100}%`, animation: 'none' } : auto ? { left: `${moment.center * 100}%`, animation: 'none', opacity: 0.4 } : { animationDuration: `${moment.sweep}ms` }} />
       </div>
       {stopped
-        ? <p className={`cr-verdict ${cls}`} role="status">{word} <Stars q={stopped.q} /></p>
-        : <button ref={button} type="button" className="btn btn-solid cr-now" onClick={stop}>¡Ahora!</button>}
-      {!stopped && <p className="muted small">Tocá (o apretá Enter) cuando la raya pase por la zona verde: cuanto más al centro, mejor.</p>}
+        ? <p className={`cr-verdict ${cls}`} aria-hidden="true">{word} <Stars q={stopped.q} /></p>
+        : auto ? <p className="muted small">Modo asistido: la barra frena sola en la zona verde.</p>
+          : <button ref={button} type="button" className="btn btn-solid cr-now" onClick={stop}>¡Ahora!</button>}
+      {!stopped && !auto && <p className="muted small">Tocá (o apretá Enter) cuando la raya pase por la zona verde: cuanto más al centro, mejor. ¿Te cuesta el timing o usás lector de pantalla? Activá el modo asistido arriba.</p>}
     </div>
   );
 }
@@ -78,14 +98,14 @@ const OPTIONS = { pase: PASSES, gambeta: DRIBBLES, quite: TACKLES };
 const ASK = { pase: '¿Qué pase das?', gambeta: '¿Cómo lo encarás?', quite: '¿Cómo lo marcás?' };
 const DOING = { pase: 'Pase', gambeta: 'Gambeta', quite: 'Marca', atajada: 'Te tirás', remate: 'Remate', penal: 'Remate' };
 
-export function Momento({ moment, onAnswer, tip = null }) {
+export function Momento({ moment, onAnswer, tip = null, assisted = false }) {
   const [choice, setChoice] = useState(null);
   const [preview, setPreview] = useState(null);
   const options = OPTIONS[moment.type] ?? null;
   const save = moment.type === 'atajada';
   const tell = tellText(moment);
   const pick = (key) => {
-    if (calm()) onAnswer({ choice: key, x: null });
+    if (calm() && !assisted) onAnswer({ choice: key, x: null });
     else setChoice(key);
   };
   const scene = moment.type === 'pase' ? <Cancha choice={choice} preview={preview} />
@@ -116,7 +136,7 @@ export function Momento({ moment, onAnswer, tip = null }) {
       {choice && (
         <>
           <p className="small"><b>{DOING[moment.type]}:</b> {options ? options.find((o) => o.key === choice)?.label : save ? DIVE_LABEL[choice] : moment.kind === 'libre' ? FREE_LABEL[choice] : AIM_LABEL[choice]}</p>
-          <Bar moment={moment} onStop={(x) => onAnswer({ choice, x })} />
+          <Bar moment={moment} auto={assisted} onStop={(x) => onAnswer({ choice, x })} />
         </>
       )}
     </div>

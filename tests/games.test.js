@@ -35,3 +35,33 @@ test('onceScore: cuántos titulares acertó', () => {
   assert.deepEqual([r.hits, r.total, [...r.hitIds]], [1, 2, ['a']]);
   assert.equal(onceScore(['a'], null), null);
 });
+
+// ---------- Informe nov-2026: prode en eliminación y suspendidos en «Adiviná el once» ----------
+import { isKnockout, prodeReady, suspendedFor } from '../src/lib/games.js';
+
+test('prode: arranca sin marcador y, en eliminación, el empate pide quién pasa', () => {
+  const liga = { comp: 'Liga Profesional', round: 'Torneo Clausura - Fecha 5', date: '2026-10-01T20:00:00Z' };
+  const octavos = { comp: 'Liga Profesional', round: 'Clausura - Round of 16', date: '2026-11-20T23:00Z' };
+  assert.equal(isKnockout(liga), false);
+  assert.equal(isKnockout(octavos), true);
+  assert.equal(isKnockout({ comp: 'Copa Argentina', round: 'Round of 32', date: '2026-05-01T20:00Z' }), true);
+  assert.equal(prodeReady({ v: null, r: null }, liga), false);
+  assert.equal(prodeReady({ v: 1, r: null }, liga), false);
+  assert.equal(prodeReady({ v: 1, r: 1 }, liga), true);
+  assert.equal(prodeReady({ v: 1, r: 1 }, octavos), false);
+  assert.equal(prodeReady({ v: 1, r: 1, pass: 'v' }, octavos), true);
+  assert.equal(prodeReady({ v: 2, r: 1 }, octavos), true);
+});
+
+test('suspendedFor: roja o ciclo de amarillas del torneo del partido (no el límite ni otro torneo)', () => {
+  const next = { comp: 'Liga Profesional', round: 'Clausura - Round of 16', date: '2026-11-20T23:00Z' };
+  const discipline = [
+    { id: '1', kind: 'roja', tournament: 'Clausura 2026', text: 'Expulsado en el último partido' },
+    { id: '2', kind: 'amarillas', tournament: 'Clausura 2026', text: 'Llegó a 5 amarillas' },
+    { id: '3', kind: 'limite', tournament: 'Clausura 2026', text: '4 amarillas' },
+    { id: '4', kind: 'roja', tournament: 'Copa Argentina 2026', text: 'Expulsado' },
+  ];
+  assert.deepEqual([...suspendedFor(discipline, next).keys()], ['1', '2']);
+  assert.equal(suspendedFor(null, next).size, 0);
+  assert.equal(suspendedFor(discipline, null).size, 0);
+});

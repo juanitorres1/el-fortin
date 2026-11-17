@@ -10,13 +10,16 @@ const ALL = 'año';
 const rec = (t) => `${t.g} G · ${t.e} E · ${t.p} P`;
 const eff = (t) => (t.pj ? `${Math.round((t.pts / (3 * t.pj)) * 100)}%` : '—');
 
-function Split({ title, t }) {
+// En una copa (eliminación directa) no hay puntos: se muestran partidos y resultados.
+function Split({ title, t, points }) {
   return (
     <div className="cf-split">
-      <p className="kicker">{title}</p>
-      <p className="cf-big num">{t.pts}<small> pts en {t.pj}</small></p>
+      {title && <p className="kicker">{title}</p>}
+      {points
+        ? <p className="cf-big num">{t.pts}<small> pts en {t.pj}</small></p>
+        : <p className="cf-big num">{t.pj}<small> {t.pj === 1 ? 'partido' : 'partidos'}</small></p>}
       <p>{rec(t)} · goles {t.gf}-{t.gc}</p>
-      <p className="muted small">Efectividad {eff(t)}</p>
+      {points && <p className="muted small">Efectividad {eff(t)}</p>}
     </div>
   );
 }
@@ -52,6 +55,9 @@ export function Cifras({ games, updatedAt }) {
   const s = seasonNumbers(label === ALL ? games : games.filter((g) => g.label === label));
   const k = s.kinds;
   const scored = k.p + k.c + k.tl + k.ec + k[''];
+  const points = label === ALL || league.includes(label);
+  // Solo los lados con partidos: en la Copa Argentina, todo es en cancha neutral y «De visitante: 0 en 0» no dice nada.
+  const splits = [['De local', s.home], ['De visitante', s.away], ['En cancha neutral', s.neutral]].filter(([, t]) => t.pj);
   const options = [...league, ...(labels.length > 1 ? [ALL] : []), ...cups].map((l) => ({ value: l, label: l === ALL ? 'Todo el año' : l }));
   return (
     <section className="block" id="cifras" aria-labelledby="t-cifras">
@@ -59,8 +65,8 @@ export function Cifras({ games, updatedAt }) {
       {options.length > 1 && <Segmented label="Elegir torneo" options={options} value={label} onChange={setPick} />}
       <div className="cifras">
         <article className="card cf-card">
-          <h3 className="h3">Local y visitante</h3>
-          <div className="cf-splits"><Split title="De local" t={s.home} /><Split title="De visitante" t={s.away} /></div>
+          <h3 className="h3">{splits.length === 1 ? splits[0][0] : 'Local y visitante'}</h3>
+          <div className="cf-splits">{splits.map(([title, t]) => <Split key={title} title={splits.length > 1 ? title : null} t={t} points={points} />)}</div>
         </article>
         {s.known > 0 && (
           <>
@@ -90,6 +96,7 @@ export function Cifras({ games, updatedAt }) {
       </div>
       <p className="muted small">
         Partidos oficiales de {label === ALL ? 'este año' : label}, según ESPN{updatedAt ? `, actualizados el ${fmt.stamp.format(new Date(updatedAt))}` : ''}.
+        {s.shootouts > 0 && ` Los partidos definidos por penales cuentan como ganados o perdidos, como en la lista de partidos.`}
         {s.known < s.pj && ` Los minutos y cómo llegaron los goles salen de ${s.known} de los ${s.pj} partidos (en el resto ESPN no informó los goles).`}
       </p>
     </section>

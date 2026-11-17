@@ -6,7 +6,8 @@ import { mount } from '../main.jsx';
 import { VELEZ_ID, fetchScoreboard } from '../lib/espn.js';
 import { DATA, capitalize, espnDay, fmt, liveStandings, liveTables, nextMatch, sourceNote } from '../lib/core.js';
 import { offLabel } from '../lib/alerts.js';
-import { useCached, useJson, useLiveData } from '../hooks/data.js';
+import { useCached, useJson, useLiveData, useNow } from '../hooks/data.js';
+import { Cuadro } from '../sections/Cuadro.jsx';
 import { useGoalAlert, useLiveTitle } from '../hooks/page.js';
 import { Layout } from '../components/Layout.jsx';
 import { Crest, Empty, Segmented, Skeletons } from '../components/ui.jsx';
@@ -93,10 +94,16 @@ function Vivo() {
   const standings = data && (others ? liveTables(data.standings, others) : data.standings);
 
   const isLive = match?.status === 'in';
+  // En playoffs, lo que importa es el cuadro, no la tabla de la zona (ya terminó).
+  const now = useNow();
+  const playoffs = useJson(`${DATA}playoffs.json`);
+  const firstRound = data?.standings?.playoffRounds?.[0];
+  const inPlayoffs = Boolean(firstRound?.start && now >= Date.parse(firstRound.start) && playoffs?.phaseKey === data.standings.phaseKey);
   return (
     <Layout page="vivo" mainClass="vivo">
       <section className="vivo-band" aria-label="El partido de Vélez">
         <div className="wrap">
+          <h1 className="sr-only">{match ? `Modo cancha: ${match.home.name} vs ${match.away.name}` : 'Modo cancha'}</h1>
           <GoalAlert alert={goal} />
           {state.status === 'loading' ? <Skeletons className="sk-juega" />
             : !match ? <p className="juega-empty">No hay partidos de Vélez programados.</p>
@@ -120,14 +127,14 @@ function Vivo() {
       </section>
       <div className="wrap page">
         {leagueMatch && (
-          <div className="two-col">
+          <div className={inPlayoffs ? undefined : 'two-col'}>
             <section className="block" aria-labelledby="t-fecha">
               <h2 className="h2" id="t-fecha">La fecha</h2>
               {others === undefined ? <Skeletons n={4} className="sk-row" />
                 : others?.length ? <ol className="vivo-others">{others.map((m) => <Other key={m.id} m={m} />)}</ol>
                 : <Empty>No pudimos cargar los otros partidos del día.</Empty>}
             </section>
-            {table && (
+            {!inPlayoffs && table && (
               <section className="block" aria-labelledby="t-tabla-vivo">
                 <h2 className="h2" id="t-tabla-vivo">{anyLive ? 'Tabla en vivo' : 'Tabla'} · {zone.name}</h2>
                 <ol className="sim-table">
@@ -145,6 +152,7 @@ function Vivo() {
             )}
           </div>
         )}
+        {inPlayoffs && <Cuadro standings={data.standings} base={playoffs} live={data.playoffNow} now={now} refresh={data.updatedAt} />}
         {!leagueMatch && match && <p className="muted">Los otros resultados y la tabla en vivo aparecen cuando Vélez juega por la Liga.</p>}
         {standings && promedios !== undefined && (
           <LongTables standings={standings} promedios={promedios} live={Boolean(leagueMatch && anyLive)} note={sourceNote(state.live, data.updatedAt)} />

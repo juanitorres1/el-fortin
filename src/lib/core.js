@@ -27,6 +27,8 @@ export const fmt = {
 };
 export const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 export const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+/** Número con el formato de la Argentina (coma decimal, punto de miles): num(34.9, 1) → «34,9». */
+export const num = (n, digits = 0) => new Intl.NumberFormat('es-AR', { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(n);
 
 export async function getJson(url) {
   const res = await fetch(url, { cache: 'no-cache' });

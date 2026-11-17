@@ -36,6 +36,17 @@ export function ResultBadge({ result, as: Tag = 'span' }) {
   );
 }
 
+// Abreviaturas de las cabeceras de tabla, con su significado para lectores de pantalla y al pasar el mouse.
+const ABBR = {
+  PJ: 'Partidos jugados', Pts: 'Puntos', Dif: 'Diferencia de gol', DG: 'Diferencia de gol', G: 'Ganados', E: 'Empatados', P: 'Perdidos',
+  GF: 'Goles a favor', GC: 'Goles en contra', '% G': 'Porcentaje de partidos ganados', Prom: 'Promedio', Tit: 'Partidos de titular',
+  Asist: 'Asistencias', Amar: 'Amarillas', Ataj: 'Atajadas', Recib: 'Goles recibidos',
+};
+/** Texto de una cabecera de tabla: con <abbr title> si es una abreviatura conocida. */
+export function Abbr({ children }) {
+  return ABBR[children] ? <abbr title={ABBR[children]}>{children}</abbr> : children;
+}
+
 /** Placeholders con la forma del contenido mientras carga (`as` = li para listas). */
 export function Skeletons({ n = 1, className = 'sk-row', as: Tag = 'div' }) {
   return Array.from({ length: n }, (_, i) => <Tag key={i} className={`skeleton ${className}`} aria-hidden="true" />);

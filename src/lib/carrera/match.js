@@ -52,6 +52,19 @@ export function quality(x, center, width) {
   return Math.max(0, 0.45 - (d - width) * 2.5);
 }
 
+/**
+ * Modo asistido (lector de pantalla, movilidad reducida o «reducir movimiento»): la barra frena sola siempre en el
+ * mismo lugar de la zona verde, con una ejecución fija de ASSIST_Q («Bien», 2 estrellas). Es menos que lo que saca
+ * quien frena bien a mano (≈ 0,72 de promedio) y no alcanza para pasar la barrera por arriba (FREE_KICK.over):
+ * se puede jugar toda la carrera, pero no da ventaja.
+ */
+export const ASSIST_Q = 0.55;
+/** Dónde frena la barra en el modo asistido: del lado del centro que queda dentro de la barra. */
+export function assistX(moment) {
+  const d = ((1 - ASSIST_Q) / 0.5) * moment.width; // quality() = 1 - 0.5·d/width
+  return moment.center + d <= 1 ? moment.center + d : moment.center - d;
+}
+
 // Gambeta: mano a mano con un defensor. Si sale, la jugada sigue con un remate (mejor con el caño).
 export const DRIBBLE_KINDS = [
   { key: 'encara', text: 'Te encara el último defensor en tres cuartos.' },

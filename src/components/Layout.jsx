@@ -1,4 +1,5 @@
 // Encabezado, menú, banda de título y pie: iguales en todas las páginas, armados desde src/site.js.
+import { useEffect } from 'react';
 import { PAGES, SITE } from '../site.js';
 
 function Icon({ parts }) {
@@ -28,7 +29,20 @@ export function PageBand({ title, children }) {
  * `mainClass` = clases del <main> (el Inicio usa bandas a todo el ancho y no lleva «wrap page»).
  */
 export function Layout({ page, band = null, mainClass = 'wrap page', children }) {
-  const current = PAGES.find((p) => p.key === page)?.parent ?? page;
+  const info = PAGES.find((p) => p.key === page);
+  const current = info?.parent ?? page;
+  // Páginas que cambian según la query (jugador.html?id=…): el canonical lleva ese parámetro y nada más (ni utm ni
+  // otros). Va en un efecto porque al dibujar no se puede leer `location` (hidratación). Lo leen los buscadores que
+  // ejecutan JS; sin id no se pone (la página sin jugador elegido no es una ficha).
+  useEffect(() => {
+    if (!info?.query) return;
+    const value = new URLSearchParams(location.search).get(info.query);
+    let link = document.querySelector('link[rel="canonical"]');
+    if (!value) return link?.remove();
+    link ??= Object.assign(document.createElement('link'), { rel: 'canonical' });
+    link.href = `${info.url}?${info.query}=${encodeURIComponent(value)}`;
+    document.head.append(link);
+  }, [info]);
   return (
     <>
       <a className="skip" href="#contenido">Saltar al contenido</a>
@@ -50,6 +64,14 @@ export function Layout({ page, band = null, mainClass = 'wrap page', children })
         <div className="wrap">
           <p><strong>{SITE.name}</strong> es un sitio de hinchas, no oficial. No está afiliado al Club Atlético Vélez Sarsfield.</p>
           <p className="muted">{SITE.sources}</p>
+          <p className="muted">
+            Privacidad: las visitas se cuentan con GoatCounter, sin cookies ni datos personales (solo cifras totales).
+            Lo que guardás en los juegos queda en tu navegador.
+          </p>
+          <ul className="footer-links">
+            <li><a href={`${SITE.repo}/issues/new`} target="_blank" rel="noopener">Reportar un error</a></li>
+            <li><a href={SITE.repo} target="_blank" rel="noopener">Código en GitHub</a></li>
+          </ul>
         </div>
       </footer>
     </>

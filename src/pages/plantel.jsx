@@ -80,10 +80,11 @@ function Squad({ roster, players, games }) {
   ));
 }
 
+const ONE = { goles: 'gol', asistencias: 'asistencia', partidos: 'partido', amarillas: 'amarilla', rojas: 'roja', atajadas: 'atajada' };
 function Leader({ t, label, k, unit }) {
   const p = [...t.players].sort((a, b) => b[k] - a[k] || a.pj - b.pj)[0];
   if (!p || !(p[k] > 0)) return null;
-  return <div className="leader"><span className="leader-label">{label}</span><strong>{p.name}</strong><b className="num">{p[k]}</b><small>{unit}</small></div>;
+  return <div className="leader"><span className="leader-label">{label}</span><strong>{p.name}</strong><b className="num">{p[k]}</b><small>{p[k] === 1 ? ONE[unit] ?? unit : unit}</small></div>;
 }
 
 function Stats({ players }) {
@@ -113,7 +114,7 @@ function Stats({ players }) {
               <th scope="col" className="team">Jugador</th>
               {cols.map(([k, l, title]) => (
                 <th key={k} scope="col" aria-sort={k === sort ? 'descending' : 'none'}>
-                  <button type="button" title={`Ordenar por ${title}`} onClick={() => setSort(k)}>{l}</button>
+                  <button type="button" title={`Ordenar por ${title}`} aria-label={`${title}: ordenar por esta columna`} onClick={() => setSort(k)}>{l}</button>
                 </th>
               ))}
             </tr>

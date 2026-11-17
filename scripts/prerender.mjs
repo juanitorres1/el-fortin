@@ -2,12 +2,13 @@
 // de bajar el deploy, más esos datos en <script id="initial-data">. Así el contenido se ve apenas llega el HTML, sin
 // esperar a React ni a ESPN; después React hidrata esa misma página y la actualiza en vivo.
 // Si falta algún dato (por ejemplo, sin `npm run data`), esa parte sale como esqueleto y carga en el navegador.
+// Además escribe dist/sitemap.xml y dist/robots.txt (desde src/site.js y el plantel).
 // Al final escribe en dist/sw.js la lista de archivos que la app guarda al instalarse (los nombres con hash de este build).
 // Uso: node scripts/prerender.mjs (lo corre `npm run build`).
 import { readdir, readFile, writeFile } from 'node:fs/promises';
 import { join, relative } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { PAGES } from '../src/site.js';
+import { PAGES, SITE } from '../src/site.js';
 
 const ROOT = new URL('../', import.meta.url);
 const DIST = new URL('dist/', ROOT);
@@ -99,6 +100,35 @@ async function writeServiceWorker() {
   console.log(`prerender: sw.js (precarga: ${lists.precache.length} archivos; a pedido: ${lists.onDemand.join(', ') || 'ninguno'})`);
 }
 
+const xml = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+/**
+ * URLs del sitemap: las páginas de src/site.js y una ficha por jugador del plantel. Una página con `query`
+ * (jugador.html) no va sola: sin id no muestra a nadie. Sin `lastmod`: el deploy corre cada 15 min y una fecha que
+ * cambia siempre no le dice nada útil al buscador.
+ */
+export function sitemapUrls(pages, roster) {
+  const urls = pages.filter((p) => !p.query).map((p) => p.url);
+  const jugador = pages.find((p) => p.query);
+  for (const pl of roster?.players ?? []) if (jugador && pl.id) urls.push(`${jugador.url}?${jugador.query}=${encodeURIComponent(pl.id)}`);
+  return urls;
+}
+
+export const sitemapXml = (urls) =>
+  `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map((u) => `  <url><loc>${xml(u)}</loc></url>`).join('\n')}\n</urlset>\n`;
+
+// Ojo: los buscadores solo leen el robots.txt de la raíz del dominio (juanitorres1.github.io/robots.txt), no el de
+// /el-fortin/. Este queda por si el sitio se mueve a un dominio propio; el sitemap hay que darlo de alta en Search Console.
+export const robotsTxt = (siteUrl) => `User-agent: *\nAllow: /\n\nSitemap: ${siteUrl}sitemap.xml\n`;
+
+async function writeSeoFiles() {
+  const snapshot = await readJson(`${GENERATED}snapshot.json`);
+  const urls = sitemapUrls(PAGES, snapshot?.roster);
+  await writeFile(new URL('sitemap.xml', DIST), sitemapXml(urls));
+  await writeFile(new URL('robots.txt', DIST), robotsTxt(SITE.url));
+  console.log(`prerender: sitemap.xml (${urls.length} direcciones) y robots.txt`);
+}
+
 async function main() {
   const { renderPage } = await import(new URL('dist-ssr/prerender.js', ROOT).href);
   const renderedAt = Date.now();
@@ -110,6 +140,7 @@ async function main() {
     console.log(`prerender: ${page.file} (${Math.round(body.length / 1024)} KB de HTML, datos: ${Object.keys(initial.json).length + (initial.live ? 1 : 0) + (initial.extra ? 1 : 0)})`);
   }
   await writeServiceWorker();
+  await writeSeoFiles();
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {

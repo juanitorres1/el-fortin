@@ -212,6 +212,16 @@ npm run preview # sirve dist/
   movimiento». En el panel integrado oculto las animaciones CSS quedan congeladas en el primer cuadro: medir el DOM. Los heredocs de Git Bash fallan con plantillas de JS adentro:
   escribir el script con la herramienta de archivos.
 
+- **Auditoría externa (nov-2026):** el Inicio ya no baja los scoreboards de meses cerrados ni el detalle completo de
+  ESPN: el deploy escribe `goleadores.json` (goles de los meses cerrados; `fetchScorers` pide solo los meses que
+  siguen) y `summaries.json` (`slimSummary`: último partido de Vélez y del próximo rival, ~20 KB contra ~400 KB; lo
+  lee `loadSummary` en `hooks/data.js` y, si no está, pide a ESPN). Rondas de ESPN en castellano (`roundName`),
+  tildes corregidas (`PERSON_NAMES`), un partido por penales cuenta como ganado o perdido en todo el sitio (también
+  en Cifras, que separa la cancha neutral y no muestra puntos en copas), goleadores con «1 con Talleres» (`by`),
+  `public/404.html`, `sitemap.xml` y `robots.txt` del build, canonical por ficha en el cliente, modo asistido en la
+  Carrera (solo interfaz, ejecución fija 0,55). Descartado: CSP y SRI de GoatCounter (count.js no está versionado),
+  partir el CSS y el historial, posponer la precarga del SW, JSON-LD y og:image por página.
+
 ## Ideas no hechas (solo si el usuario las pide)
 
 - Trivia: hecha la versión automática (oct-2026, desde `club.json`). Si el usuario quiere preguntas escritas a mano,

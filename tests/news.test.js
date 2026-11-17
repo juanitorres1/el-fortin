@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { decodeBody, factsIn, mediumVariant, newNoteUrls, noteLinks, numberWordsIn, parseNote, rankNotes, unsupportedFacts } from '../scripts/news.mjs';
-import { isNewsImage, isOfficialImageUrl, isOfficialNoteUrl, matchFacts, relativeDay } from '../src/lib/news.js';
+import { buildPoints, canonFact, decodeBody, dropSuperseded, factsIn, magickArgs, mediumVariant, newNoteUrls, noteExcerpt, noteLinks, numberWordsIn, parseNote, rankNotes, resultRival, unsupportedFacts } from '../scripts/news.mjs';
+import { isNewsImage, isOfficialImageUrl, isOfficialNoteUrl, matchFacts, newsPhotoSources, relativeDay } from '../src/lib/news.js';
 
 test('noteLinks toma links a notas con su fecha y sin duplicados', () => {
   const html = `<a href="/futbol/notas/2026/10/13/164448_manu-lanzini">x</a>
@@ -109,4 +109,105 @@ test('newNoteUrls: solo las notas que el resumen anterior no tuvo en cuenta', ()
   assert.deepEqual(newNoteUrls(urls, previous), ['https://velez.com.ar/club/notas/2026/10/14/2_b']);
   assert.deepEqual(newNoteUrls(urls.slice(0, 1), previous), []);
   assert.deepEqual(newNoteUrls(urls, null), urls); // sin resumen anterior, todas son nuevas
+});
+
+// ---------- Informe nov-2026 ----------
+
+// Párrafo real de la nota de la elección (velez.com.ar, 15/11/2026): la primera coma del texto no es la del 38,64.
+const ELECCION = 'Cerca de 10.000 socias y socios participaron este domingo de las elecciones del Club, en una jornada en paz. '
+  + 'En la elección de Comisión Directiva, Legado Velezano obtuvo 3.769 votos (38,64% de los votos a listas), seguido por ADN Azul y Blanco, con 2.978 (30,53%).';
+
+test('unsupportedFacts: decimales con coma aunque la nota tenga otras comas antes (caso Pugliese)', () => {
+  assert.deepEqual(unsupportedFacts('Legado Velezano ganó con 38,64% de los votos.', ELECCION), []);
+  assert.deepEqual(unsupportedFacts('Legado Velezano ganó con 38.64 % de los votos.', ELECCION), []);
+  assert.deepEqual(unsupportedFacts('Votaron 10000 socios y la lista sacó 3769 votos.', ELECCION), []);
+  assert.deepEqual(unsupportedFacts('Legado Velezano sacó 38,46% de los votos.', ELECCION), ['38,46']);
+  assert.deepEqual(unsupportedFacts('Obtuvo 3.796 votos.', ELECCION), ['3.796']);
+});
+
+test('canonFact iguala separadores de miles y decimales, y saca $ y %', () => {
+  assert.equal(canonFact('15.000'), '15000');
+  assert.equal(canonFact('15,000'), '15000');
+  assert.equal(canonFact('$15.000'), '15000');
+  assert.equal(canonFact('38,64'), '38.64');
+  assert.equal(canonFact('38.64'), '38.64');
+  assert.equal(canonFact('20:30'), '20:30');
+  assert.equal(canonFact('3-1'), '3-1');
+});
+
+const note = (section, date, title, slug, extra = {}) => ({ section, date, title, url: `https://velez.com.ar/${section}/notas/${date.replaceAll('-', '/')}/${slug}`, lead: '', body: '', ...extra });
+
+test('resultRival: el rival de una nota con marcador; sin marcador o sin Vélez, null', () => {
+  assert.deepEqual(resultRival('Tigre 0-1 Vélez'), ['tigre']);
+  assert.deepEqual(resultRival('Vélez 11-0 Huracán de Tres Arroyos'), ['huracan', 'tres', 'arroyos']);
+  assert.equal(resultRival('En marcha la semana de playoffs'), null);
+  assert.equal(resultRival('Boca 2-1 River'), null);
+});
+
+test('dropSuperseded: saca la previa del partido que ya tiene resultado y deja lo de después y lo de otras secciones', () => {
+  const previa = note('reserva', '2026-11-09', 'Visita a Tigre por la Fecha 17', '1_se-viene-tigre', { published: '2026-11-09T15:00:00+00:00' });
+  const resultado = note('reserva', '2026-11-11', 'Tigre 0-1 Vélez', '2_tigre-0-1-velez', { published: '2026-11-11T18:00:00+00:00' });
+  const despues = note('reserva', '2026-11-11', 'Bravo: «Tigre nos exigió»', '3_bravo-tigre', { published: '2026-11-11T21:00:00+00:00' });
+  const otraSeccion = note('futbol', '2026-11-10', 'Tigre, el rival del sábado', '4_tigre');
+  const otroRival = note('reserva', '2026-11-10', 'Se viene Rosario Central', '5_central');
+  const kept = dropSuperseded([previa, resultado, despues, otraSeccion, otroRival]);
+  assert.deepEqual(kept.map((n) => n.url.split('/').pop()), ['2_tigre-0-1-velez', '3_bravo-tigre', '4_tigre', '5_central']);
+  // Sin «published», alcanza con que la fecha sea anterior.
+  const sinHora = [note('senior', '2026-11-10', 'Vélez recibe a Victoriano Arenas', '6_previa-victoriano-arenas'), note('senior', '2026-11-12', 'Vélez 2-1 Victoriano Arenas', '7_resultado')];
+  assert.deepEqual(dropSuperseded(sinHora).map((n) => n.date), ['2026-11-12']);
+});
+
+test('noteExcerpt: bajada o primer párrafo, cortado en una oración si es largo', () => {
+  assert.equal(noteExcerpt({ lead: 'Legado Velezano ganó las elecciones.', body: 'x' }), 'Legado Velezano ganó las elecciones.');
+  assert.equal(noteExcerpt({ lead: '', body: 'Primer párrafo.\nSegundo.' }), 'Primer párrafo.');
+  const largo = 'Una oración bastante larga sobre la Reserva y su partido. '.repeat(8);
+  const corto = noteExcerpt({ lead: largo, body: '' });
+  assert.ok(corto.length <= 300 && corto.endsWith('.'));
+  assert.equal(noteExcerpt({ lead: '', body: '' }), '');
+});
+
+test('buildPoints: el punto que no pasa el control entra con la bajada de su nota, uno por nota, de la más nueva a la más vieja', () => {
+  const notes = [
+    note('club', '2026-11-15', 'Nelson Pugliese Presidente', '1_pugliese', { lead: 'Legado Velezano ganó las elecciones.', body: 'Obtuvo 3.769 votos.' }),
+    note('entrenamiento', '2026-11-16', 'En marcha la semana de playoffs', '2_semana', { body: 'El plantel volvió a entrenar pensando en Belgrano.' }),
+    note('reserva', '2026-11-11', 'Tigre 0-1 Vélez', '3_tigre', { body: 'Vélez venció 1-0 a Tigre por la Fecha 17.' }),
+  ];
+  const { checked, points, aiOk } = buildPoints([
+    { nota: 1, texto: 'Pugliese ganó con el 41% de los votos.' }, // dato inventado: va la bajada
+    { nota: 3, texto: 'La Reserva le ganó 1-0 a Tigre por la Fecha 17.' },
+    { nota: 2, texto: 'El plantel arrancó la semana pensando en Belgrano.' },
+    { nota: 3, texto: 'Otro punto de la misma nota.' },
+    { nota: 9, texto: 'Nota que no existe.' },
+  ], notes);
+  assert.equal(checked.length, 5);
+  assert.deepEqual(checked.filter((p) => !p.ok).map((p) => p.nota), [1, 9]);
+  assert.equal(aiOk, 2);
+  assert.deepEqual(points.map((p) => [p.fecha, p.origen, p.texto]), [
+    ['2026-11-16', 'ia', 'El plantel arrancó la semana pensando en Belgrano.'],
+    ['2026-11-15', 'nota', 'Legado Velezano ganó las elecciones.'],
+    ['2026-11-11', 'ia', 'La Reserva le ganó 1-0 a Tigre por la Fecha 17.'],
+  ]);
+  assert.ok(points.every((p) => isOfficialNoteUrl(p.url) && p.titulo));
+});
+
+test('magickArgs: recorte centrado, JPEG progresivo y WebP sin -interlace', () => {
+  assert.deepEqual(magickArgs('in.jpg', '400x225', 'out.jpg'), ['in.jpg', '-auto-orient', '-resize', '400x225^', '-gravity', 'center', '-extent', '400x225', '-strip', '-interlace', 'Plane', '-quality', '72', 'out.jpg']);
+  const webp = magickArgs('in.jpg', '720x405', 'out.webp');
+  assert.ok(!webp.includes('-interlace') && webp.at(-1) === 'out.webp' && webp.at(-2) === '70');
+});
+
+test('isNewsImage y newsPhotoSources: variantes de 400 y 720 en JPEG y WebP, y nada de afuera', () => {
+  const base = 'data/generated/img/news/0123456789abcdef';
+  assert.equal(isNewsImage(`${base}-m.webp`), true);
+  assert.equal(isNewsImage(`${base}-f.webp`), true);
+  assert.equal(isNewsImage(`${base}-x.webp`), false);
+  const full = { photo: `${base}-f.jpg`, photoSm: `${base}-m.jpg`, photoWebp: `${base}-f.webp`, photoSmWebp: `${base}-m.webp` };
+  assert.deepEqual(newsPhotoSources(full), { src: full.photo, srcSet: `${full.photoSm} 400w, ${full.photo} 720w`, webp: `${full.photoSmWebp} 400w, ${full.photoWebp} 720w` });
+  // Sin ImageMagick: solo la imagen oficial, sin srcset.
+  const oficial = { photo: 'https://velez.com.ar/img/noticias/26/md/x.jpg' };
+  assert.deepEqual(newsPhotoSources(oficial), { src: oficial.photo, srcSet: null, webp: null });
+  // WebP de 400 sin el de 720: no se usa (un celular lo estiraría).
+  assert.equal(newsPhotoSources({ photo: full.photo, photoSmWebp: full.photoSmWebp }).webp, null);
+  assert.equal(newsPhotoSources({ photo: 'https://evil.com/x.jpg' }), null);
+  assert.equal(newsPhotoSources({ ...full, photoSm: 'https://evil.com/x.jpg' }).srcSet, null);
 });

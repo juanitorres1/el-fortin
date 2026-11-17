@@ -13,6 +13,10 @@
 // - games.json: partido por partido del año con quién jugó y los goles con su minuto (página de cada jugador,
 //   «Adiviná el once» y «Vélez en cifras»).
 // - playoffs.json: partidos de los playoffs de la fase en curso (el cuadro de Partidos).
+// - goleadores.json: los goles de la fase en curso de los meses ya cerrados, para que el navegador pida solo el
+//   scoreboard del mes en curso (lib/espn.js › fetchScorers).
+// - summaries.json: el detalle recortado del último partido de Vélez y del último del próximo rival (resumen,
+//   minuto a minuto y formaciones), para no bajar ~400 KB de ESPN por partido en cada visita al Inicio.
 // - asistencias.json: asistidores de la fase en curso (desde el detalle de cada partido; lo ya leído queda en
 //   cache/asistencias.json, que el deploy conserva entre corridas).
 // Uso: node scripts/update-data.mjs
@@ -22,7 +26,8 @@ import { writeHeadlines } from './news.mjs';
 import { monthDay, onThisDay, rivalFacts } from '../src/lib/facts.js';
 import { duelRows } from '../src/lib/duel.js';
 import { hydrateCup, linkTeams, relinkMatch } from '../src/lib/crests.js';
-import { VELEZ_ID, aggregateStats, discipline, gamesLog, fetchAverageParts, fetchLive, fetchPhaseEvents, fetchPlayoffEvents, fetchRoster, fetchSchedule, fetchSummary, fetchTeams, goalEvents, leaderboard, playersFromSummary, summaryAssists, tournamentOf } from '../src/lib/espn.js';
+import { espnDay } from '../src/lib/core.js';
+import { VELEZ_ID, aggregateStats, discipline, gamesLog, fetchAverageParts, fetchLive, fetchPhaseMonths, fetchPlayoffEvents, fetchTeamSchedule, phaseMonths, scorersBase, slimSummary, fetchRoster, fetchSchedule, fetchSummary, fetchTeams, goalEvents, leaderboard, playersFromSummary, summaryAssists, tournamentOf } from '../src/lib/espn.js';
 
 const OUT = new URL('../public/data/generated/', import.meta.url);
 const FIRST_SEASON = 2000; // ESPN no tiene datos de Vélez anteriores a 2001
@@ -169,7 +174,11 @@ const RECHECK_DAYS = 7;
 async function writeAssists(standings) {
   const now = new Date();
   const from = standings.phaseStart ? new Date(standings.phaseStart) : new Date(now.getFullYear(), now.getMonth() - 5, 1);
-  const events = (await withRetry(() => fetchPhaseEvents(standings, from, now))).filter((ev) => ev.competitions?.[0]?.status?.type?.completed);
+  const byMonth = await withRetry(() => fetchPhaseMonths(standings, phaseMonths(from, now)));
+  // De paso, los goles de los meses cerrados para los goleadores del navegador (el mes, en hora de la Argentina).
+  const base = scorersBase(standings, byMonth, espnDay(now).slice(0, 6));
+  await writeFile(new URL('goleadores.json', OUT), JSON.stringify({ updatedAt: now.toISOString(), ...base }));
+  const events = [...byMonth.values()].flat().filter((ev) => ev.competitions?.[0]?.status?.type?.completed);
   const cacheFile = new URL('cache/asistencias.json', OUT);
   let cache = {};
   try {
@@ -209,10 +218,24 @@ async function writePlayers(live) {
     console.log(`jugadores: todavía no hay partidos en ${year}, uso los de ${year - 1}`);
   }
   const games = [];
-  for (const match of played) {
+  const summaries = {};
+  for (const [i, match] of played.entries()) {
     const summary = await withRetry(() => fetchSummary(match));
     games.push({ match, players: playersFromSummary(summary), goals: goalEvents(summary) });
+    if (i === played.length - 1) summaries[match.id] = slimSummary(summary);
   }
+  // El último partido del próximo rival (sus probables titulares en la previa). Si falla, el navegador lo pide.
+  const next = live.fixture.find((m) => !m.completed);
+  if (next) {
+    const rivalId = next.home.id === VELEZ_ID ? next.away.id : next.home.id;
+    try {
+      const last = (await withRetry(() => fetchTeamSchedule(rivalId))).filter((m) => m.completed).at(-1);
+      if (last && !summaries[last.id]) summaries[last.id] = slimSummary(await withRetry(() => fetchSummary(last)));
+    } catch (err) {
+      console.warn('No se pudo leer el último partido del rival:', err.message);
+    }
+  }
+  await writeFile(new URL('summaries.json', OUT), JSON.stringify({ updatedAt: new Date().toISOString(), summaries }));
   const activeKeys = new Set(live.fixture.filter((m) => !m.completed).map((m) => tournamentOf(m).key));
   const tournaments = aggregateStats(games);
   const sanctions = discipline(games, activeKeys);

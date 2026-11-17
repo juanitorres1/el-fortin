@@ -339,13 +339,14 @@ const pointsOf = { G: 3, E: 1, P: 0 };
 /**
  * Los números de una temporada desde games.json (partidos oficiales de Vélez, con `goals` = [minuto, descuento, 1 si
  * es de Vélez, tipo]): goles por cuarto de hora, local y visitante, cómo llegan los goles, cuando convierte primero,
- * remontadas y ventajas perdidas. El resultado se toma de los goles (sin penales de definición). Los partidos sin
+ * remontadas y ventajas perdidas. El resultado es el de la lista de partidos (un partido definido por penales se
+ * ganó o se perdió; shootouts = cuántos); neutral = los de cancha neutral (Copa Argentina). Los partidos sin
  * goles cargados (o con goles que no cierran con el resultado) no cuentan para lo que depende del minuto.
  */
 export function seasonNumbers(games) {
   const empty = () => ({ pj: 0, g: 0, e: 0, p: 0, pts: 0, gf: 0, gc: 0 });
   const out = {
-    pj: 0, home: empty(), away: empty(), known: 0,
+    pj: 0, home: empty(), away: empty(), neutral: empty(), known: 0, shootouts: 0,
     bands: BANDS.map(([a, b]) => ({ label: b === 90 ? `${a}-90+` : b === 45 ? `${a}-45+` : `${a}-${b}`, gf: 0, gc: 0 })),
     kinds: { p: 0, c: 0, tl: 0, ec: 0, '': 0 },
     first: { ...empty(), against: empty() },
@@ -353,7 +354,11 @@ export function seasonNumbers(games) {
   };
   for (const g of games ?? []) {
     const [v, r] = g.score.split('-').map(Number);
-    const result = v > r ? 'G' : v < r ? 'P' : 'E';
+    // El mismo criterio que la lista de partidos: un partido definido por penales se ganó o se perdió (g.result, de
+    // velezView), y así suma: 0 puntos si se perdió por penales.
+    const byGoals = v > r ? 'G' : v < r ? 'P' : 'E';
+    const result = g.result ?? byGoals;
+    if (result !== byGoals) out.shootouts += 1;
     const add = (t) => {
       t.pj += 1;
       t[result.toLowerCase()] += 1;
@@ -362,7 +367,7 @@ export function seasonNumbers(games) {
       t.gc += r;
     };
     out.pj += 1;
-    add(g.home ? out.home : out.away);
+    add(isNeutral(g) ? out.neutral : g.home ? out.home : out.away);
     const goals = g.goals;
     if (!goals || goals.filter((x) => x[2]).length !== v || goals.filter((x) => !x[2]).length !== r) continue;
     out.known += 1;

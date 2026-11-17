@@ -1,7 +1,7 @@
 // Imagen para compartir (resultado, previa, prode, trivia…) en 1080×1350, el formato vertical que mejor se ve en
 // WhatsApp e Instagram. Se dibuja en el navegador con <canvas>: no hace falta servidor. Los textos salen de
 // src/lib/card.js. Si el celular sabe compartir archivos, se abre el menú de compartir; si no, se descarga.
-import { useRef, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { sized } from '../lib/core.js';
 import { SITE } from '../site.js';
 
@@ -187,51 +187,81 @@ export async function drawCard(canvas, card) {
   ctx.globalAlpha = 1;
 }
 
+
 const toBlob = (canvas) => new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
 
 /**
  * Botón que arma la imagen y abre una vista previa para compartirla o bajarla.
  * `getCard` = () => card (o una promesa), se llama al tocar: así no se piden datos de más.
+ * Mientras arma la imagen el botón queda con aria-disabled (no `disabled`): un botón deshabilitado pierde el foco y,
+ * al cerrar el diálogo, el foco caía en el <body>. Igual, al cerrar se devuelve el foco al botón a mano.
+ * Si algo falla, el diálogo se abre igual con el aviso (sin imagen): así el usuario se entera y no rompe el diseño
+ * de la fila de botones donde esté.
  */
 export function ShareCardButton({ getCard, label = 'Compartir imagen', file = 'el-fortin.png', text, className = 'btn btn-outline' }) {
   const dialog = useRef(null);
+  const button = useRef(null);
+  const titleId = useId();
   const [img, setImg] = useState(null); // { url, blob }
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
   const open = async () => {
+    if (busy) return;
     setBusy(true);
+    setError(null);
     try {
       const canvas = document.createElement('canvas');
       await drawCard(canvas, await getCard());
       const blob = await toBlob(canvas);
+      if (!blob) throw new Error('el navegador no pudo convertir la imagen');
       if (img) URL.revokeObjectURL(img.url);
       setImg({ url: URL.createObjectURL(blob), blob });
-      dialog.current?.showModal();
     } catch (err) {
       console.error('No se pudo armar la imagen:', err);
+      if (img) URL.revokeObjectURL(img.url);
+      setImg(null);
+      setError('No se pudo armar la imagen. Probá de nuevo en un rato.');
     } finally {
       setBusy(false);
+      if (!dialog.current?.open) dialog.current?.showModal();
     }
   };
   const fileObj = img && typeof File !== 'undefined' ? new File([img.blob], file, { type: 'image/png' }) : null;
   const canShare = Boolean(fileObj && navigator.canShare?.({ files: [fileObj] }));
   const share = async () => {
+    setError(null);
     try {
       await navigator.share({ files: [fileObj], text: text ?? `${SITE.url}` });
-    } catch {
-      /* canceló */
+    } catch (err) {
+      // AbortError = el usuario cerró el menú de compartir: no es un error.
+      if (err?.name !== 'AbortError') setError('No se pudo compartir. Probá con «Descargar» y compartila desde tus fotos.');
     }
   };
+  const close = () => dialog.current?.close();
   return (
     <>
-      <button type="button" className={className} onClick={open} disabled={busy} aria-haspopup="dialog">
+      <button
+        type="button" ref={button} className={className} onClick={open} aria-disabled={busy || undefined} aria-haspopup="dialog"
+      >
         {busy ? 'Armando la imagen…' : label}
       </button>
-      <dialog className="share-dialog" ref={dialog} aria-label="Imagen para compartir" onClick={(e) => e.target === dialog.current && dialog.current.close()}>
+      <dialog
+        className="share-dialog" ref={dialog} aria-labelledby={titleId}
+        onClick={(e) => e.target === dialog.current && close()}
+        onClose={() => button.current?.focus()}
+      >
+        <div className="share-head">
+          <span className="share-title" id={titleId}>Imagen para compartir</span>
+          <button type="button" className="share-x" aria-label="Cerrar" onClick={close}>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
+          </button>
+        </div>
         {img && <img src={img.url} alt="Vista previa de la imagen para compartir" width="1080" height="1350" />}
+        {error && <p className="share-error" role="alert">{error}</p>}
         <div className="share-actions">
           {canShare && <button type="button" className="btn btn-solid" onClick={share}>Compartir</button>}
           {img && <a className="btn btn-outline" href={img.url} download={file}>Descargar</a>}
-          <button type="button" className="btn btn-outline" onClick={() => dialog.current.close()}>Cerrar</button>
+          <button type="button" className="btn btn-outline" onClick={close}>Cerrar</button>
         </div>
       </dialog>
     </>

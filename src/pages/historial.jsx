@@ -5,12 +5,12 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { mount } from '../main.jsx';
 import { headToHead, teamLogo } from '../lib/espn.js';
 import { rivalDetail, rivalFacts, rivalRanking } from '../lib/facts.js';
-import { DATA, mergeResults } from '../lib/core.js';
+import { DATA, mergeResults, num } from '../lib/core.js';
 import { hydrateCup, relinkMatch } from '../lib/crests.js';
 import { useJson } from '../hooks/data.js';
 import { Layout, PageBand } from '../components/Layout.jsx';
 import { MatchList } from '../components/Match.jsx';
-import { Crest, Empty, Skeletons } from '../components/ui.jsx';
+import { Abbr, Crest, Empty, Skeletons } from '../components/ui.jsx';
 import { Efemerides, HistoryRecords } from '../sections/Records.jsx';
 
 const COPAS = new Set(['Copa Argentina', 'Copa Centenario', 'Supercopa Argentina', 'Supercopa Internacional', 'Trofeo de Campeones']);
@@ -89,7 +89,7 @@ function Detail({ row, filtered }) {
 }
 
 function H2HCard({ r }) {
-  const pct = (n) => ((n / r.pj) * 100).toFixed(1);
+  const pct = (n) => num((n / r.pj) * 100, 1);
   return (
     <article className="h2h-card">
       <header className="h2h-head"><Crest url={r.logo} size={48} /><h2 className="h2">Vélez vs. {r.name}</h2></header>
@@ -147,6 +147,7 @@ function Historial() {
   const amateur = useJson('data/amateur-historico.json');
   const club = useJson('data/club.json');
   const crests = useJson(`${DATA}escudos.json`);
+  const facts = useJson(`${DATA}facts.json`);
   const matches = useMemo(
     () => (espn === undefined || old === undefined || cups === undefined || amateur === undefined || crests === undefined ? undefined
       : [
@@ -169,9 +170,13 @@ function Historial() {
   const filtered = useMemo(() => (matches ?? []).filter((m) => COMP_FILTERS[comp][1](m) && ERA_FILTERS[era][1](m)), [matches, comp, era]);
   const rows = useMemo(() => headToHead(filtered), [filtered]);
   // Un link viejo con el id del dataset (?rival=k40) sigue andando si ese equipo ahora tiene id de ESPN.
-  const rivalId = (rival && (crests?.ids?.[rival] ?? rival)) ?? allRivals.find((r) => r.name === 'River Plate')?.id ?? allRivals[0]?.id;
+  // Sin rival en la URL, abre con el próximo rival (facts.json › rivals va en el orden del fixture); si no, River.
+  const nextRival = Object.keys(facts?.rivals ?? {}).find((id) => allRivals.some((x) => x.id === id));
+  const rivalId = (rival && (crests?.ids?.[rival] ?? rival)) ?? nextRival ?? allRivals.find((r) => r.name === 'River Plate')?.id ?? allRivals[0]?.id;
   const r = rows.find((x) => x.id === rivalId);
   const rivalName = allRivals.find((x) => x.id === rivalId)?.name;
+  // Un ?rival= que no existe: el selector no puede mostrar otro rival mientras el texto dice que no se encontró.
+  const unknown = Boolean(matches && rival && !rivalName);
 
   // URL y título siguen al rival elegido (si se eligió uno o se entró con ?rival=).
   useEffect(() => {
@@ -196,14 +201,15 @@ function Historial() {
     <Layout page="historial" band={<PageBand title="Historial"><p className="muted small">{note}</p></PageBand>}>
       <div className="h2h-controls">
         <Select
-          label="Rival" value={rivalId ?? ''} onChange={setRival} selectRef={rivalRef}
-          options={[...allRivals].sort((a, b) => a.name.localeCompare(b.name, 'es')).map((x) => [x.id, `${x.name} (${x.pj})`])}
+          label="Rival" value={unknown ? '' : rivalId ?? ''} onChange={setRival} selectRef={rivalRef}
+          options={[...(unknown ? [['', 'Elegí un rival']] : []), ...[...allRivals].sort((a, b) => a.name.localeCompare(b.name, 'es')).map((x) => [x.id, `${x.name} (${x.pj})`])]}
         />
         <Select label="Época" value={era} onChange={setEra} options={Object.entries(ERA_FILTERS).map(([v, [l]]) => [v, l])} />
         <Select label="Competición" value={comp} onChange={setComp} options={Object.entries(COMP_FILTERS).map(([v, [l]]) => [v, l])} />
       </div>
       <div className="h2h">
         {!matches ? <Skeletons className="sk-h2h" />
+          : unknown ? <Empty>No encontramos ese rival. Elegí uno de la lista.</Empty>
           : !r ? <Empty>No hay partidos contra este rival con esos filtros.</Empty>
           : (
             <>
@@ -219,7 +225,7 @@ function Historial() {
             <table>
               <caption className="sr-only">Rivales con más partidos</caption>
               <thead>
-                <tr>{['Rival', 'PJ', 'G', 'E', 'P', 'GF', 'GC', '% G'].map((h, i) => <th key={h} scope="col" className={i === 0 ? 'team' : undefined}>{h}</th>)}</tr>
+                <tr>{['Rival', 'PJ', 'G', 'E', 'P', 'GF', 'GC', '% G'].map((h, i) => <th key={h} scope="col" className={i === 0 ? 'team' : undefined}><Abbr>{h}</Abbr></th>)}</tr>
               </thead>
               <tbody>
                 {rows.slice(0, 12).map((x) => (

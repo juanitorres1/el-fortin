@@ -2,7 +2,8 @@
 import { useState } from 'react';
 import { VELEZ_ID, averagesTable, relegation } from '../lib/espn.js';
 import { RELEGATION_NOTE, rulesApply } from '../lib/rules.js';
-import { Crest, Segmented, Skeletons } from '../components/ui.jsx';
+import { Abbr, Crest, Segmented, Skeletons } from '../components/ui.jsx';
+import { num } from '../lib/core.js';
 
 const DESC = 'Hoy descendería';
 const COLS = [
@@ -46,7 +47,7 @@ export function buildTables(standings, promedios) {
       columns: [{ key: 'prom', title: 'Prom', bold: true }, ...avg.seasons.map((y) => ({ key: `t${y}`, title: String(y) })), { key: 'pts', title: 'Pts' }, { key: 'pj', title: 'PJ' }],
       rows: avg.rows.map((r) => ({
         pos: r.rank, id: r.id, name: r.name, logo: r.logo, mark: r.id === rel.promedios ? DESC : null, live: liveById.get(r.id),
-        values: { prom: r.prom.toFixed(3), pts: r.pts, pj: r.pj, ...Object.fromEntries(avg.seasons.map((y) => [`t${y}`, r.bySeason[y] ?? '–'])) },
+        values: { prom: num(r.prom, 3), pts: r.pts, pj: r.pj, ...Object.fromEntries(avg.seasons.map((y) => [`t${y}`, r.bySeason[y] ?? '–'])) },
       })),
       note: `Puntos ÷ partidos de las temporadas ${avg.seasons.join(', ')}, sin playoffs; los ascendidos cuentan desde que llegaron a Primera. ${rulesApply(standings.year) ? RELEGATION_NOTE : `Reglamento de descensos de ${standings.year} todavía sin revisar: no se marca quién desciende.`}`,
     });
@@ -70,7 +71,7 @@ export function StandingsTable({ table }) {
     <table>
       <caption className="sr-only">{table.name}</caption>
       <thead>
-        <tr><th scope="col">#</th><th scope="col" className="team">Equipo</th>{table.columns.map((c) => <th key={c.key} scope="col">{c.title}</th>)}</tr>
+        <tr><th scope="col">#</th><th scope="col" className="team">Equipo</th>{table.columns.map((c) => <th key={c.key} scope="col"><Abbr>{c.title}</Abbr></th>)}</tr>
       </thead>
       <tbody>
         {table.rows.map((r) => {

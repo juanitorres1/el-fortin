@@ -31,14 +31,26 @@ export function parseForecast(json) {
   if (!h?.time?.length) return null;
   const temp = h.temperature_2m?.[0];
   if (temp == null) return null;
-  return { temp: Math.round(temp), rain: h.precipitation_probability?.[0] ?? null, text: weatherText(h.weather_code?.[0]) };
+  const rain = h.precipitation_probability?.[0] ?? null;
+  const code = h.weather_code?.[0];
+  let text = weatherText(code);
+  // El código del tiempo es de un solo modelo y la probabilidad, de varios: «Llovizna · 19 % de lluvia» se lee como
+  // una contradicción. Con probabilidad baja, la lluvia va como posibilidad.
+  if (text && code >= 51 && rain != null && rain < 40) text = `Posible ${text.toLowerCase()}`;
+  return { temp: Math.round(temp), rain, text };
 }
 
+// Canchas con coordenadas propias: la ciudad de ESPN («Buenos Aires») da el centro, a 12 km del Amalfitani.
+const VENUES = { 'José Amalfitani': { latitude: -34.6355, longitude: -58.5207 } };
+
 export async function fetchForecast(m, fetchImpl = fetch) {
-  const geoQs = new URLSearchParams({ name: m.city, count: '1', language: 'es' });
-  if (COUNTRY_CODES[m.country]) geoQs.set('countryCode', COUNTRY_CODES[m.country]);
-  const geo = await (await fetchImpl(`${GEO}?${geoQs}`)).json();
-  const place = geo.results?.[0];
+  let place = VENUES[m.venue];
+  if (!place) {
+    const geoQs = new URLSearchParams({ name: m.city, count: '1', language: 'es' });
+    if (COUNTRY_CODES[m.country]) geoQs.set('countryCode', COUNTRY_CODES[m.country]);
+    const geo = await (await fetchImpl(`${GEO}?${geoQs}`)).json();
+    place = geo.results?.[0];
+  }
   if (!place) return null;
   const hour = forecastHour(m.date);
   const qs = new URLSearchParams({

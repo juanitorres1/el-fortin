@@ -30,8 +30,14 @@ test('el <head> de cada página tiene la vista previa para compartir con su tít
     assert.ok(head.includes(`<title>${p.title}</title>`));
     assert.ok(head.includes(`<meta property="og:title" content="${p.title}">`));
     assert.ok(head.includes(`<meta property="og:description" content="${p.description}">`));
-    assert.ok(head.includes(`<meta property="og:url" content="${url}">`), `${p.file}: og:url`);
-    assert.ok(head.includes(`<link rel="canonical" href="${url}">`), `${p.file}: canonical`);
+    if (p.query) {
+      // jugador.html?id=…: un canonical fijo juntaría todas las fichas en una (lo pone Layout.jsx con el id).
+      assert.ok(!head.includes('rel="canonical"'), `${p.file}: no lleva canonical fijo`);
+      assert.ok(!head.includes('og:url'), `${p.file}: no lleva og:url fijo`);
+    } else {
+      assert.ok(head.includes(`<meta property="og:url" content="${url}">`), `${p.file}: og:url`);
+      assert.ok(head.includes(`<link rel="canonical" href="${url}">`), `${p.file}: canonical`);
+    }
     assert.ok(head.includes(`content="${SITE.url}${SITE.ogImage}"`), `${p.file}: og:image`);
   }
 });

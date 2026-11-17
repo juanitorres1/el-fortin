@@ -87,6 +87,18 @@ export function squadPlayers(roster, stats) {
     .map((p) => ({ id: p.id, n: p.name, pos: p.pos, nat: p.nat, age: p.age, jersey: p.jersey, flag: p.flag ?? null, photo: p.photo ? { src: p.photo, big: p.photo, credit: 'Foto: ESPN', href: null } : null, pj: byId.get(p.id)?.pj ?? 0, g: byId.get(p.id)?.g ?? 0, rank: byId.get(p.id)?.pj ?? 0 }));
 }
 
+export const SQUAD_MIN = 8;
+
+/**
+ * Los que pueden ser la respuesta del modo «hoy»: los que jugaron en el torneo (un suplente de 20 años sin partidos
+ * no se adivina por sus datos). A principio de torneo, cuando casi nadie jugó, los SQUAD_MIN con más partidos.
+ */
+export function squadAnswers(squad) {
+  const played = squad.filter((p) => p.pj > 0);
+  if (played.length >= SQUAD_MIN) return played;
+  return [...squad].sort((a, b) => b.pj - a.pj || String(a.id).localeCompare(String(b.id))).slice(0, SQUAD_MIN);
+}
+
 /** Los históricos que se pueden escribir (con todos los datos) y los que pueden ser la respuesta (los más conocidos). */
 export function tapadoPools(players) {
   const guess = players.filter(isComplete);
@@ -186,6 +198,37 @@ export function dailyGrid(players, day) {
 /** ¿Vale este jugador en la casilla `i` (0–8, por filas)? */
 export function gridCheck(grid, i, player) {
   return grid.rows[Math.floor(i / 3)].test(player) && grid.cols[i % 3].test(player);
+}
+
+/**
+ * Intentos de la grilla: un cupo total y no uno por casilla. Con datos de Wikidata incompletos, un intento por casilla
+ * castigaba de más un jugador que sí vale pero no figura; con 9 + 3 de margen se pueden errar tres en total.
+ */
+export const GRID_TRIES = 12;
+
+/**
+ * El estado de una partida de la grilla: `cells` = { [i]: { id, ok } } (las partidas de antes guardaban también los
+ * errores ahí: cuentan como intentos y la casilla queda cerrada) y `misses` = [{ i, id }] (errores con el cupo nuevo).
+ * Devuelve { right: { [i]: id }, missed: { [i]: [ids] }, closed: Set, used, left, done }.
+ */
+export function gridState(game) {
+  const right = {};
+  const missed = {};
+  const closed = new Set();
+  let used = 0;
+  for (const [k, c] of Object.entries(game?.cells ?? {})) {
+    const i = Number(k);
+    used += 1;
+    closed.add(i);
+    if (c.ok) right[i] = c.id;
+    else (missed[i] ??= []).push(c.id);
+  }
+  for (const m of game?.misses ?? []) {
+    used += 1;
+    (missed[m.i] ??= []).push(m.id);
+  }
+  const left = Math.max(0, GRID_TRIES - used);
+  return { right, missed, closed, used, left, done: closed.size === 9 || left === 0 };
 }
 
 /** Puntos «de tapado» de una respuesta: vale más el jugador menos conocido (menos artículos en Wikipedia). */

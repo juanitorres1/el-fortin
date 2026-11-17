@@ -19,7 +19,7 @@ import { GOAL_PRIZE, PERKS, WIN_PRIZE, hasPerk, money, salaryOf } from '../../..
 import { useJson } from '../../../hooks/data.js';
 import { SAVE_KEY, exportCode, importCode, migrate } from '../../../lib/carrera/save.js';
 import { Crest, Empty, Segmented, Skeletons } from '../../../components/ui.jsx';
-import { Confetti, ShareResult, useCountUp } from '../shared.jsx';
+import { Announcer, Confetti, ShareResult, useAnnounce, useCountUp, useStored } from '../shared.jsx';
 import { Momento, Stars, verdict } from './Momento.jsx';
 import { Arco, Cancha, Duelo, Quite } from './Escena.jsx';
 
@@ -748,7 +748,7 @@ function Outcome({ state, match, i, onNext }) {
     scene = <Arco mine choice={a.choice} result={{ keeper: a.choice, aim: a.shot, kind: shot }} />;
   } else scene = <Arco choice={a.choice} free={mo.kind === 'libre'} result={{ keeper: a.keeper, aim: a.choice, kind }} />;
   return (
-    <div className={`card cr-moment cr-outcome is-${kind} ${goal ? 'is-goal' : good ? 'is-ok' : 'is-miss'}`} role="status">
+    <div className={`card cr-moment cr-outcome is-${kind} ${goal ? 'is-goal' : good ? 'is-ok' : 'is-miss'}`}>
       {goal && <span className="cr-flash" aria-hidden="true" />}
       {kind === 'golrival' && <span className="cr-flash is-bad" aria-hidden="true" />}
       <p className="kicker">{penal ? 'Definición por penales' : `Minuto ${mo.min}'`}</p>
@@ -883,16 +883,42 @@ function Relato({ match, i, done }) {
   );
 }
 
-function Partido({ state, act }) {
+function Partido({ state, act, assisted }) {
   const m = state.torneo.match;
   const [kicked, setKicked] = useState(m.answers.length > 0);
   const [seen, setSeen] = useState(m.answers.length); // la última jugada ya vista (al recargar, ninguna pendiente)
   const pending = seen < m.answers.length; // hay una jugada recién jugada para mostrar
   const i = pending ? seen : m.answers.length;
   const done = matchDone(m) && !pending;
+  // Lo que pasa en el partido (tu jugada, los goles simulados, el final), por una región viva que está montada desde el
+  // pitazo inicial: el festejo se ve, pero el lector de pantalla no lo leía.
+  const [said, say] = useAnnounce();
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    if (!kicked) return;
+    const score = (events) => {
+      const v = events.filter((e) => e.team === 'v').length;
+      return `Vélez ${v}, ${m.rival.name} ${events.length - v}`;
+    };
+    if (pending) {
+      say(`${m.answers[seen].text} ${score(eventsAt(m, seen, true))}.`);
+    } else if (done) {
+      say(`Pitazo final. ${score(eventsAt(m))}.`);
+    } else {
+      const prev = i > 0 ? eventsAt(m, i - 1, true) : [];
+      const fresh = eventsAt(m, i).filter((e) => e.mi == null && !prev.includes(e));
+      const goals = fresh.map((e) => (e.team === 'v' ? `${e.min}', gol de Vélez, de ${e.who}` : `${e.min}', gol de ${m.rival.name}`));
+      if (goals.length) say(`Mientras tanto: ${goals.join('; ')}. ${score(eventsAt(m, i))}.`);
+    }
+  }, [kicked, seen, m.answers.length]); // solo cuando avanza el partido
   if (!kicked) return <section className="cr-match" aria-label="Partido"><Kickoff state={state} match={m} onStart={() => setKicked(true)} /></section>;
   return (
     <section className="cr-match" aria-label="Partido">
+      <Announcer text={said} />
       <p className="kicker">{m.label} · {ROLE_LABEL[m.role]}{m.home ? ' · Local' : ' · Visitante'}</p>
       <Marcador state={state} match={m} i={done ? undefined : i} through={pending} />
       <Timeline match={m} i={i} through={pending} done={done} />
@@ -900,7 +926,7 @@ function Partido({ state, act }) {
       {!pending && !done && (
         <>
           <Relato key={`r${i}`} match={m} i={i} />
-          <Momento key={i} moment={m.moments[i]} tip={state.tips?.[tipKey(m.moments[i])] ? null : TIPS[tipKey(m.moments[i])]} onAnswer={(a) => act(answerMoment, a)} />
+          <Momento key={i} moment={m.moments[i]} assisted={assisted} tip={state.tips?.[tipKey(m.moments[i])] ? null : TIPS[tipKey(m.moments[i])]} onAnswer={(a) => act(answerMoment, a)} />
         </>
       )}
       {done && (
@@ -1201,6 +1227,9 @@ export default function Carrera({ standings, roster }) {
   const [state, setState] = useState(undefined); // undefined = leyendo lo guardado; null = no hay carrera
   const [view, setView] = useState('semana');
   const [saveFailed, setSaveFailed] = useState(false);
+  // Modo asistido (fortin:carrera-asistido): la barra de timing frena sola en la zona verde. Es una preferencia del
+  // navegador, no de la carrera: no viaja en el código para otro dispositivo.
+  const [assisted, setAssisted] = useStored('carrera-asistido', false);
   useEffect(() => setState(migrate(load(SAVE_KEY, null))), []);
   const put = (next) => {
     setState(next);
@@ -1229,7 +1258,7 @@ export default function Carrera({ standings, roster }) {
   const reset = () => { put(null); setView('semana'); };
   let main;
   if (state.retired) main = <Despedida state={state} onReset={reset} />;
-  else if (t.match) main = <Partido key={`${t.n}-${t.week}-${t.bracket?.rounds.length ?? 0}`} state={state} act={act} />;
+  else if (t.match) main = <Partido key={`${t.n}-${t.week}-${t.bracket?.rounds.length ?? 0}`} state={state} act={act} assisted={assisted} />;
   else if (t.last) main = <Resultado state={state} act={act} />;
   else if (t.phase === 'fin') main = <Fin state={state} act={act} />;
   else main = <Semana state={state} act={act} />;
@@ -1237,6 +1266,10 @@ export default function Carrera({ standings, roster }) {
     <div className="cr">
       {saveFailed && <p className="small cr-bad" role="alert">No se pudo guardar en este navegador (¿modo privado?): la carrera se pierde al cerrar la página.</p>}
       <Header state={state} />
+      <label className="cr-assist">
+        <input type="checkbox" checked={Boolean(assisted)} onChange={(e) => setAssisted(e.target.checked)} />
+        <span><b>Modo asistido</b> <small className="muted">La barra frena sola en la zona verde (ejecución «Bien», nunca perfecta). Para lector de pantalla o si te cuesta el timing.</small></span>
+      </label>
       {!t.match && <Segmented options={VIEWS} value={view} onChange={setView} label="Qué ver" />}
       {t.match || view === 'semana' ? main
         : view === 'tabla' ? <Tabla state={state} />

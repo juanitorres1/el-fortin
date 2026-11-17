@@ -3,7 +3,7 @@
 // hidrata sin redibujar y después actualiza en vivo.
 import { useEffect, useRef, useState } from 'react';
 import { DATA, REFRESH_LIVE_MS, REFRESH_MS, getJson, isLive, keepNewest, loadLive, loadLiveFast, withTimeout } from '../lib/core.js';
-import { fetchRoster } from '../lib/espn.js';
+import { fetchRoster, fetchScorers, fetchSummary } from '../lib/espn.js';
 import { getInitial } from '../initial.js';
 import { load, save } from '../lib/storage.js';
 
@@ -18,6 +18,25 @@ export const loadJson = (url) => {
   if (!jsonCache.has(url)) jsonCache.set(url, embedded !== undefined ? Promise.resolve(embedded) : getJson(url).catch(() => null));
   return jsonCache.get(url);
 };
+
+/**
+ * El detalle de un partido terminado: el recortado que guardó el deploy (summaries.json, ~15 KB) o, si no lo tiene
+ * (terminó después del último deploy), el de ESPN (~400 KB). Se pide una vez por página aunque lo usen el resumen,
+ * la tarjeta para compartir y las formaciones.
+ */
+const summaryMemo = new Map();
+export function loadSummary(match) {
+  if (!match.completed) return fetchSummary(match);
+  if (!summaryMemo.has(match.id)) {
+    const p = loadJson(`${DATA}summaries.json`).then((f) => f?.summaries?.[match.id] ?? fetchSummary(match));
+    p.catch(() => summaryMemo.delete(match.id));
+    summaryMemo.set(match.id, p);
+  }
+  return summaryMemo.get(match.id);
+}
+
+/** Goleadores de la fase en curso: lo guardado por el deploy (meses cerrados) más el scoreboard de los meses que siguen. */
+export const loadScorers = async (standings) => fetchScorers(standings, undefined, undefined, await loadJson(`${DATA}goleadores.json`));
 
 /** Un JSON estático (lo que genera el deploy o data/club.json). */
 export function useJson(url) {

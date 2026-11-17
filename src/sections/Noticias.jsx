@@ -1,5 +1,5 @@
 // Noticias del club estilo Google Noticias (titulares de velez.com.ar) y el resumen de los últimos 7 días hecho por IA.
-import { isNewsImage, isOfficialNoteUrl, relativeDay } from '../lib/news.js';
+import { isNewsImage, isOfficialNoteUrl, newsPhotoSources, relativeDay } from '../lib/news.js';
 import { capitalize, fmt } from '../lib/core.js';
 import { useNow } from '../hooks/data.js';
 import { ExtLink, Skeletons } from '../components/ui.jsx';
@@ -15,15 +15,29 @@ const SECTION_NAMES = {
 const sectionName = (s) => SECTION_NAMES[s] ?? capitalize(s.replace(/-/g, ' '));
 const shortDate = (iso) => iso.slice(5).split('-').reverse().join('/'); // «2026-10-13» → «13/10»
 
+// Ancho aproximado de la foto: columna de la grilla (o dos, la destacada) en escritorio, todo el ancho en celular.
+const SIZES = { card: '(min-width: 48rem) 20rem, 100vw', featured: '(min-width: 48rem) 40rem, 100vw' };
+
+function NewsPhoto({ h, featured }) {
+  const s = newsPhotoSources(h);
+  if (!s) return null;
+  const sizes = featured ? SIZES.featured : SIZES.card;
+  return (
+    <picture className="nw-pic">
+      {s.webp && <source type="image/webp" srcSet={s.webp} sizes={sizes} />}
+      <img
+        className="nw-img" src={s.src} srcSet={s.srcSet ?? undefined} sizes={s.srcSet ? sizes : undefined} alt="" width="720" height="405"
+        loading={featured ? 'eager' : 'lazy'} decoding="async"
+        onError={(e) => e.currentTarget.parentElement.remove()}
+      />
+    </picture>
+  );
+}
+
 function NewsCard({ h, featured, now }) {
   return (
     <ExtLink className={`nw-card${featured ? ' nw-featured' : ''}`} href={h.url}>
-      {isNewsImage(h.photo) && (
-        <img
-          className="nw-img" src={h.photo} alt="" width="720" height="405" loading={featured ? 'eager' : 'lazy'} decoding="async"
-          onError={(e) => e.currentTarget.remove()}
-        />
-      )}
+      <NewsPhoto h={h} featured={featured} />
       <div className="nw-body">
         <p className="kicker">{sectionName(h.section)} <span className="nw-time">· {relativeDay(h.date, new Date(now))}</span></p>
         <h3 className="nw-title">{h.title}</h3>
@@ -45,11 +59,22 @@ function Summary({ summary, now }) {
         <span className="muted">del {shortDate(summary.period.from)} al {shortDate(summary.period.to)}</span>
       </summary>
       <ul className="summary-points">
-        {points.map((p) => <li key={p.url + p.texto}><p>{p.texto}</p><ExtLink href={p.url}>Ver la nota</ExtLink></li>)}
+        {points.map((p) => (
+          <li key={p.url + p.texto}>
+            <p>{p.origen === 'nota' && <span className="summary-src">Texto de la nota<span className="sr-only">: </span></span>}{p.texto}</p>
+            <p className="summary-meta">
+              {/^\d{4}-\d{2}-\d{2}$/.test(p.fecha ?? '') && <span className="muted">{shortDate(p.fecha)} · </span>}
+              <ExtLink className="summary-link" href={p.url}>
+                Ver la nota<span className="sr-only">{p.titulo ? `: ${p.titulo}` : ''} (abre velez.com.ar en otra pestaña)</span>
+              </ExtLink>
+            </p>
+          </li>
+        ))}
       </ul>
       <p className="ai-note">
         Lo escribe una IA ({summary.model}) a partir de las notas oficiales de la semana. Puede equivocarse: cada punto tiene su nota para
-        chequearlo. Actualizado el {fmt.stamp.format(new Date(summary.generatedAt))}.
+        chequearlo.{points.some((p) => p.origen === 'nota') && ' Los marcados «Texto de la nota» copian la bajada oficial: el punto de la IA no pasó el control de datos.'}{' '}
+        Actualizado el {fmt.stamp.format(new Date(summary.generatedAt))}.
       </p>
     </details>
   );

@@ -2,15 +2,20 @@
 import { velezView } from '../lib/espn.js';
 import { fmt } from '../lib/core.js';
 import { offLabel } from '../lib/alerts.js';
+import { isNeutral } from '../lib/facts.js';
 import { Crest, Empty, ResultBadge, Skeletons } from './ui.jsx';
 
 // Las copas anteriores a 2001 (copas-historicas.json) traen la ronda, la cancha neutral explícita y a veces no se
 // sabe quién fue local; el resto dice local o visitante, como siempre. También pueden traer `title` (el partido que le
 // dio la copa a Vélez: etiqueta «Campeón») y `note` (aclaración breve, abajo). Los de ESPN no tienen ninguno de los dos.
+// Un partido de ESPN en cancha neutral (Copa Argentina, finales) también viene con «local»: se deduce (isNeutral).
+// ESPN no siempre manda el resultado de la definición: si no está, igual se aclara que se definió por penales (el
+// 0-0 con Boca dice «Perdió» y sin esto parecía un error).
+export const byPenalties = (m, velez, rival) => m.completed && velez.score != null && velez.score === rival.score && velez.winner !== rival.winner;
 const where = (m, velezHome, velez, rival) => [
   m.season && m.round,
-  m.venueUnknown ? null : m.neutral === true ? 'Cancha neutral' : velezHome ? 'Local' : 'Visitante',
-  velez.pen != null && rival.pen != null && `Penales ${velez.pen}-${rival.pen}`,
+  m.venueUnknown ? null : isNeutral(m) ? 'Cancha neutral' : velezHome ? 'Local' : 'Visitante',
+  velez.pen != null && rival.pen != null ? `Penales ${velez.pen}-${rival.pen}` : byPenalties(m, velez, rival) && `${velez.winner ? 'Ganó' : 'Perdió'} por penales`,
 ].filter(Boolean).join(' · ');
 
 export function MatchRow({ m, showYear = false }) {
@@ -23,7 +28,7 @@ export function MatchRow({ m, showYear = false }) {
         {m.date ? (
           <>
             <b>{fmt.day.format(d)}</b>
-            <span>{fmt.mon.format(d).replace('.', '')}{showYear ? ` ${fmt.year.format(d).slice(2)}` : ''}</span>
+            <span>{fmt.mon.format(d).replace('.', '')}{showYear ? ` ${fmt.year.format(d)}` : ''}</span>
           </>
         ) : <b className="is-year">{m.year}</b>}
       </div>
@@ -37,7 +42,9 @@ export function MatchRow({ m, showYear = false }) {
       </div>
       <div className="match-score">
         {m.completed ? (
-          <><span className="score">{velez.score}-{rival.score}</span><ResultBadge result={result} /></>
+          // En las listas el marcador va siempre con Vélez primero (la fila es «el partido de Vélez contra…»); el Inicio y el
+          // modo cancha lo muestran local-visitante, con los dos escudos. Para que no se lea al revés, se aclara.
+          <><span className="score" title={`Vélez ${velez.score}, ${rival.name} ${rival.score}`}><span className="sr-only">Vélez </span>{velez.score}-{rival.score}</span><ResultBadge result={result} /></>
         ) : m.status === 'in' ? (
           <><span className="live-pill">{m.clock ?? 'En vivo'}</span><span className="score">{velez.score ?? 0}-{rival.score ?? 0}</span></>
         ) : off ? (

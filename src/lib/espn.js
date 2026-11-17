@@ -22,7 +22,16 @@ const TEAM_NAMES = {
   'Instituto (Córdoba)': 'Instituto',
   'Unión (Santa Fe)': 'Unión',
   'Sarmiento (Junín)': 'Sarmiento',
+  'Arsenal Sarandi': 'Arsenal de Sarandí',
+  'Arsenal de Sarandi': 'Arsenal de Sarandí',
 };
+
+// ESPN escribe algunos nombres sin tilde: se corrigen los de Vélez que aparecen en el sitio (plantel, goles,
+// formaciones). Sumar acá los que falten.
+const PERSON_NAMES = { 'Elias Gomez': 'Elías Gómez', 'Simon Escobar': 'Simón Escobar', 'Simon Prima': 'Simón Prima' };
+export const personName = (name) => PERSON_NAMES[name] ?? name;
+// Nombre de una persona del detalle de ESPN, con las tildes corregidas.
+const nameOf = (a) => personName(a?.displayName);
 
 export const teamName = (name) => TEAM_NAMES[name] ?? name;
 export const teamLogo = (id) => `https://a.espncdn.com/i/teamlogos/soccer/500/${id}.png`;
@@ -42,6 +51,16 @@ function compName(league) {
   if (/friendly/i.test(league.name)) return 'Amistoso';
   return (league.name ?? 'Otro').replace(/^Argentine /, '');
 }
+
+// ESPN nombra las rondas en inglés («Clausura - Round of 16»): se pasan al castellano para todo lo que se muestra
+// (hero, listas, imagen para compartir, calendario .ics). Los nombres que ya vienen en castellano quedan igual.
+const ROUND_ES = [
+  [/Round of 64/i, '32avos de final'], [/Round of 32/i, '16avos de final'], [/Round of 16/i, 'Octavos de final'],
+  [/Quarter-?finals?/i, 'Cuartos de final'], [/Semi-?finals?/i, 'Semifinales'], [/Group Stage/i, 'Fase de grupos'],
+  [/First Phase/i, 'Primera fase'], [/Second Phase/i, 'Segunda fase'], [/Preliminary Phase/i, 'Fase preliminar'],
+  [/Club Friendly/i, 'Amistoso'], [/^(\d{4}) Argentine (.+)$/, '$2 $1'], [/ - /g, ' · '],
+];
+export const roundName = (name) => (name ? ROUND_ES.reduce((s, [re, to]) => s.replace(re, to), name.trim()) : null);
 
 function normalizeSide(c) {
   const score = c.score && typeof c.score === 'object' ? c.score.displayValue : c.score;
@@ -66,13 +85,13 @@ export function normalizeEvent(e) {
     timeValid: e.timeValid !== false,
     comp: compName(e.league),
     compSlug: e.league?.slug ?? null,
-    round: e.seasonType?.name ?? null,
+    round: roundName(e.seasonType?.name),
     status: st.state ?? 'pre', // pre | in | post
     statusName: st.name ?? null, // STATUS_SCHEDULED, STATUS_POSTPONED, STATUS_CANCELED… (para «Postergado»)
     completed: Boolean(st.completed),
     detail: st.shortDetail ?? '',
     clock: c.status?.displayClock ?? null,
-    venue: c.venue?.fullName ?? null,
+    venue: c.venue?.fullName?.replace(/^['"‘’“”\s]+|['"‘’“”\s]+$/g, '') || null, // ESPN a veces deja una comilla suelta
     city: c.venue?.address?.city ?? null, // para el pronóstico del tiempo
     country: c.venue?.address?.country ?? null,
     home: normalizeSide(home),
@@ -344,14 +363,25 @@ export async function fetchPhaseRemaining(standings, fetchImpl, now = new Date()
  * Partidos de la fase regular en curso (eventos crudos del scoreboard, con el detalle de los goles) entre dos fechas.
  * El scoreboard de ESPN no acepta rangos de fechas largos: se pide mes por mes (6 como mucho).
  */
-export async function fetchPhaseEvents(standings, from, to, fetchImpl) {
+export async function fetchPhaseEvents(standings, from, to, fetchImpl, { after } = {}) {
+  const months = phaseMonths(from, to).filter((m) => !after || m > after);
+  return [...(await fetchPhaseMonths(standings, months, fetchImpl)).values()].flat();
+}
+
+/** Los meses («202609») entre dos fechas, 6 como mucho (lo que se le pide al scoreboard). */
+export function phaseMonths(from, to) {
   const months = [];
   for (let d = new Date(from.getFullYear(), from.getMonth(), 1); d <= to && months.length < 6; d.setMonth(d.getMonth() + 1)) {
     months.push(`${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}`);
   }
+  return months;
+}
+
+/** Los partidos de la fase en curso de cada mes pedido: Map «202609» → eventos crudos. */
+export async function fetchPhaseMonths(standings, months, fetchImpl) {
   const lists = await Promise.all(months.map((m) => getJson(`${SITE}/arg.1/scoreboard?dates=${m}`, fetchImpl)));
   const slug = phaseSlug(standings.phase);
-  return lists.flatMap((json) => json.events ?? []).filter((ev) => ev.season?.slug === slug);
+  return new Map(months.map((m, i) => [m, (lists[i].events ?? []).filter((ev) => ev.season?.slug === slug)]));
 }
 
 // ---------- Goleadores del torneo ----------
@@ -375,7 +405,7 @@ export function phaseGoals(events) {
     for (const d of ev.competitions?.[0]?.details ?? []) {
       const a = d.athletesInvolved?.[0];
       if (!d.scoringPlay || d.ownGoal || d.shootout || !a) continue;
-      out.push({ id: String(a.id), name: a.displayName, team: sideTeam(ev, d.team?.id ?? a.team?.id), date: ev.date, pen: Boolean(d.penaltyKick) });
+      out.push({ id: String(a.id), name: nameOf(a), team: sideTeam(ev, d.team?.id ?? a.team?.id), date: ev.date, pen: Boolean(d.penaltyKick), event: String(ev.id) });
     }
   }
   return out;
@@ -390,33 +420,58 @@ export function summaryAssists(summary, ev) {
   for (const k of summary.keyEvents ?? []) {
     const a = k.participants?.[1]?.athlete;
     if (!k.scoringPlay || k.shootout || k.type?.type === 'own-goal' || !a) continue;
-    out.push({ id: String(a.id), name: a.displayName, team: sideTeam(ev, k.team?.id), date: ev.date });
+    out.push({ id: String(a.id), name: nameOf(a), team: sideTeam(ev, k.team?.id), date: ev.date });
   }
   return out;
 }
 
 /**
  * Ranking por jugador: [{ id, name, n, pen, team }] ordenado por cantidad (y nombre). `team` = el equipo con el que
- * hizo el último (el actual, si cambió de club); `pen` = cuántos fueron de penal.
+ * hizo el último (el actual, si cambió de club); `pen` = cuántos fueron de penal; `by` = cuántos con cada club.
  */
 export function leaderboard(items) {
   const byId = new Map();
   for (const x of [...items].sort((p, q) => Date.parse(p.date) - Date.parse(q.date))) {
-    const r = byId.get(x.id) ?? { id: x.id, name: x.name, n: 0, pen: 0, team: x.team };
+    const r = byId.get(x.id) ?? { id: x.id, name: x.name, n: 0, pen: 0, team: x.team, by: {} };
     r.n += 1;
     if (x.pen) r.pen += 1;
     r.team = x.team;
+    if (x.team?.name) r.by[x.team.name] = (r.by[x.team.name] ?? 0) + 1; // por club: «10 (1 con Talleres)»
     byId.set(x.id, r);
   }
   return [...byId.values()].sort((p, q) => q.n - p.n || p.name.localeCompare(q.name));
 }
 
-/** Goleadores de la fase en curso, contados desde sus partidos (también los que se están jugando). */
-export async function fetchScorers(standings, fetchImpl, now = new Date()) {
+/**
+ * Goleadores de la fase en curso, contados desde sus partidos (también los que se están jugando).
+ * `base` = goleadores.json del deploy (scorersBase): los goles de los meses ya cerrados. Con eso solo se pide el
+ * scoreboard de los meses que siguen (~200 KB en vez de ~2,5 MB). Si es de otra fase, se ignora y se pide todo.
+ */
+export async function fetchScorers(standings, fetchImpl, now = new Date(), base = null) {
   if (!standings?.phase) return [];
   // Sin el inicio de la fase (datos guardados viejos), los últimos 6 meses: el filtro por fase deja solo los suyos.
   const from = standings.phaseStart ? new Date(standings.phaseStart) : new Date(now.getFullYear(), now.getMonth() - 5, 1);
-  return leaderboard(phaseGoals(await fetchPhaseEvents(standings, from, now, fetchImpl)));
+  const saved = base?.phaseKey && base.phaseKey === standings.phaseKey ? base : null;
+  const events = await fetchPhaseEvents(standings, from, now, fetchImpl, { after: saved?.through });
+  // Un partido que ya está en lo guardado no se cuenta dos veces (puede caer en dos meses por la hora).
+  const done = new Set(saved?.events ?? []);
+  const fresh = phaseGoals(events.filter((ev) => !done.has(String(ev.id))));
+  const old = (saved?.goals ?? []).map(([id, name, team, teamName_, date, pen]) => ({ id, name, team: { id: team, name: teamName_, logo: teamLogo(team) }, date, pen: Boolean(pen) }));
+  return leaderboard([...old, ...fresh]);
+}
+
+/**
+ * Lo que guarda el deploy para fetchScorers: los goles de los partidos terminados de los meses cerrados (antes de
+ * `current`, «202611»), compactos: [jugador, nombre, equipo, nombre del equipo, fecha, 1 si fue de penal].
+ * `byMonth` = fetchPhaseMonths().
+ */
+export function scorersBase(standings, byMonth, current) {
+  const closed = [...byMonth.keys()].filter((m) => m < current);
+  const events = closed.flatMap((m) => byMonth.get(m)).filter((ev) => ev.competitions?.[0]?.status?.type?.completed);
+  return {
+    phaseKey: standings.phaseKey, through: closed.at(-1) ?? null, events: events.map((ev) => String(ev.id)),
+    goals: phaseGoals(events).map((g) => [g.id, g.name, g.team.id, g.team.name, g.date, g.pen ? 1 : 0]),
+  };
 }
 
 /** Partidos de la liga en un día («20261019», hora de la Argentina en ESPN): para los otros resultados de la fecha. */
@@ -537,7 +592,7 @@ export function normalizeRoster(json) {
     coach: coach ? `${coach.firstName} ${coach.lastName}`.trim() : null,
     players: (json.athletes ?? []).map((a) => ({
       id: String(a.id),
-      name: a.displayName,
+      name: nameOf(a),
       jersey: a.jersey ?? null,
       pos: a.position?.abbreviation ?? null,
       posName: POS[a.position?.abbreviation] ?? a.position?.displayName ?? '',
@@ -564,6 +619,32 @@ export async function fetchSummary(match, fetchImpl) {
 }
 
 /**
+ * El detalle de un partido recortado a lo que usa el sitio (keyEvents, teamStats, playersFromSummary,
+ * lineupFromSummary, goalEvents): ~15 KB en vez de ~400 KB. Lo guarda el deploy (summaries.json) y las funciones de
+ * arriba lo leen igual que el original.
+ */
+export function slimSummary(summary) {
+  const team = (t) => t && { id: String(t.id), displayName: t.displayName };
+  const athlete = (a) => a && { id: String(a.id), displayName: a.displayName, ...(a.shortName && { shortName: a.shortName }) };
+  return {
+    header: { competitions: [{ competitors: (summary.header?.competitions?.[0]?.competitors ?? []).map((c) => ({ team: team(c.team) })) }] },
+    keyEvents: (summary.keyEvents ?? []).map((e) => ({
+      id: e.id, type: { type: e.type?.type }, clock: { displayValue: e.clock?.displayValue }, team: e.team && { id: String(e.team.id) },
+      ...(e.shootout && { shootout: true }), ...(e.scoringPlay && { scoringPlay: true }),
+      participants: (e.participants ?? []).map((p) => ({ athlete: athlete(p.athlete) })),
+    })),
+    boxscore: { teams: (summary.boxscore?.teams ?? []).map((t) => ({ team: { id: String(t.team?.id) }, statistics: (t.statistics ?? []).map((s) => ({ name: s.name, displayValue: s.displayValue })) })) },
+    rosters: (summary.rosters ?? []).map((r) => ({
+      team: { id: String(r.team?.id) }, formation: r.formation,
+      roster: (r.roster ?? []).map((p) => ({
+        athlete: athlete(p.athlete), starter: Boolean(p.starter), subbedIn: Boolean(p.subbedIn), jersey: p.jersey ?? null,
+        position: { abbreviation: p.position?.abbreviation }, stats: (p.stats ?? []).filter((s) => s.value).map((s) => ({ name: s.name, value: s.value })),
+      })),
+    })),
+  };
+}
+
+/**
  * Minuto a minuto: los eventos importantes del partido (goles, tarjetas, cambios, penales), del más nuevo al más viejo.
  * ESPN manda el texto en inglés: se arma en castellano con el tipo de evento y los jugadores.
  * En un gol en contra, `team` es el equipo beneficiado (como lo informa ESPN).
@@ -573,7 +654,7 @@ export function keyEvents(summary) {
   const out = [];
   for (const e of summary.keyEvents ?? []) {
     const type = e.type?.type ?? '';
-    const [p0, p1] = (e.participants ?? []).map((p) => p.athlete?.displayName);
+    const [p0, p1] = (e.participants ?? []).map((p) => p.athlete && nameOf(p.athlete));
     let kind = null;
     let text = null;
     if (type === 'own-goal') [kind, text] = ['gol', `Gol en contra de ${p0}`];
@@ -662,7 +743,7 @@ export function lineupFromSummary(summary, teamId) {
   const starters = (team?.roster ?? []).filter((p) => p.starter);
   if (starters.length !== 11) return null;
   const players = starters.map((p) => ({
-    id: String(p.athlete.id), name: p.athlete.displayName, short: shortOf(p.athlete), jersey: p.jersey ?? null, pos: p.position?.abbreviation ?? '',
+    id: String(p.athlete.id), name: nameOf(p.athlete), short: shortOf({ ...p.athlete, displayName: nameOf(p.athlete) }), jersey: p.jersey ?? null, pos: p.position?.abbreviation ?? '',
   }));
   let rows = null;
   if (players.every((p) => p.pos)) {
@@ -723,7 +804,7 @@ export function playersFromSummary(summary) {
       const stats = Object.fromEntries((p.stats ?? []).map((s) => [s.name, s.value ?? 0]));
       return {
         id: String(p.athlete.id),
-        name: p.athlete.displayName,
+        name: nameOf(p.athlete),
         starter: Boolean(p.starter),
         played: Boolean(p.starter || p.subbedIn || stats.appearances),
         stats: Object.fromEntries(Object.entries(STAT_KEYS).map(([k, short]) => [short, stats[k] ?? 0])),
@@ -772,6 +853,7 @@ export function gamesLog(games) {
       label: tournamentOf(match).label,
       rival: { id: rival.id, name: rival.name },
       home: velezHome,
+      ...(match.round && { round: match.round }), // para saber si fue en cancha neutral (facts.js › isNeutral)
       score: `${velez.score ?? 0}-${rival.score ?? 0}`,
       result,
       players: players.map((p) => ({

@@ -1,18 +1,18 @@
 // El Once de Liniers: los 11 titulares de un partido recordado, con el dorsal y el puesto a la vista. Cambia los
 // domingos. Se escribe un jugador: si fue titular, aparece en su lugar; si no, se pierde una vida.
 import { useMemo, useState } from 'react';
-import { squares, weekNumber } from '../../lib/daily.js';
+import { resultStats, squares, weekNumber } from '../../lib/daily.js';
 import { ONCE_LIVES, onceNames, onceOfWeek, photoOf } from '../../lib/players.js';
 import { teamLogo, VELEZ_ID } from '../../lib/espn.js';
 import { useJson } from '../../hooks/data.js';
 import { Crest, Empty, ExtLink, Skeletons } from '../../components/ui.jsx';
-import { Avatar, GameEnd, PlayerSearch, ShareResult, buzz, useDaily, useFlash } from './shared.jsx';
+import { Announcer, Avatar, DailyStats, GameEnd, PlayerSearch, ShareResult, buzz, useAnnounce, useDaily, useFlash, useResults } from './shared.jsx';
 
 const LINES = ['G', 'D', 'M', 'F'];
 const LINE_NAME = { G: 'Arquero', D: 'Defensores', M: 'Mediocampistas', F: 'Delanteros' };
 const DATE = new Intl.DateTimeFormat('es-AR', { timeZone: 'UTC', day: 'numeric', month: 'long', year: 'numeric' });
 
-export function Liniers({ day, onDone }) {
+export function Liniers({ day, onDone, streak }) {
   const json = useJson('data/onces.json');
   const week = weekNumber(day);
   const once = useMemo(() => onceOfWeek(json?.onces, day), [json, day]);
@@ -20,6 +20,8 @@ export function Liniers({ day, onDone }) {
   const [game, setGame] = useDaily('liniers', week, { found: [], wrong: [] });
   const [flash, fire] = useFlash();
   const [fresh, setFresh] = useState(false);
+  const [hist, record] = useResults('liniers'); // por semana: la clave es el número de semana
+  const [said, say] = useAnnounce();
 
   if (json === undefined) return <Skeletons className="sk-card" />;
   if (!once) return <Empty>El Once de Liniers no está disponible ahora.</Empty>;
@@ -37,14 +39,20 @@ export function Liniers({ day, onDone }) {
     setGame(next);
     buzz(hit);
     fire(hit ? p.n : 'miss');
+    const x = once.players.find((y) => y.n === p.n);
+    const lives = ONCE_LIVES - game.wrong.length - (hit ? 0 : 1);
+    say(hit ? `¡Sí! ${p.n} fue titular${x?.num != null ? ` con la ${x.num}` : ''}. Llevás ${game.found.length + 1} de ${once.players.length}.` : `${p.n} no fue titular. Te quedan ${lives} ${lives === 1 ? 'vida' : 'vidas'}.`);
     if ((hit && game.found.length + 1 === once.players.length) || (!hit && game.wrong.length + 1 >= ONCE_LIVES)) {
+      record(week, game.found.length + (hit ? 1 : 0));
       setFresh(true);
       onDone('liniers');
     }
   };
 
+  const st = resultStats(hist, 'score', once.players.length);
   return (
     <>
+      <Announcer text={said} />
       <div className="card liniers">
         <p className="kicker">{once.title}</p>
         <div className="liniers-match">
@@ -77,16 +85,18 @@ export function Liniers({ day, onDone }) {
         ))}
         {!done && (
           <>
-            <p className={`liniers-lives${flash === 'miss' ? ' is-shake' : ''}`} role="status">
+            <p className={`liniers-lives${flash === 'miss' ? ' is-shake' : ''}`}>
               <span aria-hidden="true">{'●'.repeat(ONCE_LIVES - game.wrong.length)}{'○'.repeat(game.wrong.length)}</span>{' '}
               Te quedan {ONCE_LIVES - game.wrong.length} de {ONCE_LIVES} vidas{game.wrong.length ? ` · No jugaron de titular: ${game.wrong.join(', ')}` : ''}
             </p>
-            <PlayerSearch list={names} onPick={guess} exclude={new Set([...game.found, ...game.wrong])} label={`Titulares: ${score} de ${once.players.length}`} shake={flash === 'miss'} />
+            <PlayerSearch list={names} onPick={guess} exclude={new Set([...game.found, ...game.wrong])} label="Escribí un titular de ese partido" detail={`Encontraste ${score} de ${once.players.length}. Te quedan ${ONCE_LIVES - game.wrong.length} vidas.`} shake={flash === 'miss'} />
           </>
         )}
       </div>
       {done && (
-        <GameEnd fresh={fresh} win={score === once.players.length} kicker={`El Once de Liniers · ${once.title}`} score={`${score}/${once.players.length}`} phrase={score === once.players.length ? '¡Los once! Estuviste en la cancha.' : 'El domingo hay otro once.'} marks={squares(results)}>
+        <GameEnd fresh={fresh} win={score === once.players.length} kicker={`El Once de Liniers · ${once.title}`} score={`${score}/${once.players.length}`} phrase={score === once.players.length ? '¡Los once! Estuviste en la cancha.' : 'El domingo hay otro once.'} marks={squares(results)}
+          stats={<DailyStats weekly streak={streak} stats={[['Semanas jugadas', st.played], ['Promedio', st.avg != null ? `${String(st.avg).replace('.', ',')}/${once.players.length}` : null], ['Completos', st.perfect]]} />}
+        >
           <ShareResult
             anchor="liniers" file="once-de-liniers.png" text={`El Fortín · El Once de Liniers · ${once.title} · ${score}/${once.players.length}\n${squares(results)}`}
             card={() => ({ kicker: once.title, headline: 'El Once de Liniers', big: true, center: `${score}/${once.players.length}`, sub: 'titulares acertados', lines: [match, '¿Vos cuántos sacás? Un once histórico por semana en El Fortín.'] })}

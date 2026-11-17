@@ -1111,6 +1111,10 @@ button.btn-ghost { border: 2px solid currentColor; }
 .fm-player { display: grid; justify-items: center; gap: 0.15rem; min-width: 0; flex: 1 1 0; max-width: 5.5rem; }
 .fm-dot { width: 2rem; height: 2rem; border-radius: 50%; display: grid; place-items: center; background: #ffffff; color: #1b1d21; font-size: 1rem; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4); }
 .fm-pitch.is-velez .fm-dot { background: #0061a8; color: #ffffff; box-shadow: 0 0 0 2px #ffffff; }
+.fm-player.is-out .fm-dot { background: #c62828; color: #ffffff; box-shadow: 0 0 0 2px #ffffff; }
+.fm-player.is-out .fm-name { text-decoration: line-through; }
+.fm-list .is-out { text-decoration: line-through; }
+.fm-out { margin: 0.5rem 0 0; }
 .fm-name { color: #ffffff; font-size: 0.75rem; font-weight: 700; line-height: 1.15; text-align: center; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fm-list { margin: 0; padding-left: 1.25rem; columns: 2; }
 
@@ -1893,3 +1897,80 @@ p.cr-tag.is-big { justify-self: center; margin: 0; }
 @media (prefers-reduced-motion: reduce) { .cr-wall.is-jump { animation: none; } }
 /* En pantallas anchas la escena no ocupa todo: queda centrada con un ancho cómodo */
 .cr-moment > .cr-pitch { width: 100%; max-width: 36rem; justify-self: center; }
+
+/* noticias: informe nov-2026 */
+.nw-pic { display: block; }
+/* El <summary> con display:flex pierde el triángulo nativo: chevron propio que gira al abrir */
+.news-summary > summary { list-style: none; }
+.news-summary > summary::-webkit-details-marker { display: none; }
+.news-summary > summary::after {
+  content: ''; margin-left: auto; width: 0.6rem; height: 0.6rem; flex: none;
+  border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: translateY(-0.15rem) rotate(45deg); transition: transform 0.15s;
+}
+.news-summary[open] > summary::after { transform: translateY(0.15rem) rotate(-135deg); }
+.summary-points { gap: 0.6rem; }
+.summary-points .summary-meta { margin: 0; font-size: 0.9rem; }
+/* Área táctil de 44 px (piso del sitio) sin agrandar la letra */
+.summary-points a.summary-link { display: inline-flex; align-items: center; min-height: 2.75rem; }
+.summary-src {
+  display: inline-block; margin-right: 0.4rem; padding: 0.15rem 0.4rem; border: 1px solid var(--line); border-radius: var(--radius-sm);
+  color: var(--text-2); font: 700 0.75rem/1.2 var(--body); text-transform: uppercase; letter-spacing: 0.02em; vertical-align: 0.1rem;
+}
+@media (prefers-reduced-motion: reduce) { .news-summary > summary::after { transition: none; } }
+
+/* compartir y pie: informe nov-2026 */
+/* Diálogo de compartir: ✕ arriba siempre a la vista (queda pegada al hacer scroll) y la imagen se achica para que
+   los botones entren sin scroll en pantallas bajas. */
+.share-head {
+  position: sticky; top: -1rem; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+  margin: -1rem -1rem 0.5rem; padding: 0.25rem 0.25rem 0.25rem 1rem; background: var(--card);
+}
+.share-title { font: 700 0.9375rem/1.2 var(--body); }
+.share-x {
+  display: inline-grid; place-items: center; width: var(--tap); height: var(--tap); flex: none; padding: 0; border: 0;
+  border-radius: 50%; background: transparent; color: var(--text); cursor: pointer;
+}
+.share-x:hover { background: var(--accent-soft); }
+.share-x svg { width: 1.5rem; height: 1.5rem; fill: none; stroke: currentColor; stroke-width: 2.25; stroke-linecap: round; }
+.share-dialog img { width: auto; max-width: 100%; max-height: calc(100dvh - 11rem); margin-inline: auto; }
+.share-error { margin: 0.75rem 0 0; color: var(--loss); font-weight: 600; }
+.btn[aria-disabled="true"] { cursor: progress; }
+/* Pie: links al repo y a «Reportar un error», con tamaño de toque */
+.footer-links { display: flex; flex-wrap: wrap; gap: 0 1.25rem; margin: 0.25rem 0 0; padding: 0; list-style: none; }
+.footer-links a { display: inline-flex; align-items: center; min-height: var(--tap); color: var(--on-velez); font-weight: 700; text-decoration: underline; text-underline-offset: 0.2em; }
+.footer a:focus-visible { outline-color: var(--on-velez); }
+
+/* juegos: informe nov-2026 */
+/* Buscador: la opción entera se toca (sin botón adentro), fila de 44 px. */
+.psearch-list .psearch-opt {
+  min-height: var(--tap); padding: 0 0.75rem; border-radius: 8px; color: var(--text); font: 600 0.9375rem/1.2 var(--body);
+  cursor: pointer; display: flex; align-items: center; gap: 0.6rem;
+}
+.psearch-list .psearch-opt[aria-selected='true'], .psearch-list .psearch-opt:hover { background: var(--accent-soft); }
+/* Lo que recibe el foco por código (pregunta siguiente, tarjeta final, barra asistida): sin recuadro, como un título. */
+.trivia-text[tabindex='-1']:focus, .game-end:focus, .cr-timing:focus { outline: none; }
+.game-end:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+/* Pantalla final: racha, números del historial y cuándo sale el próximo. */
+.ge-stats { display: grid; gap: 0.4rem; }
+.ge-nums { margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr)); gap: 0.4rem; }
+.ge-nums div { background: var(--card); border-radius: var(--radius-sm); padding: 0.4rem 0.5rem; text-align: center; display: flex; flex-direction: column-reverse; }
+.ge-nums dt { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-2); }
+.ge-nums dd { margin: 0; font-size: 1.5rem; line-height: 1.1; color: var(--accent); }
+/* Mano a Mano: los números de los dos en el veredicto. */
+.duel-nums { font-weight: 600; }
+.duel-nums b { font-size: 1.125rem; color: inherit; }
+/* Prode: quién pasa si es empate en eliminación. */
+.prode-pass { border: 0; margin: 0.75rem 0 0; padding: 0; min-width: 0; }
+.prode-pass legend { padding: 0; margin-bottom: 0.4rem; font-weight: 700; }
+.prode-pass-opts { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.prode-missing { margin: 0; align-self: center; }
+/* Adiviná el once: suspendido (se puede elegir igual). */
+.once-susp {
+  margin-left: auto; padding: 0.15rem 0.45rem; border-radius: 999px; background: var(--loss); color: var(--on-signal);
+  font: 700 0.75rem/1.2 var(--body); text-transform: uppercase; letter-spacing: 0.04em;
+}
+.once-player.is-susp:not([aria-pressed='true']) { border-style: dashed; }
+/* Carrera: modo asistido. */
+.cr-assist { display: flex; align-items: flex-start; gap: 0.6rem; min-height: var(--tap); padding: 0.5rem 0; cursor: pointer; }
+.cr-assist input { width: 1.5rem; height: 1.5rem; margin: 0.1rem 0 0; flex: none; accent-color: var(--accent); }
+.cr-assist small { display: block; }

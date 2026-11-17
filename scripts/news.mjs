@@ -9,7 +9,9 @@
 //                                     (para no correr el modelo si no hay nada nuevo).
 //
 // Resumen: el modelo recibe el texto de cada nota (ordenadas por importancia) y devuelve 4-6 puntos, cada uno
-// citando su nota. Un punto con números o fechas que no aparecen en su nota se descarta antes de publicar.
+// citando su nota. Un punto con números o fechas que no aparecen en su nota no se publica: en su lugar va la bajada
+// oficial de esa nota, marcada como texto de la nota. La previa de un partido que ya tiene su resultado en la semana
+// no se le pasa al modelo, y los puntos se publican de la nota más nueva a la más vieja.
 import { access, appendFile, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -78,11 +80,24 @@ export function decodeBody(buffer, contentType = '') {
 
 // ---------- Control de datos (función pura, con tests) ----------
 
-const normalizeNum = (s) => s.replace(/[.\s]/g, '').replace(',', '.');
+// Todas las comas, no solo la primera: con `.replace(',', '.')` la primera coma del texto (casi siempre una de
+// puntuación) se llevaba el reemplazo y «38,64» de la nota no coincidía con el «38,64» del punto (nov-2026, se
+// perdió la nota de la elección de Pugliese).
+const normalizeNum = (s) => s.replace(/[.\s]/g, '').replace(/,/g, '.');
 
 /** Números, horas, fechas y montos que aparecen en un texto («$15.000», «20:30», «31/12», «2027», «3-1»). */
 export function factsIn(text) {
   return [...text.matchAll(/(?:\$\s?)?\d+(?:[.,:/-]\d+)*/g)].map((m) => m[0].replace(/^\$\s?/, ''));
+}
+
+/**
+ * Forma canónica de un dato para comparar: «15.000», «15,000» y «15000» → «15000»; «38,64» y «38.64» → «38.64».
+ * Un grupo de tres cifras tras el separador se toma como miles (así se escribe en Argentina).
+ */
+export function canonFact(f) {
+  const s = f.replace(/^\$\s?/, '').replace(/\s?%$/, '');
+  if (/^\d{1,3}(?:[.,]\d{3})+$/.test(s)) return s.replace(/[.,]/g, '');
+  return s.replace(/,/g, '.');
 }
 
 // Números en palabras que se controlan. «un/uno/una» y «primer/primero» quedan afuera: son demasiado comunes
@@ -108,9 +123,12 @@ export function numberWordsIn(text) {
  */
 export function unsupportedFacts(pointText, sourceText) {
   const src = normalizeNum(sourceText);
+  const srcFacts = new Set(factsIn(sourceText).map(canonFact));
   const srcWords = new Set(wordsOf(sourceText));
   const srcNumbers = new Set([...(sourceText.match(/\d+/g) ?? []), ...[...srcWords].filter((w) => w in NUMBER_WORDS).map((w) => String(NUMBER_WORDS[w]))]);
   const digits = factsIn(pointText).filter((f) => {
+    // Mismo dato con otro formato («38.64» por «38,64», «15000» por «15.000»).
+    if (srcFacts.has(canonFact(f))) return false;
     if (src.includes(normalizeNum(f))) return false;
     // «3-1» puede venir como «3 a 1» en la nota.
     const score = f.match(/^(\d+)-(\d+)$/);
@@ -140,6 +158,73 @@ export function newNoteUrls(urls, previous) {
 /** Ordena por sección (importancia) y, dentro de cada una, de la más nueva a la más vieja. */
 export function rankNotes(notes) {
   return [...notes].sort((a, b) => priorityOf(a.section) - priorityOf(b.section) || b.date.localeCompare(a.date));
+}
+
+// ---------- Notas del mismo partido (función pura, con tests) ----------
+
+const MINOR_WORDS = new Set(['de', 'del', 'la', 'el', 'los', 'las', 'y']);
+
+/** Rival de una nota de resultado: «Tigre 0-1 Vélez» → ['tigre']. Sin marcador o sin Vélez en el título: null. */
+export function resultRival(title) {
+  const m = plain(title).match(/^(.+?)\s+\d+\s*-\s*\d+\s+(.+)$/);
+  if (!m) return null;
+  const sides = [m[1], m[2]];
+  const i = sides.findIndex((s) => /\bvelez\b/.test(s));
+  if (i < 0) return null;
+  const words = wordsOf(sides[1 - i]).filter((w) => !MINOR_WORDS.has(w));
+  return words.length ? words : null;
+}
+
+/**
+ * Saca las previas de un partido cuyo resultado ya está en la semana: una nota sin marcador, de la misma sección
+ * que un resultado («Tigre 0-1 Vélez»), que nombra a ese rival en el título o en la URL y se publicó antes.
+ * Lo publicado después (lo que dijo el DT tras el partido, por ejemplo) se queda.
+ */
+export function dropSuperseded(notes) {
+  const results = notes.map((n) => ({ n, rival: resultRival(n.title) })).filter((r) => r.rival);
+  const before = (a, b) => (a.published && b.published ? a.published < b.published : a.date < b.date);
+  return notes.filter((n) => {
+    if (resultRival(n.title)) return true;
+    const words = new Set(wordsOf(`${n.title} ${n.url.split('/').pop()}`));
+    return !results.some((r) => r.n.section === n.section && before(n, r.n) && r.rival.every((w) => words.has(w)));
+  });
+}
+
+// ---------- Puntos que se publican (función pura, con tests) ----------
+
+/** Bajada de la nota (o su primer párrafo), cortada en una oración si es larga: el reemplazo de un punto descartado. */
+export function noteExcerpt(note, max = 300) {
+  const text = (note.lead || note.body?.split('\n')[0] || '').replace(/\s+/g, ' ').trim();
+  if (text.length <= max) return text;
+  const cut = text.slice(0, max);
+  const end = cut.lastIndexOf('. ');
+  return end > 80 ? cut.slice(0, end + 1) : `${cut.replace(/\s+\S*$/, '')}…`;
+}
+
+/**
+ * Pasa los puntos del modelo por el control de datos. Un punto que no pasa no se pierde: su nota entra con la
+ * bajada oficial (`origen: 'nota'`, la página lo marca como texto de la nota y no de la IA). Una nota, un punto.
+ * Orden: de la nota más nueva a la más vieja, como los titulares; el mismo día queda el orden del modelo (por
+ * importancia). Devuelve `checked` (todos, para la auditoría) y `points` (los que se publican).
+ */
+export function buildPoints(puntos, notes) {
+  const checked = (puntos ?? []).map((p) => {
+    const note = notes[p.nota - 1];
+    if (!note || !isOfficialNoteUrl(note.url)) return { ...p, ok: false, motivo: `cita una nota que no existe (${p.nota})` };
+    const missing = unsupportedFacts(p.texto, `${note.title}\n${note.lead}\n${note.body}`);
+    return { ...p, url: note.url, titulo: note.title, ok: missing.length === 0, motivo: missing.length ? `datos que no están en la nota: ${missing.join(', ')}` : null };
+  });
+  const byUrl = new Map();
+  const point = (texto, note, origen) => ({ texto, url: note.url, titulo: note.title, fecha: note.date, origen });
+  for (const p of checked) if (p.ok && !byUrl.has(p.url)) byUrl.set(p.url, point(p.texto, notes[p.nota - 1], 'ia'));
+  for (const p of checked) {
+    if (p.ok || !p.url || byUrl.has(p.url)) continue;
+    const note = notes[p.nota - 1];
+    const texto = noteExcerpt(note);
+    if (texto) byUrl.set(p.url, point(texto, note, 'nota'));
+  }
+  const points = [...byUrl.values()].sort((a, b) => b.fecha.localeCompare(a.fecha));
+  return { checked, points, aiOk: points.filter((p) => p.origen === 'ia').length };
 }
 
 // ---------- Ejecución ----------
@@ -177,7 +262,8 @@ export async function collectNotes({ ranked = true, now = new Date() } = {}) {
       console.warn(`No se pudo leer la nota ${l.url}: ${err.message}`);
     }
   }
-  return notes;
+  // Para el resumen, la previa de un partido que ya se jugó sobra: queda solo el resultado.
+  return ranked ? dropSuperseded(notes) : notes;
 }
 
 const SYSTEM = `Sos redactor de un sitio de hinchas de Vélez Sarsfield. Escribís en español rioplatense, claro y neutral.
@@ -263,15 +349,39 @@ export async function writeHeadlines() {
 
 // ---------- Miniaturas ----------
 // Las fotos originales de velez.com.ar pesan 2–2,5 MB (3000×4000 px) y su variante «md» 340–590 KB: demasiado para
-// tarjetas de 92 px. El deploy baja la «md» y genera dos recortes livianos con ImageMagick (viene en los runners de
-// GitHub): miniatura cuadrada y foto 16:9 para la nota destacada. Sin ImageMagick (p. ej. en Windows) se usa la «md».
+// tarjetas. El deploy baja la «md» (≈ 700 px de ancho) y genera recortes 16:9 con ImageMagick (viene en los runners
+// de GitHub): 720 px (destacada y celulares de alta densidad) y 400 px (tarjetas de escritorio), en JPEG y, si
+// ImageMagick sabe escribirlo, también en WebP (≈ 35 % menos). La página elige con <picture> + srcset. Solo el JPEG
+// de 720 es obligatorio; si falta otra variante, la tarjeta usa lo que haya. Sin ImageMagick (p. ej. en Windows) se
+// usa la «md». La miniatura cuadrada de antes («-t») ya no se genera: la página no la usaba.
 
 const MAX_THUMBS = 9; // las que muestra la página
 const THUMB_DIR = new URL('img/news/', OUT);
-const SIZES = { t: '184x184', f: '720x405' }; // ×2 de lo que se ve, para pantallas de alta densidad
+const VARIANTS = [
+  { field: 'photo', size: '720x405', tag: 'f', ext: 'jpg', required: true },
+  { field: 'photoSm', size: '400x225', tag: 'm', ext: 'jpg' },
+  { field: 'photoWebp', size: '720x405', tag: 'f', ext: 'webp' },
+  { field: 'photoSmWebp', size: '400x225', tag: 'm', ext: 'webp' },
+];
 
 /** «…/img/noticias/26/foto.jpg» → «…/img/noticias/26/md/foto.jpg» (la versión mediana que usa la web oficial). */
 export const mediumVariant = (url) => url.replace(/\/img\/noticias\/(\d+)\/(?!md\/)/, '/img/noticias/$1/md/');
+
+/** Argumentos de ImageMagick para un recorte centrado (JPEG progresivo o WebP). */
+export function magickArgs(src, size, out) {
+  const webp = out.endsWith('.webp');
+  return [src, '-auto-orient', '-resize', `${size}^`, '-gravity', 'center', '-extent', size, '-strip', ...(webp ? [] : ['-interlace', 'Plane']), '-quality', webp ? '70' : '72', out];
+}
+
+/** ¿Este ImageMagick escribe WebP? («magick -list format» marca «rw» en la fila de WEBP.) */
+async function writesWebp(bin) {
+  try {
+    const { stdout } = await execFileAsync(bin, ['-list', 'format']);
+    return /^\s*WEBP\*?\s+\S+\s+r?w/im.test(stdout);
+  } catch {
+    return false;
+  }
+}
 
 async function imageMagick() {
   // En Windows existe un «convert» del sistema que convierte discos FAT a NTFS: nunca llamarlo ahí.
@@ -290,38 +400,48 @@ async function imageMagick() {
 async function addThumbnails(headlines) {
   const bin = await imageMagick();
   if (!bin) console.warn('Sin ImageMagick: las tarjetas usan la imagen «md» de velez.com.ar (más pesada).');
+  // Sin soporte de WebP no se intenta: si no, cada deploy volvería a bajar las fotos para fallar de nuevo.
+  const variants = bin && (await writesWebp(bin)) ? VARIANTS : VARIANTS.filter((v) => v.ext !== 'webp');
+  if (bin && variants.length < VARIANTS.length) console.warn('ImageMagick sin WebP: las tarjetas van solo en JPEG.');
   await mkdir(THUMB_DIR, { recursive: true });
   for (const h of headlines) {
     if (!isOfficialImageUrl(h.image)) continue;
     const medium = mediumVariant(h.image);
     if (!bin) {
-      h.thumb = h.photo = medium;
+      h.photo = medium;
       continue;
     }
     const key = createHash('sha1').update(h.image).digest('hex').slice(0, 16);
-    const out = Object.fromEntries(Object.keys(SIZES).map((k) => [k, new URL(`${key}-${k}.jpg`, THUMB_DIR)]));
+    const fileOf = (v) => new URL(`${key}-${v.tag}.${v.ext}`, THUMB_DIR);
+    const src = new URL(`${key}-src.jpg`, THUMB_DIR);
     try {
       const missing = [];
-      for (const [k, file] of Object.entries(out)) if (!(await exists(file))) missing.push(k);
+      for (const v of variants) if (!(await exists(fileOf(v)))) missing.push(v);
       if (missing.length) {
-        const src = new URL(`${key}-src.jpg`, THUMB_DIR);
         const res = await fetch(medium, { headers: HEADERS });
         if (!res.ok) throw new Error(`${res.status} ${medium}`);
         await writeFile(src, Buffer.from(await res.arrayBuffer()));
-        for (const k of missing) {
-          await execFileAsync(bin, [fileURLToPath(src), '-auto-orient', '-resize', `${SIZES[k]}^`, '-gravity', 'center', '-extent', SIZES[k], '-strip', '-interlace', 'Plane', '-quality', '72', fileURLToPath(out[k])]);
+        for (const v of missing) {
+          try {
+            await execFileAsync(bin, magickArgs(fileURLToPath(src), v.size, fileURLToPath(fileOf(v))));
+          } catch (err) {
+            if (v.required) throw err;
+            console.warn(`Sin la variante ${v.tag}.${v.ext} de ${h.url}: ${err.message}`);
+          }
         }
-        await rm(src, { force: true });
       }
-      h.thumb = `data/generated/img/news/${key}-t.jpg`;
-      h.photo = `data/generated/img/news/${key}-f.jpg`;
+      for (const v of variants) if (await exists(fileOf(v))) h[v.field] = `data/generated/img/news/${key}-${v.tag}.${v.ext}`;
+      if (!h.photo) throw new Error('no se generó la foto de 720 px');
     } catch (err) {
       console.warn(`No se pudo generar la miniatura de ${h.url}: ${err.message}`);
-      h.thumb = h.photo = medium;
+      for (const v of VARIANTS) delete h[v.field];
+      h.photo = medium;
+    } finally {
+      await rm(src, { force: true });
     }
   }
   // La carpeta se cachea entre deploys: se borran las miniaturas de notas que ya no se muestran.
-  const keep = new Set(headlines.flatMap((h) => [h.thumb, h.photo]).filter(Boolean).map((p) => p.split('/').pop()));
+  const keep = new Set(headlines.flatMap((h) => VARIANTS.map((v) => h[v.field])).filter(Boolean).map((p) => p.split('/').pop()));
   for (const file of await readdir(THUMB_DIR)) if (!keep.has(file)) await rm(new URL(file, THUMB_DIR), { force: true });
 }
 
@@ -340,22 +460,18 @@ async function writeSummary() {
   const { raw, parsed, usage, timings } = await summarize(notes, llmUrl);
   const tLlm = Date.now();
 
-  const points = (parsed.puntos ?? []).map((p) => {
-    const note = notes[p.nota - 1];
-    if (!note || !isOfficialNoteUrl(note.url)) return { ...p, ok: false, motivo: `cita una nota que no existe (${p.nota})` };
-    const missing = unsupportedFacts(p.texto, `${note.title}\n${note.lead}\n${note.body}`);
-    return { ...p, url: note.url, titulo: note.title, ok: missing.length === 0, motivo: missing.length ? `datos que no están en la nota: ${missing.join(', ')}` : null };
-  });
+  const { checked: points, points: published, aiOk } = buildPoints(parsed.puntos, notes);
   const ok = points.filter((p) => p.ok);
-  // Con menos de 2 puntos válidos no vale la pena publicar: la página muestra solo los titulares.
-  if (ok.length < 2) throw new Error(`Solo ${ok.length} puntos pasaron el control: no se publica el resumen.`);
+  // Con menos de 2 puntos de la IA válidos no vale la pena publicar (sería casi todo bajadas): la página muestra
+  // solo los titulares.
+  if (aiOk < 2) throw new Error(`Solo ${aiOk} puntos pasaron el control: no se publica el resumen.`);
 
   const dates = notes.map((n) => n.date).sort();
   const result = {
     model,
     generatedAt: new Date().toISOString(),
     period: { from: dates[0], to: dates.at(-1) },
-    points: ok.map(({ texto, url, titulo }) => ({ texto, url, titulo })),
+    points: published,
     // Para revisar la corrida: no se usa en la página.
     audit: {
       seconds: { notas: Math.round((tNotes - t0) / 1000), modelo: Math.round((tLlm - tNotes) / 1000) },
@@ -373,9 +489,13 @@ async function writeSummary() {
     `## Resumen semanal · ${model}`,
     `- Notas leídas: ${notes.length} (${result.audit.seconds.notas} s) · Modelo: ${result.audit.seconds.modelo} s` +
       (timings ? ` · prompt ${Math.round(timings.prompt_per_second)} tok/s, generación ${timings.predicted_per_second?.toFixed(1)} tok/s` : ''),
-    `- Puntos: ${points.length} generados, ${ok.length} publicados, ${points.length - ok.length} descartados`,
+    `- Puntos: ${points.length} generados, ${ok.length} pasaron el control, ${points.length - ok.length} descartados` +
+      ` · publicados ${published.length} (${published.length - aiOk} con la bajada de la nota)`,
     '',
     ...points.map((p) => `${p.ok ? '✅' : '❌'} ${p.texto}${p.url ? ` ([nota](${p.url}))` : ''}${p.motivo ? `  \n   _descartado: ${p.motivo}_` : ''}`),
+    '',
+    '**Publicado (de la nota más nueva a la más vieja):**',
+    ...published.map((p) => `- ${p.fecha} ${p.origen === 'nota' ? '[bajada]' : '[IA]'} ${p.texto}`),
     '',
     '<details><summary>Notas usadas</summary>',
     '',

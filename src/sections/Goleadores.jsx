@@ -1,13 +1,17 @@
 // Goleadores y asistidores del torneo en curso, con Vélez resaltado. Los goles se cuentan en vivo desde los partidos
 // (lib/espn.js › fetchScorers); las asistencias las arma el deploy desde el detalle de cada partido (asistencias.json).
 import { useState } from 'react';
-import { VELEZ_ID, fetchScorers } from '../lib/espn.js';
+import { VELEZ_ID } from '../lib/espn.js';
 import { DATA, fmt, plural } from '../lib/core.js';
-import { useCached, useJson } from '../hooks/data.js';
+import { loadScorers, useCached, useJson } from '../hooks/data.js';
 import { Crest, Segmented } from '../components/ui.jsx';
 
 const TTL_MS = 15 * 60 * 1000;
 const TOP = 10;
+// Los que hicieron goles con más de un club en el torneo: «1 con Talleres» (así se entiende por qué el total no es el
+// mismo que en Plantel, que cuenta solo los de Vélez).
+const others = (s) => Object.entries(s.by ?? {}).filter(([team]) => team !== s.team?.name).map(([team, n]) => `${n} con ${team}`);
+
 const LISTS = { goles: { label: 'Goleadores', unit: ['gol', 'goles'] }, asist: { label: 'Asistidores', unit: ['asistencia', 'asistencias'] } };
 
 function Leaders({ rows, unit }) {
@@ -19,7 +23,7 @@ function Leaders({ rows, unit }) {
           <span className="scorer-pos num">{i > 0 && rows[i - 1].n === s.n ? '' : i + 1}</span>
           <div className="scorer-main">
             <strong>{s.name}</strong>
-            <small>{s.team && <><Crest url={s.team.logo} size={18} />{s.team.name}</>}{s.pen ? ` · ${plural(s.pen, 'de penal', 'de penal')}` : ''}</small>
+            <small>{s.team && <><Crest url={s.team.logo} size={18} />{s.team.name}</>}{s.pen ? ` · ${plural(s.pen, 'de penal', 'de penal')}` : ''}{others(s).map((t) => ` · ${t}`).join('')}</small>
           </div>
           <b className="num scorer-goals">{s.n}<small>{s.n === 1 ? unit[0] : unit[1]}</small></b>
         </li>
@@ -32,7 +36,7 @@ function Leaders({ rows, unit }) {
 export function Goleadores({ standings, refresh }) {
   const [pick, setPick] = useState('goles');
   const [all, setAll] = useState(false);
-  const scorers = useCached(standings?.phaseKey ?? null, () => fetchScorers(standings), { ttl: TTL_MS, refresh });
+  const scorers = useCached(standings?.phaseKey ?? null, () => loadScorers(standings), { ttl: TTL_MS, refresh });
   const assistsFile = useJson(`${DATA}asistencias.json`);
   // Las asistencias guardadas son de una fase: si el torneo ya cambió (y el deploy todavía no corrió), no se muestran.
   const assists = assistsFile && standings && assistsFile.phaseKey === standings.phaseKey ? assistsFile.players : null;
@@ -52,7 +56,7 @@ export function Goleadores({ standings, refresh }) {
       <h2 className="h2" id="t-goleadores">{phase ? `Goleadores y asistidores del ${phase}` : 'Goleadores y asistidores'}</h2>
       {available.length > 1 && <Segmented label="Elegir lista" options={available.map((k) => ({ value: k, label: LISTS[k].label }))} value={key} onChange={setPick} />}
       {own.length > 0 && (
-        <p className="scorers-own"><b>De Vélez:</b> {own.map((s) => `${s.name} ${s.n}`).join(' · ')}</p>
+        <p className="scorers-own"><b>De Vélez:</b> {own.map((s) => `${s.name} ${s.n}${s.by?.[s.team.name] != null && s.by[s.team.name] !== s.n ? ` (${s.by[s.team.name]} con Vélez)` : ''}`).join(' · ')}</p>
       )}
       <Leaders rows={shown} unit={unit} />
       {rows.length > TOP && (

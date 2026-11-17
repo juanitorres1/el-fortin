@@ -7,15 +7,15 @@ import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
 import { mount } from '../main.jsx';
 import { VELEZ_ID } from '../lib/espn.js';
 import { DATA, TZ, capitalize, fmt, nextMatch } from '../lib/core.js';
-import { GAMES, gameStreak, markPlayed } from '../lib/daily.js';
+import { GAMES, gameStreak, markPlayed, recordResult, resultStats } from '../lib/daily.js';
 import { dailyTrivia, dayNumber, shareText } from '../lib/trivia.js';
-import { ONCE_SIZE, isOpen, onceScore, prodeSummary } from '../lib/games.js';
+import { ONCE_SIZE, isKnockout, isOpen, onceScore, prodeReady, prodeSummary, suspendedFor } from '../lib/games.js';
 import { useJson, useLiveData, useNow, useRoster } from '../hooks/data.js';
 import { useScrollToHash } from '../hooks/page.js';
 import { Layout, PageBand } from '../components/Layout.jsx';
 import { Crest, Empty, Skeletons } from '../components/ui.jsx';
 import { ShareCardButton } from '../components/ShareCard.jsx';
-import { useStored } from '../sections/juegos/shared.jsx';
+import { Announcer, DailyStats, GameEnd, ShareResult, useAnnounce, useStored } from '../sections/juegos/shared.jsx';
 import { ManoAMano } from '../sections/juegos/ManoAMano.jsx';
 import { Tapado } from '../sections/juegos/Tapado.jsx';
 import { Trayectoria } from '../sections/juegos/Trayectoria.jsx';
@@ -41,7 +41,7 @@ const whenLabel = (m) => `${capitalize(fmt.long.format(new Date(m.date)))}${m.ti
 
 // ---------- Trivia ----------
 
-function Trivia({ club, onDone }) {
+function Trivia({ club, onDone, streak }) {
   const now = useNow();
   const day = dayNumber(new Date(now));
   const questions = useMemo(() => (club ? dailyTrivia(club, day) : []), [club, day]);
@@ -52,35 +52,38 @@ function Trivia({ club, onDone }) {
   const results = answers.map((a, i) => questions[i] && questions[i].options[a] === questions[i].answer);
   const score = results.filter(Boolean).length;
   const label = DAY_MONTH.format(new Date(now)); // «17/10»
-  const [copied, setCopied] = useState(false);
+  const [fresh, setFresh] = useState(false);
+  const [said, say] = useAnnounce();
+  // Al responder, las opciones quedan deshabilitadas: el foco pasa al enunciado de la pregunta siguiente (o, en la
+  // última, a la tarjeta final, que se enfoca sola). Solo después de jugar, no al abrir la página.
+  const heads = useRef([]);
+  const moved = useRef(false);
+  useEffect(() => {
+    if (!moved.current || done) return;
+    heads.current[answers.length]?.focus();
+  }, [answers.length, done]);
 
   const answer = (qi, oi) => {
     if (answers.length !== qi) return;
     const next = [...answers, oi];
+    const q = questions[qi];
+    moved.current = true;
+    say(`${q.options[oi] === q.answer ? '¡Bien!' : `No. Era «${q.answer}».`}${q.note ? ` ${q.note}` : ''}`);
     setState({ day, answers: next });
     if (next.length === questions.length) {
       const ok = next.filter((a, i) => questions[i].options[a] === questions[i].answer).length;
-      setHistory((h) => ({ ...h, [day]: ok }));
+      setHistory((h) => recordResult(h, day, ok));
+      setFresh(true);
       onDone('trivia');
     }
   };
-  const shareResult = async () => {
-    const text = `${shareText(results, label)}\n${location.href.split('#')[0]}#trivia`;
-    try {
-      if (navigator.share) await navigator.share({ text });
-      else {
-        await navigator.clipboard.writeText(text);
-        setCopied(true);
-      }
-    } catch {
-      /* canceló */
-    }
-  };
+  const st = resultStats(history, 'score', questions.length);
 
   if (club === undefined) return <Skeletons className="sk-card" />;
   if (!questions.length) return <Empty>La trivia no está disponible ahora.</Empty>;
   return (
     <>
+      <Announcer text={said} />
       <ol className="trivia">
         {/* De a una: las respondidas y la que sigue. */}
         {questions.slice(0, answers.length + 1).map((q, qi) => {
@@ -89,7 +92,7 @@ function Trivia({ club, onDone }) {
           return (
             <li key={q.id} className="card trivia-q">
               <p className="kicker">Pregunta {qi + 1} de {questions.length}</p>
-              <h3 className="trivia-text">{q.text}</h3>
+              <h3 className="trivia-text" tabIndex={-1} ref={(el) => { heads.current[qi] = el; }}>{q.text}</h3>
               <div className="trivia-options">
                 {q.options.map((o, oi) => {
                   const cls = !answered ? '' : o === q.answer ? ' is-right' : oi === picked ? ' is-wrong' : '';
@@ -102,7 +105,7 @@ function Trivia({ club, onDone }) {
                 })}
               </div>
               {answered && (
-                <p className={`trivia-note ${q.options[picked] === q.answer ? 'is-right' : 'is-wrong'}`} role="status">
+                <p className={`trivia-note ${q.options[picked] === q.answer ? 'is-right' : 'is-wrong'}`}>
                   <b>{q.options[picked] === q.answer ? '¡Bien!' : `Era «${q.answer}».`}</b>{q.note ? ` ${q.note}` : ''}
                 </p>
               )}
@@ -111,18 +114,17 @@ function Trivia({ club, onDone }) {
         })}
       </ol>
       {done && (
-        <div className="card trivia-end" role="status">
-          <p className="kicker">Trivia del {label}</p>
-          <p className="trivia-score"><b className="num">{score}/{questions.length}</b> {score === questions.length ? '¡Perfecto! Sabés todo de Vélez.' : score >= 3 ? 'Muy bien, hincha.' : 'Mañana hay otra.'}</p>
-          <p className="trivia-squares" aria-hidden="true">{results.map((r) => (r ? '🟦' : '⬜')).join('')}</p>
-          <div className="cal-links">
-            <button type="button" className="btn btn-solid" onClick={shareResult}>{copied ? 'Copiado: pegalo en WhatsApp' : 'Compartir el resultado'}</button>
-            <ShareCardButton
-              label="Compartir como imagen" file="trivia-velez.png"
-              getCard={() => ({ kicker: `Trivia del ${label}`, headline: 'Trivia de Vélez', big: true, center: `${score}/${questions.length}`, sub: results.map((r) => (r ? 'Bien' : 'Mal')).join(' · '), lines: ['¿Cuánto sabés vos? Jugá en El Fortín: 5 preguntas nuevas por día.'] })}
-            />
-          </div>
-        </div>
+        <GameEnd
+          fresh={fresh} win={score === questions.length} kicker={`Trivia del ${label}`} score={`${score}/${questions.length}`}
+          phrase={score === questions.length ? '¡Perfecto! Sabés todo de Vélez.' : score >= 3 ? 'Muy bien, hincha.' : 'Mañana hay otra.'}
+          marks={results.map((r) => (r ? '🟦' : '⬜')).join('')}
+          stats={<DailyStats streak={streak} stats={[['Jugadas', st.played], ['Promedio', st.avg != null ? `${String(st.avg).replace('.', ',')}/${questions.length}` : null], ['Perfectas', st.perfect]]} />}
+        >
+          <ShareResult
+            anchor="trivia" file="trivia-velez.png" text={shareText(results, label)}
+            card={() => ({ kicker: `Trivia del ${label}`, headline: 'Trivia de Vélez', big: true, center: `${score}/${questions.length}`, sub: results.map((r) => (r ? 'Bien' : 'Mal')).join(' · '), lines: ['¿Cuánto sabés vos? Jugá en El Fortín: 5 preguntas nuevas por día.'] })}
+          />
+        </GameEnd>
       )}
       <p className="muted small">Cinco preguntas por día, las mismas para todos y sin repetir hasta que pasen todas. Salen de la historia, el palmarés y los récords del club que están en este sitio.</p>
     </>
@@ -131,12 +133,14 @@ function Trivia({ club, onDone }) {
 
 // ---------- Prode ----------
 
+// `value` null = todavía sin elegir (se ve «–»): el prode arranca sin marcador para no sesgar hacia el 1-0.
 function Stepper({ label, value, onChange, disabled }) {
+  const none = value == null;
   return (
-    <div className="stepper" role="group" aria-label={label}>
-      <button type="button" className="step-btn" onClick={() => onChange(Math.max(0, value - 1))} disabled={disabled || value <= 0} aria-label={`Un gol menos para ${label}`}>−</button>
-      <output className="num step-val" aria-live="polite">{value}</output>
-      <button type="button" className="step-btn" onClick={() => onChange(Math.min(15, value + 1))} disabled={disabled} aria-label={`Un gol más para ${label}`}>+</button>
+    <div className="stepper" role="group" aria-label={`Goles de ${label}`}>
+      <button type="button" className="step-btn" onClick={() => onChange(Math.max(0, value - 1))} disabled={disabled || none || value <= 0} aria-label={`Un gol menos para ${label}`}>−</button>
+      <output className="num step-val" aria-live="polite" aria-label={none ? `${label}: sin elegir` : `${label}: ${value}`}>{none ? '–' : value}</output>
+      <button type="button" className="step-btn" onClick={() => onChange(none ? 0 : Math.min(15, value + 1))} disabled={disabled} aria-label={none ? `Elegir goles de ${label} (empieza en 0)` : `Un gol más para ${label}`}>+</button>
     </div>
   );
 }
@@ -147,14 +151,20 @@ function Prode({ data, now }) {
   const saved = next && preds[next.id];
   const [draft, setDraft] = useState(null);
   const open = isOpen(next, now);
-  const cur = draft ?? saved ?? { v: 1, r: 0 };
+  const cur = draft ?? saved ?? { v: null, r: null };
   const summary = useMemo(() => prodeSummary(preds, data?.results ?? []), [preds, data]);
 
   if (!data) return <Skeletons className="sk-card" />;
   const rival = next && rivalOf(next);
   const velezHome = next?.home.id === VELEZ_ID;
   const set = (k) => (v) => setDraft({ ...cur, [k]: v });
-  const changed = !saved || saved.v !== cur.v || saved.r !== cur.r;
+  const knockout = isKnockout(next);
+  const draw = cur.v != null && cur.v === cur.r;
+  const askPass = knockout && draw; // en eliminación, con empate hay que decir quién pasa
+  const ready = prodeReady(cur, next);
+  const changed = !saved || saved.v !== cur.v || saved.r !== cur.r || (askPass && saved.pass !== cur.pass);
+  const passName = (p) => (p === 'v' ? 'Vélez' : rival?.name);
+  const toSave = () => (askPass ? { v: cur.v, r: cur.r, pass: cur.pass } : { v: cur.v, r: cur.r });
   return (
     <div className="games-grid">
       <div className="card prode">
@@ -171,20 +181,34 @@ function Prode({ data, now }) {
                 </div>
               ))}
             </div>
+            {askPass && (
+              <fieldset className="prode-pass" disabled={!open}>
+                <legend>Empate en los 90: ¿quién pasa?</legend>
+                <div className="prode-pass-opts">
+                  {['v', 'r'].map((p) => (
+                    <button key={p} type="button" className="seg" aria-pressed={cur.pass === p} onClick={() => setDraft({ ...cur, pass: p })}>{passName(p)}</button>
+                  ))}
+                </div>
+              </fieldset>
+            )}
             {open ? (
               <div className="cal-links">
-                <button type="button" className="btn btn-solid" disabled={!changed} onClick={() => { setPreds((p) => ({ ...p, [next.id]: { v: cur.v, r: cur.r } })); setDraft(null); }}>
+                <button type="button" className="btn btn-solid" disabled={!changed || !ready} onClick={() => { setPreds((p) => ({ ...p, [next.id]: toSave() })); setDraft(null); }}>
                   {saved && !changed ? 'Pronóstico guardado' : saved ? 'Cambiar el pronóstico' : 'Guardar el pronóstico'}
                 </button>
+                {!ready && <p className="muted small prode-missing">{cur.v == null || cur.r == null ? 'Elegí los goles de los dos equipos.' : 'Elegí quién pasa.'}</p>}
                 {saved && (
                   <ShareCardButton
                     label="Compartir" file="prode-velez.png"
-                    getCard={() => ({ kicker: whenLabel(next), headline: 'Mi pronóstico', big: true, center: velezHome ? `${saved.v}-${saved.r}` : `${saved.r}-${saved.v}`, sub: matchLabel(next), lines: ['¿Y el tuyo? Jugá el prode en El Fortín.'] })}
+                    getCard={() => ({ kicker: whenLabel(next), headline: 'Mi pronóstico', big: true, center: velezHome ? `${saved.v}-${saved.r}` : `${saved.r}-${saved.v}`, sub: saved.pass ? `${matchLabel(next)} · pasa ${passName(saved.pass)}` : matchLabel(next), lines: ['¿Y el tuyo? Jugá el prode en El Fortín.'] })}
                   />
                 )}
               </div>
-            ) : <p className="muted">{saved ? `Tu pronóstico: Vélez ${saved.v}-${saved.r} ${rival.name}. Ya empezó: se cierra hasta el final.` : 'Ya empezó: el prode de este partido está cerrado.'}</p>}
-            <p className="muted small">{open ? 'Podés cambiarlo hasta que empiece el partido. ' : ''}Exacto: 3 puntos. Ganador o empate: 1 punto.</p>
+            ) : <p className="muted">{saved ? `Tu pronóstico: Vélez ${saved.v}-${saved.r} ${rival.name}${saved.pass ? ` (pasa ${passName(saved.pass)})` : ''}. Ya empezó: se cierra hasta el final.` : 'Ya empezó: el prode de este partido está cerrado.'}</p>}
+            <p className="muted small">
+              {open ? 'Podés cambiarlo hasta que empiece el partido. ' : ''}Exacto: 3 puntos. Ganador o empate: 1 punto (cuentan los 90 minutos).
+              {knockout ? ' Quién pasa queda en tu pronóstico, pero no suma puntos.' : ''}
+            </p>
           </>
         ) : <Empty>No hay un próximo partido programado.</Empty>}
       </div>
@@ -200,7 +224,7 @@ function Prode({ data, now }) {
             <ul className="prode-list">
               {summary.list.slice(0, 6).map((x) => (
                 <li key={x.id}>
-                  <span><strong>{rivalOf(x.match).name}</strong><small className="muted">Dijiste {x.pred.v}-{x.pred.r} · salió {x.score.real}</small></span>
+                  <span><strong>{rivalOf(x.match).name}</strong><small className="muted">Dijiste {x.pred.v}-{x.pred.r}{x.pred.pass ? ` (pasa ${x.pred.pass === 'v' ? 'Vélez' : rivalOf(x.match).name})` : ''} · salió {x.score.real}</small></span>
                   <span className={`po-chip prode-${x.score.kind}`}>{KIND_LABEL[x.score.kind]}</span>
                 </li>
               ))}
@@ -216,6 +240,7 @@ function Prode({ data, now }) {
 
 function Once({ data, roster, games, now }) {
   const [picks, setPicks] = useStored('once', {});
+  const stats = useJson(`${DATA}players.json`);
   const next = upcoming(data);
   const open = isOpen(next, now);
   const mine = (next && picks[next.id]) ?? [];
@@ -235,6 +260,8 @@ function Once({ data, roster, games, now }) {
     });
   };
   const players = roster?.players ?? [];
+  // Suspendidos para este partido (estimación con las tarjetas): se pueden elegir igual, pero avisados.
+  const out = suspendedFor(stats?.discipline, next);
   const byPos = POS_ORDER.map((pos) => [pos, players.filter((p) => p.pos === pos).sort((a, b) => Number(a.jersey ?? 99) - Number(b.jersey ?? 99))]).filter(([, l]) => l.length);
   const last = evaluated[0];
   return (
@@ -269,15 +296,18 @@ function Once({ data, roster, games, now }) {
               <div className="once-grid">
                 {list.map((p) => {
                   const on = mine.includes(p.id);
+                  const susp = out.get(p.id);
                   return (
-                    <button key={p.id} type="button" className="once-player" aria-pressed={on} disabled={!open || (!on && mine.length >= ONCE_SIZE)} onClick={() => toggle(p.id)}>
+                    <button key={p.id} type="button" className={`once-player${susp ? ' is-susp' : ''}`} aria-pressed={on} disabled={!open || (!on && mine.length >= ONCE_SIZE)} onClick={() => toggle(p.id)} title={susp ? `${susp.text} (estimado)` : undefined}>
                       <span className="num">{p.jersey ?? '–'}</span>{p.name}
+                      {susp && <small className="once-susp">Suspendido<span className="sr-only">: {susp.text.toLowerCase()}</span></small>}
                     </button>
                   );
                 })}
               </div>
             </fieldset>
           ))}
+          {out.size > 0 && <p className="muted small">«Suspendido»: le tocaría cumplir una fecha por tarjetas según los datos de ESPN. Es una estimación (lo define el Tribunal de Disciplina): podés elegirlo igual.</p>}
           <p className="muted small">Se guarda solo en este navegador. Podés cambiarlo hasta que empiece; después del partido te decimos cuántos acertaste.</p>
         </div>
       )}
@@ -354,12 +384,12 @@ function Juegos() {
       <section className="block game-in" id={tab} key={tab} aria-labelledby="t-game">
         <div className="section-head"><h2 className="h2" id="t-game">{title}</h2></div>
         <p className="muted games-about">{about}</p>
-        {tab === 'trivia' && <Trivia club={club} onDone={onDone} />}
-        {tab === 'duelo' && <ManoAMano day={day} label={label} onDone={onDone} />}
-        {tab === 'tapado' && <Tapado day={day} label={label} roster={roster} onDone={onDone} />}
-        {tab === 'trayectoria' && <Trayectoria day={day} label={label} onDone={onDone} />}
-        {tab === 'grilla' && <Grilla day={day} label={label} onDone={onDone} />}
-        {tab === 'liniers' && <Liniers day={day} onDone={onDone} />}
+        {tab === 'trivia' && <Trivia club={club} onDone={onDone} streak={streak} />}
+        {tab === 'duelo' && <ManoAMano day={day} label={label} onDone={onDone} streak={streak} />}
+        {tab === 'tapado' && <Tapado day={day} label={label} roster={roster} onDone={onDone} streak={streak} />}
+        {tab === 'trayectoria' && <Trayectoria day={day} label={label} onDone={onDone} streak={streak} />}
+        {tab === 'grilla' && <Grilla day={day} label={label} onDone={onDone} streak={streak} />}
+        {tab === 'liniers' && <Liniers day={day} onDone={onDone} streak={streak} />}
         {tab === 'prode' && <Prode data={state.data} now={now} />}
         {tab === 'once' && <Once data={state.data} roster={roster} games={games} now={now} />}
         {tab === 'carrera' && (

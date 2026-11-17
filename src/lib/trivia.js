@@ -1,6 +1,7 @@
 // Trivia diaria: 5 preguntas por día, iguales para todos (salen de la fecha) y sin repetir hasta agotar todas, armadas solas con lo que ya está en
 // data/club.json (historia, palmarés, momentos, ídolos y récords). No hay preguntas escritas a mano: si se corrige
-// un dato en club.json, la trivia lo sigue. Las opciones incorrectas salen de otros datos del mismo archivo.
+// un dato en club.json, la trivia lo sigue. Las opciones incorrectas salen de otros datos del mismo archivo (o de
+// años vecinos), con la misma forma que la respuesta y cerca de ella: ver `dateDistractors` y `nearest`.
 
 /** Personas que no se destacan en el sitio (decisión del usuario: siguen en Récords porque son datos). */
 const EXCLUDE = new Set(['Fabián Cubero']);
@@ -40,41 +41,112 @@ function q(type, text, answer, pool, note) {
 const surname = (name) => name.split(' ').slice(-1)[0];
 const mask = (text, name) => [name, surname(name)].reduce((t, n) => t.replaceAll(n, '…'), text);
 
+// Las opciones incorrectas tienen que tener la misma forma que la correcta (año suelto, rango «1993–1998», temporada
+// «2012/13», resultado con o sin penales) y estar cerca de ella (mismo número de goles, misma época): si no, se
+// descartan solas. De cada pregunta quedan las NEAR más parecidas y el día sortea 3 de esas.
+const NEAR = 5;
+const YEAR = /^\d{4}$/;
+const RANGE = /^(\d{4})–(\d{4})$/;
+const SEASON = /^(\d{4})\/(\d{2})$/;
+const PEN = / pen\.$/;
+const yearOf = (s) => Number(String(s).match(/\d{4}/)?.[0]);
+
+/** Las `NEAR` de `items` más cercanas a `target` según `key` (sin la respuesta ni repetidas). */
+function nearest(items, key, target, answer, name = String) {
+  const seen = new Set([String(answer)]);
+  return [...items]
+    .map((x, i) => ({ x, i, d: Math.abs(key(x) - target) }))
+    .filter(({ d }) => Number.isFinite(d))
+    .sort((a, b) => a.d - b.d || a.i - b.i)
+    .map(({ x }) => x)
+    .filter((x) => {
+      const k = String(name(x));
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    })
+    .slice(0, NEAR);
+}
+
+/**
+ * Opciones incorrectas para una respuesta de fecha, con su misma forma: años reales del archivo (`real`) y vecinos
+ * de la respuesta (±2, ±4, ±6 años), nunca después de `last` (el último año que aparece en los datos) ni antes de 1910.
+ */
+export function dateDistractors(answer, real, last) {
+  const ok = (y) => y >= 1910 && y <= last;
+  const a = String(answer);
+  let m;
+  if ((m = a.match(RANGE))) {
+    const [from, to] = [Number(m[1]), Number(m[2])];
+    const shifted = [-9, -6, -3, 3, 6, 9].map((d) => [from + d, to + d]).filter(([x, y]) => ok(x) && ok(y)).map(([x, y]) => `${x}–${y}`);
+    return nearest([...real.filter((x) => RANGE.test(x)), ...shifted], yearOf, from, a);
+  }
+  if ((m = a.match(SEASON))) {
+    const from = Number(m[1]);
+    const season = (y) => `${y}/${String((y + 1) % 100).padStart(2, '0')}`;
+    return nearest([-3, -2, -1, 1, 2, 3].map((d) => from + d).filter((y) => ok(y + 1)).map(season), yearOf, from, a);
+  }
+  const y = Number(a);
+  const near = [-6, -4, -2, 2, 4, 6].map((d) => y + d).filter(ok).map(String);
+  return nearest([...real.filter((x) => YEAR.test(x)), ...near], Number, y, a);
+}
+
+/** Resultados para las opciones: con penales si la respuesta es con penales y sin penales si no. */
+function scoreDistractors(answer, real) {
+  const pen = PEN.test(answer);
+  const fill = pen ? ['4-2 pen.', '4-3 pen.', '5-4 pen.', '3-1 pen.', '3-2 pen.'] : ['1-0', '2-1', '3-1', '1-1', '2-0', '0-0'];
+  return unique([...real.filter((x) => PEN.test(x) === pen), ...fill]).filter((x) => x !== answer).slice(0, NEAR);
+}
+
 /** Todas las preguntas posibles con los datos del club. Cada una: { type, text, answer, wrong: [...], note }. */
 export function triviaPool(club) {
   if (!club) return [];
   const out = [];
   const historia = club.historia ?? [];
+  const titles = Object.values(club.palmares ?? {}).flat().map((t) => ({ t, name: t.replace(/\s*\d{4}(\/\d{2})?$/, ''), year: t.match(/(\d{4})(\/\d{2})?$/)?.[0] }));
+  // El último año que aparece en la historia o el palmarés: ninguna opción puede ser posterior.
+  const last = Math.max(...historia.flatMap((h) => String(h.anio).match(/\d{4}/g) ?? []).map(Number), ...titles.map((x) => yearOf(x.year)).filter(Number.isFinite));
   for (const h of historia) {
-    out.push(q('historia', `¿En qué año pasó esto? ${quote(h.titulo)}`, h.anio, historia.map((x) => x.anio), h.texto));
+    out.push(q('historia', `¿En qué año pasó esto? ${quote(h.titulo)}`, h.anio, dateDistractors(h.anio, historia.map((x) => String(x.anio)), last), h.texto));
   }
 
+  // Goleadores y presencias: sin el período en la pregunta (delataba la época) y con opciones de cifras parecidas.
+  // Si dos tienen la misma cifra (Carone y Benito, 75 goles), el período vuelve para desempatar y el otro no es opción.
   const rec = club.records ?? {};
+  const byCount = (list, key, verb, unit, note) => list.map((x) => {
+    const tie = list.some((y) => y !== x && y[key] === x[key]);
+    const others = list.filter((y) => y[key] !== x[key]);
+    const near = nearest(others, (y) => y[key], x[key], x.nombre, (y) => y.nombre).map((y) => y.nombre);
+    return [`¿Quién ${verb} ${x[key]} ${unit}${tie ? ` (${x.periodo})` : ''}?`, x.nombre, near, note(x)];
+  });
   const goleadores = (rec.goleadores ?? []).filter((g) => !EXCLUDE.has(g.nombre));
-  for (const g of goleadores) {
-    out.push(q('goleadores', `¿Quién hizo ${g.goles} goles con la camiseta de Vélez (${g.periodo})?`, g.nombre, goleadores.map((x) => x.nombre), `${g.nombre}: ${g.goles} goles en ${g.partidos} partidos.`));
+  for (const [text, answer, near, note] of byCount(goleadores, 'goles', 'hizo', 'goles con la camiseta de Vélez', (g) => `${g.nombre}: ${g.goles} goles en ${g.partidos} partidos (${g.periodo}).`)) {
+    out.push(q('goleadores', text, answer, near, note));
   }
   const presencias = (rec.presencias ?? []).filter((p) => !EXCLUDE.has(p.nombre));
-  for (const p of presencias) {
-    out.push(q('presencias', `¿Quién jugó ${p.partidos} partidos en Vélez (${p.periodo})?`, p.nombre, presencias.map((x) => x.nombre), `${p.nombre}: ${p.partidos} partidos y ${p.goles} goles.`));
+  for (const [text, answer, near, note] of byCount(presencias, 'partidos', 'jugó', 'partidos en Vélez', (p) => `${p.nombre}: ${p.partidos} partidos y ${p.goles} goles (${p.periodo}).`)) {
+    out.push(q('presencias', text, answer, near, note));
   }
+  // Goleador de un torneo: las opciones son goleadores de torneos de años cercanos (no uno de 1920 para el Clausura 1995).
   const torneo = (rec.goleadoresTorneo ?? []).filter((g) => !EXCLUDE.has(g.nombre));
   for (const g of torneo) {
-    out.push(q('torneo', `¿Quién fue el goleador del ${g.torneo} con ${g.goles} goles?`, g.nombre, torneo.map((x) => x.nombre), null));
+    const near = nearest(torneo.filter((x) => x.nombre !== g.nombre), (x) => yearOf(x.torneo), yearOf(g.torneo), g.nombre, (x) => x.nombre).map((x) => x.nombre);
+    out.push(q('torneo', `¿Quién fue el goleador del ${g.torneo} con ${g.goles} goles?`, g.nombre, near, null));
   }
 
   // Palmarés: solo los títulos cuyo nombre no se repite (preguntar «¿en qué año ganó el Clausura?» tiene varias respuestas).
-  const titles = Object.values(club.palmares ?? {}).flat().map((t) => ({ t, name: t.replace(/\s*\d{4}(\/\d{2})?$/, ''), year: t.match(/(\d{4})(\/\d{2})?$/)?.[0] }));
-  const years = titles.map((x) => x.year);
+  const years = titles.map((x) => x.year).filter(Boolean);
   for (const x of titles) {
     if (!x.year || titles.filter((y) => y.name === x.name).length > 1) continue;
-    out.push(q('palmares', `¿En qué año ganó Vélez la ${x.name}?`, x.year, years, `${x.t}.`));
+    // «la Copa…», «la Superfinal», pero «el Nacional», «el Apertura», «el Inicial».
+    const art = /^(Copa|Supercopa|Recopa|Liga|Superfinal)\b/.test(x.name) ? 'la' : 'el';
+    out.push(q('palmares', `¿En qué año ganó Vélez ${art} ${x.name}?`, x.year, dateDistractors(x.year, years, last), `${x.t}.`));
   }
 
-  // Momentos con marcador: el resto de los marcadores son las opciones incorrectas.
+  // Momentos con marcador: las opciones tienen la misma forma (con o sin penales).
   const momentos = (club.momentos ?? []).filter((m) => /^\d+-\d+/.test(m.marcador ?? ''));
   for (const m of momentos) {
-    out.push(q('momentos', `¿Cómo terminó ${quote(m.titulo)} (${m.fecha})?`, m.marcador, [...momentos.map((x) => x.marcador), '1-0', '2-1', '3-1', '1-1'], m.texto));
+    out.push(q('momentos', `¿Cómo terminó ${quote(m.titulo)} (${m.fecha})?`, m.marcador, scoreDistractors(m.marcador, momentos.map((x) => x.marcador)), m.texto));
   }
 
   const idolos = (club.idolos ?? []).filter((i) => !EXCLUDE.has(i.nombre));

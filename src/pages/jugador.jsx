@@ -2,11 +2,11 @@
 // prerenderizado es el mismo para todos: el id se lee al montar). Se llega desde el Plantel.
 import { useEffect, useMemo, useState } from 'react';
 import { mount } from '../main.jsx';
-import { DATA, fmt } from '../lib/core.js';
+import { DATA, fmt, plural } from '../lib/core.js';
 import { keeperRecord } from '../lib/espn.js';
 import { useJson, useRoster } from '../hooks/data.js';
 import { Layout, PageBand } from '../components/Layout.jsx';
-import { Empty, ResultBadge, Skeletons } from '../components/ui.jsx';
+import { Abbr, Empty, ResultBadge, Skeletons } from '../components/ui.jsx';
 
 const POS = { G: 'Arquero', D: 'Defensor', M: 'Mediocampista', F: 'Delantero' };
 const COLS = [['pj', 'PJ'], ['tit', 'Tit'], ['g', 'Goles'], ['a', 'Asist'], ['am', 'Amar'], ['r', 'Rojas']];
@@ -66,8 +66,9 @@ function Jugador() {
       <div className="h2h-controls player-pick">
         <label>
           <span>Elegí un jugador</span>
-          <select value={id ?? ''} onChange={(e) => setId(e.target.value)}>
-            <option value="" disabled>Jugadores del plantel</option>
+          {/* Un ?id= que no está en el plantel (inválido o que ya se fue) deja el selector en «Elegí…», no en otro jugador. */}
+          <select value={p ? id : ''} onChange={(e) => setId(e.target.value)}>
+            <option value="" disabled>Elegí del plantel actual</option>
             {list.map((x) => <option key={x.id} value={x.id}>{x.name}{x.jersey ? ` (${x.jersey})` : ''}</option>)}
           </select>
         </label>
@@ -90,7 +91,7 @@ function Jugador() {
                   <div className="table-scroll">
                     <table>
                       <caption className="sr-only">Estadísticas de {name} por torneo</caption>
-                      <thead><tr><th scope="col" className="team">Torneo</th>{cols.map(([, l]) => <th key={l} scope="col">{l}</th>)}</tr></thead>
+                      <thead><tr><th scope="col" className="team">Torneo</th>{cols.map(([, l]) => <th key={l} scope="col"><Abbr>{l}</Abbr></th>)}</tr></thead>
                       <tbody>{stats.map(({ t, s }) => <tr key={t.key}><td className="team">{t.label}</td>{cols.map(([k]) => <td key={k}>{s[k] ?? 0}</td>)}</tr>)}</tbody>
                     </table>
                   </div>
@@ -109,7 +110,7 @@ function Jugador() {
                         <strong>{g.home ? 'vs' : 'en cancha de'} {g.rival.name}</strong>
                         <small className="muted">{g.label} · {g.me.s ? 'Titular' : 'Entró'}</small>
                       </span>
-                      <span className="pl-marks" role="img" aria-label={[keeper && g.me.s === 1 && g.score.endsWith('-0') && 'valla invicta', keeper && g.me.ataj > 0 && `${g.me.ataj} atajadas`, g.me.g && `${g.me.g} goles`, g.me.a && `${g.me.a} asistencias`, g.me.am && 'amarilla', g.me.r && 'roja'].filter(Boolean).join(', ') || 'Sin goles ni tarjetas'}>
+                      <span className="pl-marks" role="img" aria-label={[keeper && g.me.s === 1 && g.score.endsWith('-0') && 'valla invicta', keeper && g.me.ataj > 0 && plural(g.me.ataj, 'atajada', 'atajadas'), g.me.g && plural(g.me.g, 'gol', 'goles'), g.me.a && plural(g.me.a, 'asistencia', 'asistencias'), g.me.am && 'amarilla', g.me.r && 'roja'].filter(Boolean).join(', ') || 'Sin goles ni tarjetas'}>
                         {keeper && g.me.s === 1 && g.score.endsWith('-0') && <span className="pl-mark pl-vi" aria-hidden="true">Valla invicta</span>}
                         {keeper && g.me.ataj > 0 && <span className="pl-mark pl-a" aria-hidden="true">{g.me.ataj} ataj.</span>}
                         {g.me.g > 0 && <span className="pl-mark pl-g" aria-hidden="true">{'⚽'.repeat(Math.min(g.me.g, 3))}</span>}
