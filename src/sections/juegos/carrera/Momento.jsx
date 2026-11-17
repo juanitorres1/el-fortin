@@ -35,7 +35,7 @@ export function verdict(q) {
   return ['Mal', 'is-bad'];
 }
 
-function Bar({ moment, onStop, auto }) {
+function Bar({ moment, onStop, auto, toggle = null }) {
   const marker = useRef(null);
   const start = useRef(0);
   const button = useRef(null);
@@ -88,7 +88,9 @@ function Bar({ moment, onStop, auto }) {
         ? <p className={`cr-verdict ${cls}`} aria-hidden="true">{word} <Stars q={stopped.q} /></p>
         : auto ? <p className="muted small">Modo asistido: la barra frena sola en la zona verde.</p>
           : <button ref={button} type="button" className="btn btn-solid cr-now" onClick={stop}>¡Ahora!</button>}
-      {!stopped && !auto && <p className="muted small">Tocá (o apretá Enter) cuando la raya pase por la zona verde: cuanto más al centro, mejor. ¿Te cuesta el timing o usás lector de pantalla? Activá el modo asistido arriba.</p>}
+      {!stopped && !auto && <p className="muted small">Tocá (o apretá Enter) cuando la raya pase por la zona verde: cuanto más al centro, mejor. ¿Te cuesta el timing o usás lector de pantalla? Activá el modo asistido acá abajo.</p>}
+      {/* Se puede cambiar el modo mientras corre la barra, no después de frenarla (no sirve para repetir una mala). */}
+      {!stopped && toggle}
     </div>
   );
 }
@@ -98,9 +100,10 @@ const OPTIONS = { pase: PASSES, gambeta: DRIBBLES, quite: TACKLES };
 const ASK = { pase: '¿Qué pase das?', gambeta: '¿Cómo lo encarás?', quite: '¿Cómo lo marcás?' };
 const DOING = { pase: 'Pase', gambeta: 'Gambeta', quite: 'Marca', atajada: 'Te tirás', remate: 'Remate', penal: 'Remate' };
 
-export function Momento({ moment, onAnswer, tip = null, assisted = false }) {
+export function Momento({ moment, onAnswer, tip = null, assisted = false, assistToggle = null }) {
   const [choice, setChoice] = useState(null);
   const [preview, setPreview] = useState(null);
+  const [showAssist] = useState(() => assisted || calm()); // fijo durante la jugada: apagarlo no lo hace desaparecer
   const options = OPTIONS[moment.type] ?? null;
   const save = moment.type === 'atajada';
   const tell = tellText(moment);
@@ -133,10 +136,13 @@ export function Momento({ moment, onAnswer, tip = null, assisted = false }) {
           ))}
         </div>
       ) : <p className="muted small">{save ? 'Tocá el arco: elegí adónde te tirás.' : 'Tocá el arco: elegí adónde le pegás.'}</p>)}
+      {/* Antes de elegir, solo si no va a haber barra a la vista (asistido o «reducir movimiento»): para poder cambiarlo. */}
+      {!choice && showAssist && assistToggle}
       {choice && (
         <>
           <p className="small"><b>{DOING[moment.type]}:</b> {options ? options.find((o) => o.key === choice)?.label : save ? DIVE_LABEL[choice] : moment.kind === 'libre' ? FREE_LABEL[choice] : AIM_LABEL[choice]}</p>
-          <Bar moment={moment} auto={assisted} onStop={(x) => onAnswer({ choice, x })} />
+          {/* Con key: si se prende o apaga el modo asistido con la barra en marcha, la barra arranca de nuevo en ese modo. */}
+          <Bar key={assisted ? 'auto' : 'manual'} moment={moment} auto={assisted} toggle={assistToggle} onStop={(x) => onAnswer({ choice, x })} />
         </>
       )}
     </div>

@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dailyTrivia, triviaPool, TRIVIA_SIZE } from '../src/lib/trivia.js';
-import { GAMES, dailyPick, gameStreak, markPlayed, norm, searchPlayers, squares, weekNumber } from '../src/lib/daily.js';
+import { GAMES, dailyPick, gameStreak, markPlayed, nextGame, norm, searchPlayers, squares, weekNumber } from '../src/lib/daily.js';
 import { DUEL_SIZE, dailyDuels, duelRows } from '../src/lib/duel.js';
 import {
   CRITERIA, GRID_MIN, PATH_TRIES, cellPlayers, dailyGrid, gridCheck, historicPlayers, onceNames, onceOfWeek, pathOfDay, pathPool, pathView,
@@ -45,6 +45,14 @@ test('dailyPick: recorre todos antes de repetir, no depende del orden y no repit
   for (let n = 0; n < 200; n++) assert.notEqual(dailyPick(ids, n, 'x'), dailyPick(ids, n + 1, 'x'), `día ${n}`);
   assert.equal(dailyPick([], 1, 'x'), null);
   assert.equal(dailyPick(['solo'], 7, 'x'), 'solo');
+});
+
+test('nextGame: el siguiente del día sin jugar, dando la vuelta, y null con todos jugados', () => {
+  assert.equal(nextGame(new Set(['trivia']), 'trivia').key, 'duelo');
+  assert.equal(nextGame(new Set(['liniers', 'trivia']), 'liniers').key, 'duelo');
+  assert.equal(nextGame(new Set(['duelo']), 'prode').key, 'trivia');
+  const all = new Set(GAMES.filter((g) => g.daily).map((g) => g.key));
+  assert.equal(nextGame(all, 'grilla'), null);
 });
 
 test('weekNumber: cambia los domingos', () => {

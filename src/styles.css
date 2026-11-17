@@ -824,12 +824,8 @@ button.btn-ghost { border: 2px solid currentColor; }
 .once-player:not(:disabled):hover { border-color: var(--accent); }
 .once-player[aria-pressed='true'] { background: var(--accent); border-color: var(--accent); color: var(--bg); }
 .once-player[aria-pressed='true'] .num { color: inherit; }
-.once-player:disabled:not([aria-pressed='true']) { opacity: 0.5; cursor: default; }
 .once-result { display: grid; gap: 0.6rem; margin-bottom: 1rem; border-top: 4px solid var(--win); }
 .once-result p { margin: 0; }
-.once-starters { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.35rem; }
-.once-starters li { padding: 0.25rem 0.6rem; border-radius: 999px; background: var(--bg-2); font-size: 0.875rem; font-weight: 600; }
-.once-starters li.is-hit { background: var(--win); color: var(--on-signal); }
 
 /* Juegos: pestañas (una fila que se desliza en el celular), racha y los juegos del día. «Bien» va en el azul del club
    con texto blanco (6,4:1 en los dos modos) y «cerca» en el ámbar de los avisos (8,1:1); además del color llevan ✓ ≈ ↑ ↓. */
@@ -840,6 +836,11 @@ button.btn-ghost { border: 2px solid currentColor; }
 .games-streak { margin: 0 0 1rem; padding: 0.5rem 0.9rem; border-radius: var(--radius-sm); background: var(--accent-soft); font-weight: 600; display: flex; align-items: baseline; flex-wrap: wrap; gap: 0.4rem; }
 .games-streak b { font-size: 1.5rem; line-height: 1; color: var(--accent); }
 .games-about { margin: -0.5rem 0 1rem; }
+/* Al terminar un juego del día: el próximo sin jugar. */
+.games-next { margin-top: 1.25rem; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem 1rem; border-left: 4px solid var(--accent); }
+.games-next p { margin: 0; display: grid; gap: 0.15rem; }
+.games-next b { font: 700 1.375rem/1.1 var(--display); }
+#t-game:focus { outline: none; }
 .game-squares { white-space: pre-line; line-height: 1.25; }
 
 .psearch { display: grid; gap: 0.4rem; }
@@ -900,10 +901,6 @@ button.btn-ghost { border: 2px solid currentColor; }
 .duel-past small { font-size: 0.8125rem; }
 .duel-mark { flex: none; width: 1.75rem; height: 1.75rem; border-radius: 50%; display: grid; place-items: center; font-weight: 800; color: var(--on-signal); background: var(--loss); }
 .is-right > .duel-mark { background: var(--win); }
-.duel-line { display: flex; flex-wrap: wrap; gap: 0.15rem 1rem; font-size: 0.9375rem; }
-.duel-line > span { display: inline-flex; align-items: center; gap: 0.3rem; }
-.duel-line .crest { width: 18px; height: 18px; object-fit: contain; }
-.duel-line .is-top { font-weight: 700; }
 
 .tapado { display: grid; gap: 0.9rem; margin: 1rem 0; }
 .tapado-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.3rem; }
@@ -961,23 +958,12 @@ button.btn-ghost { border: 2px solid currentColor; }
 
 .liniers { display: grid; gap: 0.6rem; border-top: 4px solid var(--accent); margin-bottom: 1rem; }
 .liniers p { margin: 0; }
-.liniers-pos { font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-2); }
-.liniers-line ul { list-style: none; margin: 0.3rem 0 0; padding: 0; display: grid; gap: 0.35rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 11rem), 1fr)); }
 .liniers-match { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 0.5rem; padding: 0.5rem 0; }
 .liniers-team { display: grid; justify-items: center; gap: 0.3rem; text-align: center; font-weight: 700; line-height: 1.2; }
 .liniers-team .crest { width: 44px; height: 44px; object-fit: contain; }
 .liniers-team:first-child { grid-column: 1; grid-row: 1; }
 .liniers-team:nth-child(2) { grid-column: 3; grid-row: 1; }
 .liniers-score { grid-column: 2; grid-row: 1; font-size: 2.5rem; line-height: 1; color: var(--accent); }
-.liniers-shirt { width: 32px; height: 32px; border: 2px dashed var(--line); background: transparent; color: var(--text-2); }
-.liniers-line li.is-new { animation: pop-in 0.45s ease-out; }
-.liniers-line li { display: flex; align-items: center; gap: 0.5rem; min-height: 3rem; padding: 0.25rem 0.6rem; border: 1px solid var(--line); border-radius: var(--radius-sm); font-weight: 600; color: var(--text-2); }
-.liniers-line li .num { min-width: 1.6rem; font-size: 1.2rem; color: var(--accent); }
-.liniers-line li.is-hit { background: var(--velez); border-color: var(--velez); color: var(--on-velez); }
-.liniers-line li.is-hit .num { color: inherit; }
-.liniers-line li.is-miss { color: var(--text); border-style: dashed; }
-.liniers-lives { font-weight: 600; }
-.liniers-lives span { color: var(--accent); letter-spacing: 0.15em; }
 
 /* ---------- Modo cancha ---------- */
 .vivo-band { background: var(--velez); color: var(--on-velez); padding: 1.5rem 0 2rem; }
@@ -1166,6 +1152,7 @@ button.btn-ghost { border: 2px solid currentColor; }
 .grid9-cell .avatar { width: 36px; height: 36px; }
 .reveal { margin: 0; display: flex; align-items: center; gap: 0.9rem; }
 .reveal-photo { flex: none; width: 5.5rem; height: 5.5rem; border-radius: 50%; object-fit: cover; object-position: 50% 20%; border: 3px solid var(--accent); background: var(--bg-2); font-size: 2rem; }
+.reveal-photo.avatar-none { background: var(--velez); color: var(--on-velez); } /* sin foto: el dorsal blanco sobre azul, no sobre gris */
 .reveal figcaption { display: grid; gap: 0.15rem; min-width: 0; }
 .reveal strong { font: 800 1.5rem/1.1 var(--display); text-transform: uppercase; letter-spacing: 0.01em; }
 .reveal small { font-size: 0.75rem; overflow-wrap: anywhere; }
@@ -1194,7 +1181,7 @@ button.btn-ghost { border: 2px solid currentColor; }
 @keyframes shake { 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }
 @keyframes confetti { 0% { opacity: 1; transform: translateY(0) rotate(0); } 100% { opacity: 0; transform: translateY(22rem) rotate(var(--r)); } }
 @media (prefers-reduced-motion: reduce) {
-  .duel, .duel-value, .duel-bar i, .tapado-row.is-new .tapado-cell, .path-steps .is-open, .grid9-cell.is-new, .grid9-cell.is-no.is-new, .liniers-line li.is-new,
+  .duel, .duel-value, .duel-bar i, .tapado-row.is-new .tapado-cell, .path-steps .is-open, .grid9-cell.is-new, .grid9-cell.is-no.is-new,
   .game-in, .game-end.is-fresh, .game-end.is-fresh .trivia-score b, .games-streak, .is-shake { animation: none; }
   .confetti { display: none; }
   .duel-opt, .duel-dots li, .tries i { transition: none; }
@@ -1956,9 +1943,6 @@ p.cr-tag.is-big { justify-self: center; margin: 0; }
 .ge-nums div { background: var(--card); border-radius: var(--radius-sm); padding: 0.4rem 0.5rem; text-align: center; display: flex; flex-direction: column-reverse; }
 .ge-nums dt { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-2); }
 .ge-nums dd { margin: 0; font-size: 1.5rem; line-height: 1.1; color: var(--accent); }
-/* Mano a Mano: los números de los dos en el veredicto. */
-.duel-nums { font-weight: 600; }
-.duel-nums b { font-size: 1.125rem; color: inherit; }
 /* Prode: quién pasa si es empate en eliminación. */
 .prode-pass { border: 0; margin: 0.75rem 0 0; padding: 0; min-width: 0; }
 .prode-pass legend { padding: 0; margin-bottom: 0.4rem; font-weight: 700; }
@@ -1974,3 +1958,464 @@ p.cr-tag.is-big { justify-self: center; margin: 0; }
 .cr-assist { display: flex; align-items: flex-start; gap: 0.6rem; min-height: var(--tap); padding: 0.5rem 0; cursor: pointer; }
 .cr-assist input { width: 1.5rem; height: 1.5rem; margin: 0.1rem 0 0; flex: none; accent-color: var(--accent); }
 .cr-assist small { display: block; }
+
+/* ---------- Juegos: mejoras nov-2026, un bloque por juego (cada uno agrega solo dentro del suyo) ---------- */
+/* mejoras · trivia */
+/* Progreso: cinco círculos (número, ✓ o ✗); el de la pregunta en juego, con borde azul. */
+.trivia-progress { list-style: none; margin: 0 0 0.75rem; padding: 0; display: flex; gap: 0.4rem; }
+.trivia-progress li {
+  width: 2rem; height: 2rem; border-radius: 50%; display: grid; place-items: center; flex: none;
+  border: 2px solid var(--line); background: var(--card); color: var(--text-2); font: 700 1rem/1 var(--display);
+}
+.trivia-progress li.is-now { border-color: var(--accent); color: var(--accent); }
+.trivia-progress li.is-right { background: var(--win); border-color: var(--win); color: var(--on-signal); }
+.trivia-progress li.is-wrong { background: var(--loss); border-color: var(--loss); color: var(--on-signal); }
+.trivia-q { margin-bottom: 1rem; gap: 0.75rem; scroll-margin-top: calc(var(--topbar-h) + var(--safe-top, 0px) + 0.75rem); }
+.trivia-type { color: var(--text-2); }
+.trivia-opt { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.trivia-opt.is-off { color: var(--text-2); border-style: dashed; }
+.trivia-icon { flex: none; font-weight: 800; }
+/* El dato después de responder: veredicto, foto con su crédito si la hay, la nota y el botón para seguir. */
+.trivia-feedback {
+  display: grid; gap: 0.6rem; padding: 0.8rem 0.9rem; border-radius: var(--radius-sm); background: var(--bg-2);
+  border-left: 4px solid var(--win); scroll-margin-bottom: calc(var(--tabbar-h) + 1rem);
+}
+.trivia-feedback.is-wrong { border-left-color: var(--loss); }
+.trivia-feedback p { margin: 0; }
+.trivia-verdict { font-size: 1rem; }
+.trivia-feedback.is-right .trivia-verdict > b:first-child { color: var(--win); }
+.trivia-feedback.is-wrong .trivia-verdict > b:first-child { color: var(--loss); }
+.trivia-feedback .trivia-note { padding: 0; background: none; line-height: 1.45; }
+.trivia-feedback .reveal-photo { width: 4.5rem; height: 4.5rem; }
+.trivia-feedback .reveal strong { font-size: 1.25rem; }
+.trivia-next { justify-self: start; }
+@media (max-width: 30rem) { .trivia-next { width: 100%; } }
+/* Repaso al final: las cinco con la respuesta, lo que eligió si erró y el dato desplegable. */
+.trivia-review { margin-bottom: 1rem; }
+.trivia-review-t { margin: 0 0 0.5rem; font: 800 1.25rem/1.1 var(--display); text-transform: uppercase; letter-spacing: 0.01em; }
+.trivia-review ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+.trivia-review li {
+  display: grid; grid-template-columns: 1.75rem 1fr; gap: 0.75rem; align-items: start;
+  padding: 0.7rem 0.8rem; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-sm);
+}
+.trivia-mark {
+  width: 1.75rem; height: 1.75rem; border-radius: 50%; display: grid; place-items: center;
+  font-weight: 800; color: var(--on-signal); background: var(--win);
+}
+.trivia-review li.is-wrong .trivia-mark { background: var(--loss); }
+.trivia-review p { margin: 0; }
+.trivia-review-q { font-size: 0.9375rem; line-height: 1.35; }
+.trivia-review-a { margin-top: 0.2rem !important; font-size: 0.9375rem; }
+.trivia-more summary { min-height: var(--tap); display: flex; align-items: center; cursor: pointer; color: var(--accent); font-weight: 700; font-size: 0.875rem; }
+.trivia-more p { font-size: 0.875rem; line-height: 1.45; color: var(--text-2); }
+/* fin · trivia */
+/* mejoras · duelo */
+/* Escudos más grandes (72 px) y el «VS» a la altura de su centro. */
+.duel-opt { position: relative; min-height: 10rem; padding-top: 1.25rem; }
+.duel-opt .crest { width: 72px; height: 72px; }
+.duel-vs { top: calc(1.25rem + 36px); }
+.duel-opt.is-low { opacity: 1; color: var(--text-2); }
+/* La que elegiste lleva una etiqueta sobre el borde. */
+.duel-tag {
+  position: absolute; top: 0; left: 50%; transform: translate(-50%, -55%); white-space: nowrap; padding: 0.2rem 0.55rem; border-radius: 999px;
+  background: var(--accent); color: var(--bg); font: 700 0.75rem/1.2 var(--body); text-transform: uppercase; letter-spacing: 0.04em;
+}
+.duel-unit { display: grid; font: 600 0.875rem/1.25 var(--body); color: var(--text-2); }
+.duel-unit small { font-size: 0.8125rem; font-weight: 500; }
+.duel-score { color: var(--text-2); }
+/* Veredicto: la frase y el botón; en el celular, uno abajo del otro. */
+.duel-verdict { flex-wrap: wrap; }
+.duel-verdict p { flex: 1 1 14rem; line-height: 1.4; }
+.duel-says { font-weight: 500; }
+.duel-next { position: relative; overflow: hidden; flex: 0 0 auto; min-width: 9rem; }
+/* Si pasa solo, una barrita muestra cuánto falta. */
+.duel-next.is-auto::after {
+  content: ''; position: absolute; left: 0; bottom: 0; height: 3px; width: 100%; background: currentColor; transform-origin: left;
+  animation: duel-wait var(--wait, 2s) linear forwards;
+}
+@keyframes duel-wait { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@media (max-width: 30rem) { .duel-next { width: 100%; } }
+/* Tus respuestas: cada rival es un link a su historial. */
+.duel-past li { align-items: flex-start; }
+.duel-past-body { display: grid; min-width: 0; flex: 1; }
+.duel-rival {
+  display: flex; align-items: center; gap: 0.6rem; min-height: var(--tap); color: var(--text); text-decoration: none; border-radius: var(--radius-sm);
+}
+.duel-rival .crest { width: 28px; height: 28px; flex: none; object-fit: contain; }
+.duel-rival-name { flex: 1; min-width: 0; text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 0.2em; }
+.duel-rival:hover .duel-rival-name { text-decoration-color: currentColor; }
+.duel-rival b { font-size: 1.0625rem; white-space: nowrap; font-weight: 600; }
+/* El que tenía más, resaltado en verde suave; tu elección, con una aclaración. */
+.duel-rival { padding: 0 0.5rem; margin: 0 -0.5rem; }
+.duel-rival.is-top { background: color-mix(in srgb, var(--win) 14%, transparent); }
+.duel-rival.is-top b { font-weight: 800; }
+.duel-mine { display: inline-block; margin-left: 0.25rem; font-size: 0.75rem; font-weight: 700; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.03em; white-space: nowrap; }
+.duel-past .duel-mark { margin-top: 0.1rem; }
+.duel-hint { margin: 0.5rem 0 0; }
+@media (prefers-reduced-motion: reduce) { .duel-next.is-auto::after { animation: none; display: none; } }
+/* fin · duelo */
+/* mejoras · tapado */
+/* «Lo que ya sabés»: lo que dejan los intentos, dentro de la tarjeta del buscador. */
+.tapado-clues { margin-top: 0.9rem; padding-top: 0.75rem; border-top: 1px solid var(--line); display: grid; gap: 0.45rem; }
+.tapado-clues dl { margin: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.3rem; }
+@media (min-width: 40rem) { .tapado-clues dl { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+.tapado-clue {
+  min-height: 3.25rem; padding: 0.35rem 0.3rem; border: 1px dashed var(--line); border-radius: 8px; color: var(--text);
+  display: grid; align-content: center; justify-items: center; gap: 0.1rem; text-align: center; overflow-wrap: anywhere;
+}
+.tapado-clue dt { font-size: 0.75rem; font-weight: 600; }
+.tapado-clue dd { margin: 0; display: grid; gap: 0.1rem; font: 700 0.9375rem/1.15 var(--body); }
+.tapado-clue dd small { font-size: 0.75rem; font-weight: 500; }
+.tapado-clue.is-unknown dd > span { font: 700 1.25rem/1 var(--display); }
+.tapado-clue.is-range, .tapado-clue.is-some { border-style: solid; border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.tapado-clue.is-ok { border-style: solid; border-color: var(--velez); background: var(--velez); color: var(--on-velez); }
+/* Filas: la bandera de ESPN en el país y, al perder, la respuesta arriba. */
+.tapado-flag { width: 1rem; height: 1rem; margin-right: 0.25rem; vertical-align: -0.15em; object-fit: contain; }
+.tapado-row.is-answer { padding: 0.5rem; border: 2px solid var(--accent); border-radius: 10px; }
+.tapado-tag { font: 700 0.75rem/1 var(--body); text-transform: uppercase; letter-spacing: 0.06em; padding: 0.25rem 0.45rem; border-radius: 999px; background: var(--velez); color: var(--on-velez); }
+.tapado-next { box-shadow: inset 0 0 0 2px var(--accent); }
+/* fin · tapado */
+/* mejoras · trayectoria */
+.tray-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.25rem 1rem; }
+.tray .tries { margin: 0; }
+/* Línea de tiempo: una vía vertical que pasa por los escudos; los clubes destapados se agrandan y los tapados se achican. */
+.tray-line { gap: 0.15rem; }
+.tray-line li { position: relative; grid-template-columns: 4.6rem 2.5rem 1fr; gap: 0.6rem; min-height: 3.25rem; padding: 0.3rem 0.5rem; border-left: 0; border-radius: var(--radius-sm); }
+.tray-line li::before { content: ''; position: absolute; left: calc(0.5rem + 4.6rem + 0.6rem + 1.25rem - 1px); top: -0.15rem; bottom: -0.15rem; width: 2px; background: var(--line); }
+.tray-line li:first-child::before { top: 50%; }
+.tray-line li:last-child::before { bottom: 50%; }
+.tray-line li:only-child::before { display: none; }
+.tray-line .path-crest { position: relative; z-index: 1; width: 2.5rem; height: 2.5rem; border-radius: 50%; background: var(--bg); }
+.tray-line .path-crest .crest { width: 40px; height: 40px; }
+.tray-line .path-years { font-size: 1.0625rem; white-space: nowrap; }
+.tray-line .is-hidden { min-height: 2.5rem; }
+.tray-line .is-hidden .path-years { font-size: 1rem; }
+.tray-line .is-hidden .path-unknown { width: 1.75rem; height: 1.75rem; margin: auto; font-size: 0.875rem; }
+.tray-line .is-hidden .path-club { font-size: 0.875rem; font-weight: 600; letter-spacing: 0.04em; }
+.tray-line .is-shown .path-club, .tray-line .is-velez .path-club { font-size: 1rem; font-weight: 800; line-height: 1.2; }
+.tray-pais { display: block; font-size: 0.8125rem; font-weight: 500; }
+.tray-line .is-shown .path-years, .tray-line .is-velez .path-years { color: var(--text); }
+.tray-line .is-velez { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--velez); }
+.tray-line .is-velez .path-crest { background: var(--accent-soft); }
+.tray-line .is-next .path-unknown { border-color: var(--accent); border-style: solid; color: var(--accent); }
+.tray-tag { color: var(--accent); font-weight: 700; letter-spacing: 0; }
+/* Pistas: se ven todas desde el arranque, cerradas, con cuántos fallos hacen falta. */
+.tray-clues { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr)); gap: 0.4rem; max-width: 36rem; }
+.tray-clues li { display: grid; align-content: start; gap: 0.1rem; padding: 0.45rem 0.6rem; border: 1px dashed var(--line); border-radius: var(--radius-sm); }
+.tray-clue-label { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-2); }
+.tray-clue-lock { font-size: 0.8125rem; color: var(--text-2); }
+.tray-clues .is-on { border: 1px solid var(--accent); background: var(--accent-soft); }
+.tray-clues .is-on b { font-size: 1rem; line-height: 1.25; }
+.tray-clues .is-on.is-new { animation: flip-in 0.5s ease-out; }
+.path-wrong .tray-pass { padding-left: 0.6rem; font-style: italic; }
+.tray-play { display: grid; gap: 0.6rem; }
+.tray-skip { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.75rem; }
+@media (prefers-reduced-motion: reduce) {
+  .tray-clues .is-on.is-new { animation: none; }
+}
+/* fin · trayectoria */
+/* mejoras · grilla */
+.grid9-corner { display: grid; place-items: center; font: 800 2.25rem/1 var(--display); color: var(--accent); opacity: 0.35; }
+/* Las cuatro columnas iguales: el encabezado de fila necesita el mismo ancho que el de columna. */
+.grid9-row { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.grid9-head { gap: 0.1rem; align-content: center; padding: 0.25rem 0; border-radius: var(--radius-sm); border: 2px solid transparent; transition: background-color 0.15s, border-color 0.15s; }
+.grid9-head small { font: 600 0.75rem/1.1 var(--body); color: var(--text-2); }
+.grid9-head b { font: 700 0.9375rem/1.05 var(--display); color: var(--text); text-transform: uppercase; letter-spacing: 0.01em; }
+/* Nombres de 10 letras o más (Estudiantes, Independiente): un poco más chicos para que entren en 375 px sin cortarse. */
+.grid9-head b.is-long { font-size: 0.8125rem; }
+.grid9-head.is-on { background: var(--accent-soft); border-color: var(--accent); }
+.grid9-head.is-on b { color: var(--accent); }
+.grid9-crest { width: 28px; height: 28px; max-width: none; object-fit: contain; }
+.grid9-cell { position: relative; }
+.grid9-cell .avatar { width: 44px; height: 44px; }
+.grid9-cell.is-ok .avatar { box-shadow: 0 0 0 2px var(--on-velez); }
+.grid9-cell.is-ok .avatar-none { background: var(--velez-deep); }
+/* Apellido en la letra angosta (entra «Paternoster» en 375 px); la tilde o la cruz va en la esquina. */
+.grid9-name { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 700 0.9375rem/1.1 var(--display); letter-spacing: 0.01em; }
+.grid9-cell .grid9-name i { position: absolute; top: 0.2rem; left: 0.35rem; font: 700 0.875rem/1 var(--body); }
+/* Un error en una casilla libre también se sacude (antes solo lo hacía la casilla cerrada). */
+.grid9-cell.is-new:not(.is-ok) { animation: shake 0.4s; }
+.grid9-cell[aria-pressed='true'] { box-shadow: 0 0 0 3px var(--accent-soft); }
+.grid9-cell[aria-pressed='true'] .grid9-plus { font: 800 2rem/1 var(--display); }
+.grid9-miss { position: absolute; right: 0.3rem; bottom: 0.2rem; font-size: 0.75rem; letter-spacing: 0.08em; color: var(--loss); }
+.grid9-search { scroll-margin-top: calc(var(--topbar-h) + 0.5rem); }
+.grid9-last { margin: 0 0 0.75rem; padding: 0.5rem 0.75rem; border-left: 4px solid var(--win); border-radius: 4px; background: var(--bg-2); font-size: 0.9375rem; }
+.grid9-last.is-ok b { color: var(--win); }
+.grid9-last.is-no { border-left-color: var(--loss); }
+.grid9-last.is-no b { color: var(--loss); }
+.grid9-answers { list-style: none; padding: 0; gap: 0.5rem; }
+.grid9-answers li { padding: 0.6rem 0.75rem; border: 1px solid var(--line); border-left: 4px solid var(--line); border-radius: var(--radius-sm); background: var(--card); }
+.grid9-answers li.is-ok { border-left-color: var(--accent); }
+.grid9-answers p { margin: 0; }
+.grid9-answers-head { display: flex; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.2rem !important; }
+.grid9-answers-head span { flex: none; }
+.grid9-credits { margin: 0 0 0.75rem; font-size: 0.8125rem; color: var(--text-2); }
+.grid9-credits summary { min-height: var(--tap); display: flex; align-items: center; cursor: pointer; font-weight: 600; }
+.grid9-credits ul { margin: 0; padding-left: 1.1rem; display: grid; gap: 0.25rem; }
+.grid9-credits a { color: var(--accent); }
+@media (prefers-reduced-motion: reduce) { .grid9-head { transition: none; } .grid9-cell.is-new:not(.is-ok) { animation: none; } }
+/* fin · grilla */
+/* mejoras · liniers */
+/* Cancha con la formación: verde a rayas igual en los dos modos (blanco sobre #276b43 = 6,4:1). Cada camiseta es un
+   botón de 44 px: azul con la foto si se acertó, punteada si falta, blanca si no se sacó al terminar. */
+.lp-meta { line-height: 1.5; }
+.lp-status { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 0.25rem 1rem; font-weight: 600; }
+.lp-status .num { font-size: 1.75rem; line-height: 1; color: var(--accent); }
+.lp-hearts { color: var(--accent); letter-spacing: 0.15em; }
+.lp-hearts span { color: var(--text-2); }
+.lp-pitch {
+  position: relative; display: grid; gap: 0.6rem; align-content: space-evenly; min-height: 20rem; padding: 1rem 0.25rem 1.25rem;
+  border-radius: var(--radius-sm); overflow: hidden;
+  background: repeating-linear-gradient(180deg, #276b43 0 2.4rem, #24633e 2.4rem 4.8rem);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.35);
+}
+/* área chica de Vélez abajo y medio círculo arriba (decorado) */
+.lp-pitch::before { content: ''; position: absolute; left: 30%; right: 30%; bottom: 0; height: 9%; border: 2px solid rgba(255, 255, 255, 0.25); border-bottom: 0; }
+.lp-pitch::after { content: ''; position: absolute; left: 50%; top: -3.5rem; width: 7rem; height: 7rem; margin-left: -3.5rem; border: 2px solid rgba(255, 255, 255, 0.2); border-radius: 50%; }
+.lp-row { list-style: none; margin: 0; padding: 0; display: flex; justify-content: space-evenly; gap: 0.15rem; position: relative; z-index: 1; }
+.lp-spot { flex: 1 1 0; min-width: 0; max-width: 6rem; display: flex; justify-content: center; }
+.lp-btn {
+  display: grid; justify-items: center; gap: 0.2rem; width: 100%; min-height: var(--tap); padding: 0.15rem 0.1rem; border: 0; border-radius: var(--radius-sm);
+  background: transparent; color: #ffffff; font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.lp-btn:focus-visible { outline: 3px solid #ffffff; outline-offset: 1px; }
+.lp-shirt {
+  position: relative; display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border-radius: 50%;
+  border: 2px dashed rgba(255, 255, 255, 0.85); color: #ffffff; font: 700 1.25rem/1 var(--display);
+}
+.lp-shirt .avatar { width: 100%; height: 100%; font-size: 1.25rem; }
+.lp-badge {
+  position: absolute; right: -0.35rem; bottom: -0.2rem; min-width: 1.25rem; height: 1.25rem; padding: 0 0.2rem; border-radius: 0.625rem;
+  display: grid; place-items: center; background: #ffffff; color: #004476; font-size: 0.8125rem; line-height: 1;
+}
+.lp-name {
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 0.75rem; font-weight: 700; line-height: 1.2; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+.lp-spot.is-hit .lp-shirt { border: 2px solid #ffffff; background: #0061a8; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45); }
+.lp-spot.is-hint .lp-name { letter-spacing: 0.04em; }
+.lp-spot.is-miss .lp-shirt { border: 2px solid #ffffff; background: #ffffff; color: #1b1d21; }
+.lp-spot.is-miss .lp-name { font-weight: 600; }
+/* la ficha sin foto: el dorsal en blanco sobre azul (la regla general de .reveal-photo lo dejaba blanco sobre gris) */
+.liniers .reveal-photo.avatar-none { background: var(--velez); color: var(--on-velez); }
+.lp-spot.is-sel .lp-shirt { box-shadow: 0 0 0 3px #276b43, 0 0 0 5px #ffffff; }
+.lp-spot.is-sel .lp-name { text-decoration: underline; text-underline-offset: 2px; }
+.lp-spot.is-new .lp-shirt { animation: pop-in 0.45s ease-out; }
+.lp-panel { min-height: var(--tap); display: grid; align-items: center; }
+.lp-ask { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; }
+.lp-ask p { margin: 0; }
+.lp-ask .btn { min-height: var(--tap); }
+.lp-initials { font: 700 1.25rem/1 var(--display); letter-spacing: 0.08em; color: var(--accent); }
+.lp-wrong ul { list-style: none; margin: 0.3rem 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.lp-wrong li { padding: 0.2rem 0.6rem; border: 1px dashed var(--line); border-radius: 999px; font-size: 0.8125rem; font-weight: 600; color: var(--text-2); text-decoration: line-through; }
+.lp-credits summary { min-height: var(--tap); display: flex; align-items: center; cursor: pointer; color: var(--text-2); font-weight: 600; }
+.lp-credits ul { margin: 0; padding-left: 1.1rem; display: grid; gap: 0.25rem; overflow-wrap: anywhere; }
+.lp-credits a { color: inherit; }
+@media (min-width: 48rem) {
+  .lp-pitch, .lp-panel { width: 100%; max-width: 34rem; justify-self: center; }
+  .lp-pitch { min-height: 28rem; }
+  .lp-shirt { width: 3.25rem; height: 3.25rem; }
+  .lp-name { font-size: 0.8125rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lp-spot.is-new .lp-shirt { animation: none; }
+}
+/* fin · liniers */
+/* mejoras · prode */
+.prode-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; }
+.prode-chip {
+  flex: none; padding: 0.3rem 0.65rem; border-radius: 999px; background: var(--accent-soft); color: var(--accent);
+  font: 700 0.875rem/1.1 var(--display); letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap;
+}
+.prode-chip.is-closed { background: var(--bg-2); color: var(--text-2); }
+/* El tablero: los dos equipos sobre el celeste suave, con la V de Vélez marcada en su nombre. */
+.prode-row { background: var(--accent-soft); border-radius: var(--radius-sm); padding: 1rem 0.5rem; gap: 0.5rem; }
+.prode-team { grid-template-rows: 64px 2.5em auto; }
+.prode-team .crest { width: 64px; height: 64px; }
+.prode-team.is-velez > span { color: var(--accent); }
+.prode-row .step-btn { background: var(--card); }
+.prode-cap { margin-bottom: -0.25rem; }
+.prode-quick { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.prode-quick .seg { flex: 1 0 auto; min-width: var(--tap); padding: 0 0.7rem; font: 700 1.125rem/1 var(--display); letter-spacing: 0.04em; }
+.prode-live { margin: 0; padding: 0.75rem; border-left: 4px solid var(--loss); background: var(--bg-2); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+.prode-live strong { font-size: 1.25rem; }
+.prode-form { display: grid; gap: 0.5rem; padding-top: 0.75rem; border-top: 1px solid var(--line); }
+.prode-form h3 { margin: 0; }
+.prode-form-row { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; min-height: 1.75rem; }
+.prode-form-team { display: flex; align-items: center; gap: 0.5rem; min-width: 0; font-weight: 600; }
+.prode-form-team > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.prode-form-team .crest { flex: none; width: 24px; height: 24px; object-fit: contain; }
+.prode-of { text-transform: none; letter-spacing: 0; font-weight: 600; }
+.prode-list li { display: grid; grid-template-columns: 32px 1fr auto; }
+.prode-list .crest { width: 32px; height: 32px; object-fit: contain; }
+.prode-li-main { display: grid; min-width: 0; }
+@media (max-width: 23.5rem) { .prode-list li { grid-template-columns: 32px 1fr; } .prode-list .po-chip { grid-column: 2; justify-self: start; } }
+/* fin · prode */
+/* mejoras · once */
+/* La cancha con el once (Vélez ataca hacia arriba): cada jugador es un botón de 44 px para sacarlo. Colores fijos
+   (césped, tiza, pastillas oscuras), iguales en claro y noche. */
+.once-pitch {
+  position: relative; width: 100%; max-width: 24rem; justify-self: center; aspect-ratio: 100 / 92; overflow: hidden;
+  border-radius: var(--radius-sm); background: #2f7a37; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+.once-pitch svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.once-g1 { fill: #2f7a37; }
+.once-g2 { fill: #296d31; }
+.once-chalk, .once-chalk * { fill: none; stroke: rgba(255, 255, 255, 0.8); stroke-width: 0.5; vector-effect: non-scaling-stroke; }
+.once-pitch-empty {
+  position: absolute; inset: 36% 12% auto; margin: 0; padding: 0.5rem 0.75rem; border-radius: var(--radius-sm); text-align: center;
+  background: rgba(10, 20, 35, 0.78); color: #fff; font: 600 0.875rem/1.35 var(--body);
+}
+.once-spot {
+  position: absolute; transform: translate(-50%, -50%); display: grid; justify-items: center; gap: 0.1rem;
+  width: var(--w, 5rem); min-width: var(--tap); min-height: var(--tap); padding: 0; border: 0; background: none; color: #fff;
+  font: inherit; cursor: default; -webkit-tap-highlight-color: transparent; animation: pop-in 0.3s ease-out;
+}
+button.once-spot { cursor: pointer; }
+.once-dot {
+  display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: 50%; background: #fff; color: #0061a8;
+  font-size: 1rem; line-height: 1; box-shadow: 0 2px 0 rgba(0, 0, 0, 0.25), 0 0 0 2px #0061a8;
+}
+.once-spot.is-G .once-dot { background: #f2c230; color: #1b1f27; box-shadow: 0 2px 0 rgba(0, 0, 0, 0.25), 0 0 0 2px #1b1f27; }
+.once-name {
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 0.25rem; border-radius: 999px;
+  background: rgba(10, 20, 35, 0.78); font: 700 0.75rem/1.4 var(--body); letter-spacing: -0.01em;
+}
+button.once-spot:hover .once-dot { transform: scale(1.08); }
+button.once-spot:focus-visible { outline: none; }
+button.once-spot:focus-visible .once-dot { box-shadow: 0 0 0 3px #fff, 0 0 0 6px #0061a8; }
+/* Resultado: verde con ✓ si lo elegiste; gris si no. */
+.once-spot.is-hit .once-dot, .once-key.is-hit { background: #1e7f46; color: #fff; box-shadow: 0 2px 0 rgba(0, 0, 0, 0.25), 0 0 0 2px #fff; }
+.once-spot.is-miss .once-dot, .once-key.is-miss { background: #d5d9e0; color: #3a3f4b; box-shadow: 0 2px 0 rgba(0, 0, 0, 0.2); }
+.once-legend { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0.5rem; }
+.once-key { display: inline-grid; place-items: center; width: 1.25rem; height: 1.25rem; border-radius: 50%; font: 800 0.75rem/1 var(--body); }
+.once-key.is-miss { margin-left: 0.5rem; border: 1px solid var(--text-2); }
+.once-result .trivia-score { margin: 0; }
+/* Cabecera, atajos y lista */
+.once-count small { font-size: 1.25rem; color: var(--text-2); }
+.once-closed { margin: 0; padding: 0.6rem 0.75rem; border-radius: var(--radius-sm); background: var(--bg-2); }
+.once-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; }
+.once-tools .btn { min-height: var(--tap); }
+.once-tip { margin: 0; }
+.once-n { text-transform: none; letter-spacing: 0; font-weight: 700; color: var(--accent); }
+.once-player { position: relative; padding-block: 0.3rem; }
+.once-pname { display: grid; gap: 0.05rem; min-width: 0; }
+.once-last { font: 600 0.75rem/1.25 var(--body); color: var(--text-2); }
+.once-player[aria-pressed='true'] .once-last { color: inherit; }
+.once-player[aria-pressed='true'] .once-av.avatar-none { background: var(--bg); color: var(--accent); }
+.once-check { margin-left: auto; font-weight: 800; font-size: 1.1rem; }
+.once-player.is-susp .once-check { margin-left: 0.25rem; }
+/* Con el once completo los demás no se deshabilitan (tocarlos avisa que hay que sacar uno), solo se aquietan. */
+.once-player.is-dim { border-style: dashed; color: var(--text-2); }
+/* Barra pegada abajo mientras se elige: cuántos van, la formación y si está listo. */
+.once-bar {
+  position: sticky; bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px)); z-index: 5; display: grid; grid-template-columns: auto 1fr; align-items: center;
+  gap: 0.25rem 0.75rem; padding: 0.55rem 0.85rem; border-radius: var(--radius-sm); background: var(--velez, #0061a8); color: #fff;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
+}
+.once-bar-n { grid-row: span 2; font-size: 1.75rem; line-height: 1; }
+.once-bar-meter { height: 0.4rem; border-radius: 999px; background: rgba(255, 255, 255, 0.3); overflow: hidden; }
+.once-bar-meter i { display: block; height: 100%; background: #fff; transition: width 0.2s ease-out; }
+.once-bar-text { font: 700 0.875rem/1.3 var(--body); }
+.once-bar.is-full { background: #1e7f46; }
+.once-done { margin: 0; padding: 0.6rem 0.75rem; border-radius: var(--radius-sm); border-left: 4px solid var(--win); background: var(--bg-2); font-weight: 600; }
+.once-done.is-warn { border-left-color: #b26a00; }
+/* Cancha arriba y lista abajo; en pantallas anchas, la cancha queda pegada a la izquierda mientras se elige. */
+.once-body, .once-side, .once-list { display: grid; gap: 0.75rem; min-width: 0; }
+@media (min-width: 56rem) {
+  .once-body:has(.once-list) { grid-template-columns: minmax(18rem, 24rem) 1fr; gap: 1.5rem; align-items: start; }
+  .once-body:has(.once-list) .once-side { position: sticky; top: calc(var(--topbar-h, 3.5rem) + var(--safe-top, 0px) + 1rem); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .once-spot { animation: none; }
+  .once-bar-meter i { transition: none; }
+}
+/* fin · once */
+/* mejoras · carrera */
+/* Ficha de arriba más chica: en el celular el rival de la semana tiene que verse sin bajar dos pantallas. */
+.cr-head { gap: 0.55rem; padding: 0.9rem 1rem; }
+.cr-head .cr-id { gap: 0.75rem; margin: 0; }
+.cr-head .cr-ov { width: 3.5rem; height: 3.5rem; }
+.cr-head .cr-ov b { font-size: 1.375rem; }
+.cr-head .cr-ov small { font-size: 0.75rem; }
+.cr-head .cr-name { font-size: 1.25rem; }
+.cr-head .cr-goal { gap: 0.3rem; padding: 0.5rem 0.7rem; }
+.cr-status { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1.25fr 1fr 1fr; gap: 0.5rem; font-size: 0.875rem; font-weight: 600; }
+.cr-status li { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.3rem; min-width: 0; }
+.cr-status b { font-size: 1.0625rem; }
+.cr-status small { font-size: 0.75rem; color: var(--text-2); }
+.cr-status .cr-meter-bar { flex: 1 1 2.5rem; min-width: 2.5rem; }
+.cr-status li:first-child { flex-wrap: nowrap; }
+.cr-status li.is-warn b { color: var(--loss); }
+.cr-status li.is-warn .cr-meter-bar i { background: var(--loss); }
+.cr-status .is-money b { color: var(--win); }
+
+/* La semana: primero el partido (con el calendario adentro), después el entrenamiento en dos columnas. */
+.cr-this-week { gap: 0.5rem; }
+.cr-this-week .cr-matchup { padding: 0.25rem 0; }
+.cr-this-week .cr-cal { margin: 0.25rem -0.25rem 0; padding-inline: 0.25rem; }
+.cr-train.is-compact { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.cr-train.is-compact .cr-train-opt { grid-template-columns: auto 1fr; padding: 0.6rem 0.65rem; }
+.cr-train.is-compact .cr-train-opt small { grid-column: 1 / -1; line-height: 1.35; }
+.cr-train.is-compact .cr-train-opt.is-rest { grid-column: 1 / -1; }
+.cr-train.is-compact .cr-train-opt.is-rest small { grid-column: 2; }
+@media (min-width: 40rem) {
+  .cr-train.is-compact { grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); }
+  .cr-train.is-compact .cr-train-opt.is-rest { grid-column: auto; }
+  .cr-train.is-compact .cr-train-opt.is-rest small { grid-column: 1 / -1; }
+}
+.cr-goals-prize { margin-left: 0.35rem; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--text-2); }
+.cr-goals ul { gap: 0.45rem; }
+
+/* La jugada entera (marcador, escena y opciones) en una pantalla de celular: menos aire y las 3 opciones en fila. */
+.cr-match { gap: 0.5rem; }
+@media (max-width: 30rem) {
+  .cr-match .cr-moment { padding: 0.9rem 0.85rem; }
+}
+.cr-moment > .cr-options.is-pass { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.4rem; }
+.cr-moment > .cr-options.is-pass .cr-opt { padding: 0.55rem 0.5rem; text-align: center; justify-items: center; align-content: start; }
+.cr-moment > .cr-options.is-pass .cr-opt b { line-height: 1.15; }
+
+/* Modo asistido: corto en la jugada, largo en la Ficha. */
+.cr-assist.is-short { align-items: center; padding: 0.25rem 0 0; font-size: 0.875rem; }
+.cr-assist.is-short input { margin: 0; }
+.cr-assist.is-short small { display: inline; font-size: 0.8125rem; }
+.cr-settings { display: grid; gap: 0.3rem; }
+
+/* Resultado: los dos escudos grandes y el marcador al medio. */
+.cr-final { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 0.5rem; padding: 0.25rem 0; width: 100%; max-width: 32rem; justify-self: center; }
+.cr-final-team { display: grid; justify-items: center; gap: 0.35rem; text-align: center; min-width: 0; font: 800 1rem/1.1 var(--display); text-transform: uppercase; overflow-wrap: anywhere; }
+.cr-final-team .crest { max-width: none; }
+.cr-final-team.is-v b { color: var(--accent); }
+.cr-final-num { display: flex; align-items: center; gap: 0.3rem; font-size: 3rem; line-height: 1; white-space: nowrap; animation: pop-in 0.45s 0.15s ease-out backwards; }
+.cr-final-num span { color: var(--text-2); font-size: 2rem; }
+.cr-final-pens { grid-column: 1 / -1; text-align: center; font-size: 0.8125rem; font-weight: 700; color: var(--text-2); }
+.cr-result .cr-tags { justify-content: center; }
+.cr-center { text-align: center; }
+
+/* Fin del torneo: el escudo, el número grande y el torneo en barras. */
+.cr-fin { text-align: center; justify-items: center; }
+.cr-fin .cr-stats, .cr-fin .cr-season, .cr-fin .cr-retire { width: 100%; text-align: left; }
+.cr-fin-hero { display: flex; align-items: center; justify-content: center; gap: 0.75rem; }
+.cr-fin-hero .crest { max-width: none; animation: pop-in 0.5s ease-out; }
+.cr-fin-hero .cr-trophy { font-size: 3.5rem; }
+.cr-fin-champ { display: inline-flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0.3rem; }
+.cr-fin-champ .crest { max-width: none; }
+.cr-fin-big { display: grid; justify-items: center; gap: 0.15rem; }
+.cr-fin-big > b { font: 800 3.5rem/1 var(--display); color: var(--accent); }
+.cr-fin-big > span { font-size: 0.9375rem; font-weight: 600; }
+.cr-fin-ov b { font-size: 1.0625rem; color: var(--accent); }
+.cr-season { margin: 0; display: grid; gap: 0.35rem; }
+.cr-season-bars { list-style: none; margin: 0; padding: 0; height: 4.5rem; display: flex; align-items: flex-end; gap: 3px; border-bottom: 2px solid var(--line); }
+.cr-season-bars li {
+  flex: 1 1 0; max-width: 1.5rem; height: var(--h); border-radius: 3px 3px 0 0; background: var(--draw);
+  transform-origin: bottom; animation: cr-grow 0.4s calc(var(--i) * 40ms) ease-out backwards;
+}
+.cr-season-bars li.is-good { background: var(--win); }
+.cr-season-bars li.is-bad { background: var(--loss); }
+.cr-season-bars li.is-best { outline: 2px solid var(--accent); outline-offset: 1px; }
+@keyframes cr-grow { from { transform: scaleY(0); } }
+@media (prefers-reduced-motion: reduce) {
+  .cr-final-num, .cr-fin-hero .crest, .cr-season-bars li { animation: none; }
+}
+/* fin · carrera */

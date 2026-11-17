@@ -207,18 +207,6 @@ function Importar({ onImport }) {
 
 // ---------- Ficha ----------
 
-function Meter({ label, value, warn, marks = [] }) {
-  return (
-    <div className={`cr-meter${warn ? ' is-warn' : ''}`}>
-      <span className="cr-meter-top"><span>{label}</span><b className="num">{Math.round(value)}</b></span>
-      <span className="cr-meter-bar" aria-hidden="true">
-        <i style={{ width: `${value}%` }} />
-        {marks.map((m) => <span key={m} className="cr-mark" style={{ left: `${m}%` }} />)}
-      </span>
-    </div>
-  );
-}
-
 /** Últimos 5 puntajes (como la «forma» de los juegos de fútbol): verde bueno, gris normal, rojo malo. */
 function Form({ form }) {
   if (!form?.length) return null;
@@ -234,6 +222,8 @@ function Header({ state }) {
   const role = roleOf(p);
   const goal = objective(p);
   const pct = Math.min(100, Math.round((goal.value / goal.to) * 100));
+  // Compacta a propósito: en el celular lo importante de la semana (el rival y el entrenamiento) tiene que verse sin
+  // bajar dos pantallas. La media, el rol y el objetivo arriba; energía, hinchas y plata en una sola fila.
   return (
     <div className="card cr-head">
       <div className="cr-id">
@@ -241,19 +231,22 @@ function Header({ state }) {
         <div>
           <strong className="cr-name">{p.name}</strong>
           <span className="muted small">{spotOf(p).label} · {fmtAge(p.age)} · <span className={`cr-role is-${role}`}>{ROLE_LABEL[role]}</span>{state.captain ? <span className="cr-captain" title="Capitán"><span aria-hidden="true">C</span><span className="sr-only">, capitán</span></span> : null}{p.injury ? <span className="cr-role is-injury"> · 🤕 Lesionado</span> : null}</span>
-          <span className="cr-money"><span aria-hidden="true">💰</span> <b className="num">{money(p.money)}</b> <small>(cobrás {money(salaryOf(p))} por semana)</small></span>
           <Form form={p.form} />
         </div>
       </div>
       <div className="cr-goal">
         <p className="cr-goal-title"><span aria-hidden="true">🎯</span><b>{goal.text}</b><span className="num cr-goal-num">{Math.round(goal.value)}/{goal.to}</span></p>
         <span className="cr-goal-bar" aria-hidden="true"><i style={{ width: `${pct}%` }} /></span>
-        <p className="muted small">{goal.hint}</p>
+        {!p.form?.length && <p className="muted small">{goal.hint}</p>}
       </div>
-      <div className="cr-minis">
-        <Meter label="⚡ Energía" value={p.energy} warn={p.energy < 40} />
-        <Meter label="📣 Hinchas" value={p.fans} />
-      </div>
+      <ul className="cr-status" aria-label="Tu estado">
+        <li className={p.energy < 40 ? 'is-warn' : undefined}>
+          <span aria-hidden="true">⚡</span><span className="sr-only">Energía:</span> <b className="num">{Math.round(p.energy)}</b>
+          <span className="cr-meter-bar" aria-hidden="true"><i style={{ width: `${p.energy}%` }} /></span>
+        </li>
+        <li><span aria-hidden="true">📣</span><span className="sr-only">Hinchas:</span> <b className="num">{Math.round(p.fans)}</b> <small>hinchas</small></li>
+        <li className="is-money"><span aria-hidden="true">💰</span><span className="sr-only">Plata:</span> <b className="num">{money(p.money)}</b></li>
+      </ul>
     </div>
   );
 }
@@ -296,7 +289,7 @@ function Vitrina({ state }) {
   );
 }
 
-function Ficha({ state, onReset }) {
+function Ficha({ state, onReset, assist }) {
   const p = state.player;
   const st = state.torneo.stats;
   const avg = st.ratings.length ? (st.ratings.reduce((a, b) => a + b, 0) / st.ratings.length).toFixed(1) : '–';
@@ -356,6 +349,10 @@ function Ficha({ state, onReset }) {
           <ul className="cr-news">{state.news.map((n, i) => <li key={i}>{n.text}</li>)}</ul>
         </div>
       )}
+      <div className="card cr-settings">
+        <p className="kicker">Ajustes</p>
+        <AssistToggle {...assist} long />
+      </div>
       <details className="cr-more">
         <summary>Guardar en otro dispositivo o empezar de nuevo</summary>
         <p className="small muted">La carrera se guarda solo en este navegador. Para seguirla en otro, copiá el código y pegalo allá al crear un jugador.</p>
@@ -514,7 +511,7 @@ function Metas({ torneo }) {
   const done = goals.filter((g) => g.done).length;
   return (
     <div className="card cr-week cr-goals">
-      <p className="kicker"><span aria-hidden="true">🎯</span> Metas del torneo · {done}/{goals.length}</p>
+      <p className="kicker"><span aria-hidden="true">🎯</span> Metas del torneo · {done}/{goals.length} <span className="cr-goals-prize">+{GOAL_REWARD} hinchas cada una</span></p>
       <ul>
         {goals.map((g) => {
           const pct = Math.min(100, Math.round((g.value / g.target) * 100));
@@ -529,7 +526,6 @@ function Metas({ torneo }) {
           );
         })}
       </ul>
-      <p className="muted small">Cada meta cumplida suma {GOAL_REWARD} hinchas al terminar el torneo.</p>
     </div>
   );
 }
@@ -541,7 +537,7 @@ function Calendar({ state }) {
   useEffect(() => {
     const el = row.current;
     const on = el?.querySelector('.is-now');
-    if (on) el.scrollTo({ left: on.offsetLeft - (el.clientWidth - on.offsetWidth) / 2 });
+    if (on) el.scrollTo({ left: el.scrollLeft + on.getBoundingClientRect().left - el.getBoundingClientRect().left - (el.clientWidth - on.offsetWidth) / 2 });
   }, [state.torneo.week, state.torneo.bracket?.rounds.length]);
   return (
     <ol className="cr-cal" ref={row} aria-label="Calendario de Vélez">
@@ -584,8 +580,7 @@ function Semana({ state, act }) {
   const reserva = role === 'reserva';
   return (
     <>
-      <Calendar state={state} />
-      <div className="card cr-week">
+      <div className="card cr-week cr-this-week">
         <p className="kicker">{weekTitle(state)}</p>
         {libre ? <h3 className="cr-title">Fecha libre: Vélez no juega</h3> : (
           <>
@@ -598,6 +593,7 @@ function Semana({ state, act }) {
             </p>
           </>
         )}
+        <Calendar state={state} />
       </div>
       {p.injury ? <Lesion injury={p.injury} /> : (
       <div className="card cr-week">
@@ -605,7 +601,7 @@ function Semana({ state, act }) {
         {t.trained ? <TrainResult trained={t.trained} player={p} /> : (
           <>
             <p className="muted small">Una sesión por semana. Con poca energía rendís menos en el partido.</p>
-            <div className="cr-train">
+            <div className="cr-train is-compact">
               {TRAINING.map((x) => {
                 const odds = x.attr ? trainOdds(p.attrs[x.attr], p.energy) : null;
                 return (
@@ -643,7 +639,7 @@ function Marcador({ state, match, i, through }) {
   const r = events.length - v;
   const sides = [
     { key: 'v', name: match.side === 'reserva' ? 'Vélez Res.' : 'Vélez', logo: velez?.logo, g: v },
-    { key: 'r', name: match.rival.name, logo: match.rival.logo, g: r },
+    { key: 'r', name: match.side === 'reserva' ? `${match.rival.name} Res.` : match.rival.name, logo: match.rival.logo, g: r },
   ];
   const [a, b] = match.home ? sides : [sides[1], sides[0]];
   const scorers = (side) => events.filter((e) => e.team === side.key).map((e, k) => (
@@ -883,7 +879,7 @@ function Relato({ match, i, done }) {
   );
 }
 
-function Partido({ state, act, assisted }) {
+function Partido({ state, act, assisted, assist }) {
   const m = state.torneo.match;
   const [kicked, setKicked] = useState(m.answers.length > 0);
   const [seen, setSeen] = useState(m.answers.length); // la última jugada ya vista (al recargar, ninguna pendiente)
@@ -915,9 +911,11 @@ function Partido({ state, act, assisted }) {
       if (goals.length) say(`Mientras tanto: ${goals.join('; ')}. ${score(eventsAt(m, i))}.`);
     }
   }, [kicked, seen, m.answers.length]); // solo cuando avanza el partido
-  if (!kicked) return <section className="cr-match" aria-label="Partido"><Kickoff state={state} match={m} onStart={() => setKicked(true)} /></section>;
+  const ref = useRef(null);
+  useScrollOnChange(ref, `${kicked}:${seen}:${m.answers.length}`);
+  if (!kicked) return <section ref={ref} className="cr-match" aria-label="Partido"><Kickoff state={state} match={m} onStart={() => setKicked(true)} /></section>;
   return (
-    <section className="cr-match" aria-label="Partido">
+    <section ref={ref} className="cr-match" aria-label="Partido">
       <Announcer text={said} />
       <p className="kicker">{m.label} · {ROLE_LABEL[m.role]}{m.home ? ' · Local' : ' · Visitante'}</p>
       <Marcador state={state} match={m} i={done ? undefined : i} through={pending} />
@@ -926,7 +924,7 @@ function Partido({ state, act, assisted }) {
       {!pending && !done && (
         <>
           <Relato key={`r${i}`} match={m} i={i} />
-          <Momento key={i} moment={m.moments[i]} assisted={assisted} tip={state.tips?.[tipKey(m.moments[i])] ? null : TIPS[tipKey(m.moments[i])]} onAnswer={(a) => act(answerMoment, a)} />
+          <Momento key={i} moment={m.moments[i]} assisted={assisted} assistToggle={<AssistToggle {...assist} />} tip={state.tips?.[tipKey(m.moments[i])] ? null : TIPS[tipKey(m.moments[i])]} onAnswer={(a) => act(answerMoment, a)} />
         </>
       )}
       {done && (
@@ -953,6 +951,26 @@ function RatingRing({ rating }) {
   );
 }
 
+/** El resultado final con los dos escudos grandes (el título queda para el lector de pantalla). */
+function ScoreHero({ state, last, v, r, reserva = false, pens = '' }) {
+  const velez = state.torneo.teams.find((x) => x.id === state.velez);
+  const sides = [
+    { name: reserva ? 'Vélez Res.' : 'Vélez', logo: velez?.logo, g: v, cls: 'is-v' },
+    { name: reserva ? `${last.rival.name} Res.` : last.rival.name, logo: last.rival.logo, g: r, cls: 'is-r' },
+  ];
+  const [a, b] = last.home ? sides : [sides[1], sides[0]];
+  const penText = pens ? `Vélez ${pens.replace(/[()]/g, '').trim()}` : '';
+  return (
+    <div className="cr-final">
+      <h3 className="sr-only">{a.name} {a.g}, {b.name} {b.g}{penText ? `. ${penText}` : ''}</h3>
+      <span className={`cr-final-team ${a.cls}`} aria-hidden="true"><Crest url={a.logo} size={56} /><b>{a.name}</b></span>
+      <b className="num cr-final-num" aria-hidden="true">{a.g}<span>-</span>{b.g}</b>
+      <span className={`cr-final-team ${b.cls}`} aria-hidden="true"><Crest url={b.logo} size={56} /><b>{b.name}</b></span>
+      {penText && <small className="cr-final-pens" aria-hidden="true">{penText}</small>}
+    </div>
+  );
+}
+
 function Resultado({ state, act }) {
   const l = state.torneo.last;
   if (l.libre) {
@@ -973,7 +991,7 @@ function Resultado({ state, act }) {
     return (
       <div className="card cr-result" role="status">
         <p className="kicker">{l.label} · Lo viste desde la tribuna</p>
-        <h3 className="cr-title">{line(l.first.v, l.first.r)}{pens}</h3>
+        <ScoreHero state={state} last={l} v={l.first.v} r={l.first.r} pens={pens} />
         <p className="small">{left > 0 ? `Seguís en recuperación: te ${left === 1 ? 'falta 1 semana' : `faltan ${left} semanas`}.` : '¡Ya estás recuperado! La semana que viene volvés a jugar.'}</p>
         {l.earned > 0 && <p className="small">Cobraste el sueldo: <b>+{money(l.earned)}</b>.</p>}
         <button type="button" className="btn btn-solid" autoFocus onClick={() => act(dismissLast)}>Seguir</button>
@@ -986,7 +1004,16 @@ function Resultado({ state, act }) {
   return (
     <div className={`card cr-result game-end is-fresh ${outcome[1]}`} role="status">
       {(l.rating >= 8 || l.news?.length > 0) && <Confetti />}
-      <p className="kicker">{l.label}{reserva ? ' · Reserva' : ''}</p>
+      <p className="kicker">{l.label}{reserva ? ' · Reserva' : ''} · Final</p>
+      <ScoreHero state={state} last={l} v={l.own.v} r={l.own.r} reserva={reserva} pens={reserva ? '' : pens} />
+      <p className="cr-tags">
+        <span className={`cr-badge ${outcome[1]}`}>{outcome[0]}</span>
+        {l.big && <span className="cr-tag is-big">🔥 Partido grande</span>}
+        {l.figura && <span className="cr-tag is-figura">⭐ Figura del partido</span>}
+        {l.clean && <span className="cr-tag is-clean">🔒 Valla invicta</span>}
+        {l.penSaved && <span className="cr-tag is-figura">🖐️ Atajaste en los penales</span>}
+      </p>
+      {reserva && <p className="small muted cr-center">En Primera: {line(l.first.v, l.first.r)}{pens}.</p>}
       {l.news?.length > 0 && (
         <ul className="cr-milestones">
           {l.news.map((n) => <li key={n}><span aria-hidden="true">🎉</span> {n}</li>)}
@@ -998,15 +1025,6 @@ function Resultado({ state, act }) {
         </p>
       )}
       <Badges ids={l.logros} fresh />
-      <p className="cr-tags is-left">
-        <span className={`cr-badge ${outcome[1]}`}>{outcome[0]}</span>
-        {l.big && <span className="cr-tag is-big">🔥 Partido grande</span>}
-        {l.figura && <span className="cr-tag is-figura">⭐ Figura del partido</span>}
-        {l.clean && <span className="cr-tag is-clean">🔒 Valla invicta</span>}
-        {l.penSaved && <span className="cr-tag is-figura">🖐️ Atajaste en los penales</span>}
-      </p>
-      <h3 className="cr-title">{reserva ? 'Reserva: ' : ''}{line(l.own.v, l.own.r)}{reserva ? '' : pens}</h3>
-      {reserva && <p className="small muted">En Primera: {line(l.first.v, l.first.r)}{pens}.</p>}
       <div className="cr-result-main">
         <RatingRing rating={l.rating} />
         <ul className="cr-chips">
@@ -1027,6 +1045,7 @@ function Resultado({ state, act }) {
           {l.earned > 0 && <li className="is-money"><b className="num">+{money(l.earned)}</b>{l.prize ? ` (${money(l.prize)} de premio)` : ''}</li>}
         </ul>
       </div>
+      <p className="small muted"><span aria-hidden="true">🎯</span> {objective(state.player).hint}</p>
       <Prensa last={l} act={act} />
       <button type="button" className="btn btn-solid" autoFocus={!l.press} onClick={() => act(dismissLast)}>Seguir</button>
     </div>
@@ -1067,13 +1086,32 @@ function Fin({ state, act }) {
   const pos = state.player.pos;
   const [big, unit] = headline(pos, s);
   const text = `El Fortín · Carrera · ${state.player.name}\n${s.label}: ${s.pj} PJ, ${statsText(pos, s)}${s.avg ? `, puntaje ${s.avg}` : ''}\nVélez: ${s.result}`;
+  const velez = state.torneo.teams.find((x) => x.id === state.velez);
+  const champTeam = !champ && s.champion ? state.torneo.teams.find((x) => x.name === s.champion) : null;
+  const prevOv = state.history.at(-1)?.ov;
+  const shown = useCountUp(big, true);
   return (
-    <div className={`card cr-result game-end is-fresh${champ ? ' is-win cr-champ' : ''}`} role="status">
+    <div className={`card cr-result cr-fin game-end is-fresh${champ ? ' is-win cr-champ' : ''}`} role="status">
       {champ && <Confetti />}
-      {champ && <p className="cr-trophy" aria-hidden="true">🏆</p>}
       <p className="kicker">Terminó el {s.label}</p>
+      <div className="cr-fin-hero" aria-hidden="true">
+        {champ && <span className="cr-trophy">🏆</span>}
+        <Crest url={velez?.logo} size={champ ? 72 : 56} />
+      </div>
       <h3 className="cr-title">{champ ? '¡Vélez campeón!' : `Vélez: ${s.result.toLowerCase()}`}</h3>
-      {!champ && s.champion && <p className="small muted">Campeón: {s.champion}. Vélez terminó {s.pos}.º en su zona.</p>}
+      {!champ && s.champion && (
+        <p className="small muted cr-fin-champ">
+          {s.pos ? `Vélez terminó ${s.pos}.º en su zona. ` : ''}Campeón: {champTeam && <Crest url={champTeam.logo} size={24} />} {s.champion}.
+        </p>
+      )}
+      <div className="cr-fin-big">
+        <b className="num" aria-hidden="true">{shown}</b>
+        <span><span className="sr-only">{big} </span>{unit} en {s.pj} {s.pj === 1 ? 'partido' : 'partidos'} de Primera</span>
+      </div>
+      <Temporada ratings={state.torneo.stats.ratings} />
+      {prevOv != null && s.ov !== prevOv && (
+        <p className="small cr-fin-ov"><span aria-hidden="true">{s.ov > prevOv ? '📈' : '📉'}</span> Tu media pasó de <b className="num">{prevOv}</b> a <b className="num">{s.ov}</b>.</p>
+      )}
       {s.ideal && <p className="cr-ideal"><span aria-hidden="true">🌟</span> <b>Equipo ideal del torneo</b> <small>Promedio {s.avg} en {s.pj} partidos · +{IDEAL.fans} hinchas</small></p>}
       <dl className="cr-stats">
         <div><dt>Partidos en Primera</dt><dd className="num">{s.pj}</dd></div>
@@ -1088,6 +1126,24 @@ function Fin({ state, act }) {
       />
       <Retiro state={state} act={act} next={next} />
     </div>
+  );
+}
+
+/** Los puntajes del torneo partido a partido, como barras (verde bueno, rojo malo): el torneo de un vistazo. */
+function Temporada({ ratings }) {
+  if (!ratings?.length) return null;
+  const best = Math.max(...ratings);
+  return (
+    <figure className="cr-season">
+      <ol className="cr-season-bars" aria-hidden="true">
+        {ratings.map((r, k) => (
+          <li key={k} className={`${ratingClass(r)}${r === best ? ' is-best' : ''}`} style={{ '--h': `${Math.max(8, ((r - 3) / 7) * 100)}%`, '--i': k }} />
+        ))}
+      </ol>
+      <figcaption className="small muted">
+        Tus puntajes en Primera, partido a partido. El mejor: <b className="num">{best.toFixed(1)}</b>.
+      </figcaption>
+    </figure>
   );
 }
 
@@ -1256,26 +1312,73 @@ export default function Carrera({ standings, roster }) {
   }
   const t = state.torneo;
   const reset = () => { put(null); setView('semana'); };
+  const assist = { assisted, onChange: setAssisted };
   let main;
   if (state.retired) main = <Despedida state={state} onReset={reset} />;
-  else if (t.match) main = <Partido key={`${t.n}-${t.week}-${t.bracket?.rounds.length ?? 0}`} state={state} act={act} assisted={assisted} />;
+  else if (t.match) main = <Partido key={`${t.n}-${t.week}-${t.bracket?.rounds.length ?? 0}`} state={state} act={act} assisted={assisted} assist={assist} />;
   else if (t.last) main = <Resultado state={state} act={act} />;
   else if (t.phase === 'fin') main = <Fin state={state} act={act} />;
   else main = <Semana state={state} act={act} />;
   return (
-    <div className="cr">
+    <Stage className="cr" screen={screenOf(state)}>
       {saveFailed && <p className="small cr-bad" role="alert">No se pudo guardar en este navegador (¿modo privado?): la carrera se pierde al cerrar la página.</p>}
-      <Header state={state} />
-      <label className="cr-assist">
-        <input type="checkbox" checked={Boolean(assisted)} onChange={(e) => setAssisted(e.target.checked)} />
-        <span><b>Modo asistido</b> <small className="muted">La barra frena sola en la zona verde (ejecución «Bien», nunca perfecta). Para lector de pantalla o si te cuesta el timing.</small></span>
-      </label>
+      {/* En el partido no va la ficha de arriba: la pantalla es del marcador y la jugada. */}
+      {!t.match && <Header state={state} />}
       {!t.match && <Segmented options={VIEWS} value={view} onChange={setView} label="Qué ver" />}
       {t.match || view === 'semana' ? main
         : view === 'tabla' ? <Tabla state={state} />
           : view === 'mejoras' ? <Mejoras state={state} act={act} />
-            : <Ficha state={state} onReset={reset} />}
+            : <Ficha state={state} onReset={reset} assist={assist} />}
       {disclaimer}
-    </div>
+    </Stage>
+  );
+}
+
+/** En qué pantalla está la carrera (semana, partido, resultado, fin o despedida), para saber cuándo cambia. */
+function screenOf(state) {
+  const t = state.torneo;
+  const what = state.retired ? 'retiro' : t.match ? 'partido' : t.last ? 'resultado' : t.phase === 'fin' ? 'fin' : 'semana';
+  return `${what}:${t.n}:${t.week}:${t.bracket?.rounds.length ?? 0}`;
+}
+
+const calm = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/**
+ * Lleva la vista al principio de `ref` cuando cambia `key`, si quedó fuera de la pantalla. Sin esto, en el celular se
+ * tocaba «Salir a la cancha» abajo de todo y la pantalla siguiente aparecía cortada (se veía solo el final).
+ */
+function useScrollOnChange(ref, key) {
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    const el = ref.current;
+    if (!el?.getBoundingClientRect) return;
+    const top = el.getBoundingClientRect().top;
+    const pad = parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0;
+    if (top < pad - 1 || top > window.innerHeight * 0.45) el.scrollIntoView({ block: 'start', behavior: calm() ? 'auto' : 'smooth' });
+  }, [key]); // solo cuando cambia la pantalla
+}
+
+function Stage({ className, screen, children }) {
+  const ref = useRef(null);
+  useScrollOnChange(ref, screen);
+  return <div ref={ref} className={className}>{children}</div>;
+}
+
+/** Modo asistido (preferencia del navegador): va en la jugada, donde hace falta, y en la Ficha. */
+function AssistToggle({ assisted, onChange, long = false }) {
+  return (
+    <label className={`cr-assist${long ? '' : ' is-short'}`}>
+      <input type="checkbox" checked={Boolean(assisted)} onChange={(e) => onChange(e.target.checked)} />
+      <span>
+        <b>Modo asistido</b>{' '}
+        <small className="muted">{long
+          ? 'La barra frena sola en la zona verde (ejecución «Bien», nunca perfecta). Para lector de pantalla o si te cuesta el timing.'
+          : 'la barra frena sola (nunca perfecta)'}</small>
+      </span>
+    </label>
   );
 }

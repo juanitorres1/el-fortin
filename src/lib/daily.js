@@ -15,6 +15,17 @@ export const GAMES = [
   { key: 'carrera', label: 'Carrera', daily: false },
 ];
 
+/** El próximo juego del día sin jugar hoy, después de `current` (da la vuelta); null si ya jugó todos. */
+export function nextGame(done, current) {
+  const daily = GAMES.filter((g) => g.daily);
+  const at = daily.findIndex((g) => g.key === current);
+  for (let i = 1; i <= daily.length; i += 1) {
+    const g = daily[(at + i + daily.length) % daily.length];
+    if (g.key !== current && !done.has(g.key)) return g;
+  }
+  return null;
+}
+
 /** Número a partir de un texto (FNV-1a): la «sal» de cada juego, para que no compartan sorteo. */
 export function hash(text) {
   let h = 0x811c9dc5;

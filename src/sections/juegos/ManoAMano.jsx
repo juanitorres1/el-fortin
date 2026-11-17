@@ -1,25 +1,28 @@
 // Mano a Mano: 10 duelos por día entre dos rivales («¿a quién le ganó más veces Vélez?»), con el historial completo.
-// Al elegir, el duelo muestra los dos números (suben contando, con una barra) y pasa solo al siguiente.
+// Al elegir, el duelo muestra los dos números (suben contando, con una barra y su unidad). Si acertaste pasa solo al
+// siguiente; si no, espera a «Siguiente» para que se pueda leer la respuesta. Al final, cada rival lleva a su historial.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { DATA } from '../../lib/core.js';
-import { dailyDuels } from '../../lib/duel.js';
+import { DUEL_STATS, dailyDuels, duelSentence, duelUnit, rivalHref } from '../../lib/duel.js';
 import { resultStats, squares } from '../../lib/daily.js';
 import { useJson } from '../../hooks/data.js';
 import { Crest, Empty, Skeletons } from '../../components/ui.jsx';
 import { Announcer, DailyStats, GameEnd, ShareResult, buzz, useAnnounce, useCountUp, useDaily, useResults } from './shared.jsx';
 
-const REVEAL_MS = 1700; // lo que se ve el resultado antes de pasar al duelo siguiente (se puede tocar «Siguiente»)
+const REVEAL_MS = 2200; // lo que se ve un acierto antes de pasar al duelo siguiente (se puede tocar «Siguiente»)
 
-function Side({ side, top, picked, max, revealed, onPick }) {
+function Side({ side, stat, top, picked, max, revealed, onPick }) {
   const value = useCountUp(side.value, revealed);
   const state = !revealed ? '' : top ? ' is-top' : ' is-low';
   return (
     <button type="button" className={`duel-opt${state}${picked ? ' is-picked' : ''}`} disabled={revealed} onClick={onPick}>
-      <Crest url={side.logo} size={56} />
+      {revealed && picked && <span className="duel-tag" aria-hidden="true">Tu respuesta</span>}
+      <Crest url={side.logo} size={72} />
       <span className="duel-name">{side.name}</span>
       {revealed && (
         <>
           <b className="num duel-value">{value}</b>
+          <span className="duel-unit">{DUEL_STATS[stat].unit[side.value === 1 ? 0 : 1]}{stat !== 'pj' && side.pj ? <small> en {side.pj} partidos</small> : null}</span>
           <span className="duel-bar" aria-hidden="true"><i style={{ width: `${Math.max(6, (side.value / max) * 100)}%` }} /></span>
           <span className="sr-only">{top ? ' (el mayor)' : ''}{picked ? ' (tu respuesta)' : ''}</span>
         </>
@@ -40,11 +43,12 @@ export function ManoAMano({ day, label, onDone, streak }) {
   // la página se ve el que sigue).
   const [reveal, setReveal] = useState(null);
   const [fresh, setFresh] = useState(false);
+  const auto = reveal != null && reveal < answers.length && results[reveal];
   useEffect(() => {
-    if (reveal == null) return undefined;
+    if (!auto) return undefined;
     const t = setTimeout(() => setReveal(null), REVEAL_MS);
     return () => clearTimeout(t);
-  }, [reveal]);
+  }, [auto, reveal]);
   const showing = reveal != null && reveal < answers.length ? reveal : null;
   const index = showing ?? answers.length;
   const current = duels[index];
@@ -68,7 +72,7 @@ export function ManoAMano({ day, label, onDone, streak }) {
     const ok = side === d.answer;
     moved.current = true;
     buzz(ok);
-    say(`${ok ? '¡Bien!' : 'No.'} ${d.a.name} ${d.a.value}, ${d.b.name} ${d.b.value}.`);
+    say(`${ok ? '¡Bien!' : 'No.'} ${duelSentence(d)}`);
     setReveal(answers.length);
     setGame({ answers: next });
     if (next.length === duels.length) {
@@ -90,22 +94,24 @@ export function ManoAMano({ day, label, onDone, streak }) {
       </ol>
       {current && (
         <div className={`card duel${showing != null ? (results[showing] ? ' is-right' : ' is-wrong') : ''}`} key={index}>
-          <p className="kicker">Duelo {index + 1} de {duels.length}</p>
+          <p className="kicker">Duelo {index + 1} de {duels.length}{answers.length > 0 && <span className="duel-score"> · {score} {score === 1 ? 'acierto' : 'aciertos'}</span>}</p>
           <h3 className="trivia-text" tabIndex={-1} ref={head}>{current.text}</h3>
           <div className="duel-options">
             {['a', 'b'].map((s) => (
-              <Side key={s} side={current[s]} top={current.answer === s} picked={answers[index] === s} max={max} revealed={showing != null} onPick={() => answer(s)} />
+              <Side key={s} side={current[s]} stat={current.stat} top={current.answer === s} picked={answers[index] === s} max={max} revealed={showing != null} onPick={() => answer(s)} />
             ))}
             <span className="duel-vs" aria-hidden="true">VS</span>
           </div>
           {showing != null && (
-            <p className="duel-verdict">
-              <span>
-                <b>{results[showing] ? '¡Bien!' : 'No.'}</b>{' '}
-                <span className="duel-nums">{current.a.name} <b className="num">{current.a.value}</b> · {current.b.name} <b className="num">{current.b.value}</b></span>
-              </span>
-              <button ref={nextBtn} type="button" className="btn btn-outline" onClick={() => setReveal(null)}>{showing + 1 < duels.length ? 'Siguiente' : 'Ver el resultado'}</button>
-            </p>
+            <div className="duel-verdict">
+              <p>
+                <b>{results[showing] ? '¡Bien!' : 'No era.'}</b>{' '}
+                <span className="duel-says">{duelSentence(current)}</span>
+              </p>
+              <button ref={nextBtn} type="button" className={`btn ${auto ? 'btn-outline duel-next is-auto' : 'btn-solid duel-next'}`} style={{ '--wait': `${REVEAL_MS}ms` }} onClick={() => setReveal(null)}>
+                {showing + 1 < duels.length ? 'Siguiente' : 'Ver el resultado'}
+              </button>
+            </div>
           )}
         </div>
       )}
@@ -129,16 +135,21 @@ export function ManoAMano({ day, label, onDone, streak }) {
                 <li key={i} className={results[i] ? 'is-right' : 'is-wrong'}>
                   <span className="duel-mark" aria-hidden="true">{results[i] ? '✓' : '✗'}</span>
                   <span className="sr-only">{results[i] ? 'Bien: ' : 'Mal: '}</span>
-                  <span>
+                  <span className="duel-past-body">
                     <small className="muted">{d.text}</small>
-                    <span className="duel-line">
-                      {['a', 'b'].map((s) => <span key={s} className={d.answer === s ? 'is-top' : undefined}><Crest url={d[s].logo} size={18} /> {d[s].name} <b className="num">{d[s].value}</b></span>)}
-                    </span>
+                    {['a', 'b'].map((s) => (
+                      <a key={s} className={`duel-rival${d.answer === s ? ' is-top' : ''}${a === s ? ' is-mine' : ''}`} href={rivalHref(d[s].id)}>
+                        <Crest url={d[s].logo} size={28} />
+                        <span className="duel-rival-name">{d[s].name}{a === s && <>{' '}<small className="duel-mine">Tu respuesta</small></>}</span>
+                        <b className="num">{duelUnit(d.stat, d[s].value)}</b>
+                      </a>
+                    ))}
                   </span>
                 </li>
               );
             })}
           </ol>
+          <p className="muted small duel-hint">Tocá un rival para ver todos sus partidos contra Vélez.</p>
         </details>
       )}
       <p className="muted small">

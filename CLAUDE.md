@@ -209,7 +209,18 @@ npm run preview # sirve dist/
   `grilla`, `liniers`, `prode`, `once`, `carrera`); cada juego está en `src/sections/juegos/`. Los datos de los juegos nuevos se
   piden al abrir su pestaña (no van en el prerender). Efectos (fichas que se dan vuelta, números que suben, papelitos,
   sacudida, vibración) en `sections/juegos/shared.jsx` y al final de `styles.css`; todos se apagan con «reducir
-  movimiento». En el panel integrado oculto las animaciones CSS quedan congeladas en el primer cuadro: medir el DOM. Los heredocs de Git Bash fallan con plantillas de JS adentro:
+  movimiento». En el panel integrado oculto las animaciones CSS quedan congeladas en el primer cuadro: medir el DOM.
+  **Mejoras de UI por juego (nov-2026, 9 agentes, uno por juego):** cada juego tiene su archivo (Trivia, Prode y Once
+  salieron de `pages/juegos.jsx`; `sections/juegos/partido.js` = próximo partido para Prode y Once), sus tests
+  (`tests/<juego>.test.js`) y su bloque de CSS al final de `styles.css` (`/* mejoras · <juego> */`). Al terminar un
+  juego del día, la página ofrece el próximo sin jugar (`nextGame` en `daily.js`). Trivia de a una pregunta con
+  foto de Commons (con crédito) y repaso, sin repetir persona en el día; Mano a Mano espera si errás y linkea al
+  historial del rival; Tapado con «Lo que ya sabés» y botón al otro modo; Trayectoria con «Destapar un club» y pistas
+  en los fallos 2, 3 y 4; Grilla con escudos en los encabezados y el porqué de cada error; Once de Liniers y
+  Adiviná el once sobre una cancha; Prode con atajos de marcador, cuenta regresiva y «Cómo llegan» (un pedido más a
+  ESPN, el del rival); Prode y Once muestran el partido en juego cerrado. Carrera: la vista sube al cambiar de
+  pantalla, resultado con escudos grandes, fin de torneo con barras de puntajes, modo asistido dentro de la jugada
+  y en Ficha › Ajustes (~41 KB gzip). Los heredocs de Git Bash fallan con plantillas de JS adentro:
   escribir el script con la herramienta de archivos.
 
 - **Auditoría externa (nov-2026):** el Inicio ya no baja los scoreboards de meses cerrados ni el detalle completo de

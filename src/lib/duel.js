@@ -23,7 +23,7 @@ export function duelRows(matches) {
 /**
  * Los duelos de un día: los mismos para todos y cada vez más parejos (en el primero un número duplica al otro; en
  * el último la diferencia es de un 10 %). Nunca hay empate. Un rival aparece a lo sumo dos veces por día.
- * Devuelve [{ stat, text, a, b, answer: 'a' | 'b' }] con a y b = { id, name, logo, value }.
+ * Devuelve [{ stat, text, a, b, answer: 'a' | 'b' }] con a y b = { id, name, logo, value, pj }.
  */
 export function dailyDuels(rows, day, size = DUEL_SIZE) {
   const list = (rows ?? []).filter((r) => r.pj >= MIN_DUEL_PJ);
@@ -33,7 +33,7 @@ export function dailyDuels(rows, day, size = DUEL_SIZE) {
   const used = new Map();
   const pairs = new Set();
   const out = [];
-  const side = (r, stat) => ({ id: r.id, name: r.name, logo: /^\d+$/.test(r.id) ? teamLogo(r.id) : null, value: r[stat] });
+  const side = (r, stat) => ({ id: r.id, name: r.name, logo: /^\d+$/.test(r.id) ? teamLogo(r.id) : null, value: r[stat], pj: r.pj });
   for (let i = 0; i < size; i++) {
     // Qué tan parejo: el menor es entre `lo` y `hi` veces el mayor.
     const hi = 0.5 + (0.42 * i) / Math.max(1, size - 1);
@@ -56,3 +56,31 @@ export function dailyDuels(rows, day, size = DUEL_SIZE) {
   }
   return out;
 }
+
+/** «54 triunfos», «1 gol»: el número con su unidad. */
+export function duelUnit(stat, n) {
+  const [one, many] = DUEL_STATS[stat]?.unit ?? ['', ''];
+  return `${n} ${n === 1 ? one : many}`;
+}
+
+// Cómo se dice cada número en una frase: [verbo, preposición] («le ganó 54 veces a River»).
+const SAY = {
+  g: (n) => [`le ganó ${n} ${n === 1 ? 'vez' : 'veces'}`, 'a'],
+  gf: (n) => [`le hizo ${duelUnit('gf', n)}`, 'a'],
+  pj: (n) => [`jugó ${duelUnit('pj', n)}`, 'con'],
+  p: (n) => [`perdió ${n} ${n === 1 ? 'vez' : 'veces'}`, 'con'],
+  e: (n) => [`empató ${n} ${n === 1 ? 'vez' : 'veces'}`, 'con'],
+};
+
+/**
+ * La respuesta de un duelo en una frase, el mayor primero: «Vélez le ganó 54 veces a River Plate y 49 a Boca Juniors.»
+ * La usan el veredicto en pantalla y el lector de pantalla.
+ */
+export function duelSentence(d) {
+  const [top, low] = d.answer === 'a' ? [d.a, d.b] : [d.b, d.a];
+  const [verb, prep] = SAY[d.stat](top.value);
+  return `Vélez ${verb} ${prep} ${top.name} y ${low.value} ${prep} ${low.name}.`;
+}
+
+/** Link al historial completo contra un rival (la página lee ?rival=). */
+export const rivalHref = (id) => `historial.html?rival=${encodeURIComponent(id)}`;

@@ -32,10 +32,24 @@ export function shuffle(list, rand) {
 const quote = (s) => (/^«.*»$/.test(s) ? s : `«${s}»`);
 const unique = (list) => [...new Set(list.filter((x) => x != null && x !== ''))];
 
-/** Pregunta con la respuesta y opciones incorrectas tomadas de `pool` (sin repetir ni incluir la correcta). */
-function q(type, text, answer, pool, note) {
+/** Nombre de cada tipo de pregunta, para el encabezado de la tarjeta. */
+export const TRIVIA_TYPES = {
+  historia: 'Historia',
+  goleadores: 'Goleadores',
+  presencias: 'Presencias',
+  torneo: 'Goleador de un torneo',
+  palmares: 'Palmarés',
+  momentos: 'Momentos',
+  idolos: 'Ídolos',
+};
+
+/**
+ * Pregunta con la respuesta y opciones incorrectas tomadas de `pool` (sin repetir ni incluir la correcta). `person` =
+ * el nombre de la persona de la respuesta (goleadores, presencias, ídolos), para mostrar su foto después de responder.
+ */
+function q(type, text, answer, pool, note, person) {
   const wrong = unique(pool).filter((x) => String(x) !== String(answer));
-  return wrong.length >= 2 ? { type, text, answer: String(answer), wrong: wrong.map(String), note } : null;
+  return wrong.length >= 2 ? { type, text, answer: String(answer), wrong: wrong.map(String), note, ...(person ? { person } : {}) } : null;
 }
 
 const surname = (name) => name.split(' ').slice(-1)[0];
@@ -121,17 +135,20 @@ export function triviaPool(club) {
   });
   const goleadores = (rec.goleadores ?? []).filter((g) => !EXCLUDE.has(g.nombre));
   for (const [text, answer, near, note] of byCount(goleadores, 'goles', 'hizo', 'goles con la camiseta de Vélez', (g) => `${g.nombre}: ${g.goles} goles en ${g.partidos} partidos (${g.periodo}).`)) {
-    out.push(q('goleadores', text, answer, near, note));
+    out.push(q('goleadores', text, answer, near, note, answer));
   }
   const presencias = (rec.presencias ?? []).filter((p) => !EXCLUDE.has(p.nombre));
   for (const [text, answer, near, note] of byCount(presencias, 'partidos', 'jugó', 'partidos en Vélez', (p) => `${p.nombre}: ${p.partidos} partidos y ${p.goles} goles (${p.periodo}).`)) {
-    out.push(q('presencias', text, answer, near, note));
+    out.push(q('presencias', text, answer, near, note, answer));
   }
   // Goleador de un torneo: las opciones son goleadores de torneos de años cercanos (no uno de 1920 para el Clausura 1995).
+  // La nota suma lo que dicen los récords si también está entre los goleadores históricos (si no, no hay nota).
   const torneo = (rec.goleadoresTorneo ?? []).filter((g) => !EXCLUDE.has(g.nombre));
   for (const g of torneo) {
     const near = nearest(torneo.filter((x) => x.nombre !== g.nombre), (x) => yearOf(x.torneo), yearOf(g.torneo), g.nombre, (x) => x.nombre).map((x) => x.nombre);
-    out.push(q('torneo', `¿Quién fue el goleador del ${g.torneo} con ${g.goles} goles?`, g.nombre, near, null));
+    const total = goleadores.find((x) => x.nombre === g.nombre);
+    const note = total ? `En total hizo ${total.goles} goles en ${total.partidos} partidos con Vélez (${total.periodo}).` : null;
+    out.push(q('torneo', `¿Quién fue el goleador ${/^Primera/.test(g.torneo) ? 'de la' : 'del'} ${g.torneo} con ${g.goles} goles?`, g.nombre, near, note, g.nombre));
   }
 
   // Palmarés: solo los títulos cuyo nombre no se repite (preguntar «¿en qué año ganó el Clausura?» tiene varias respuestas).
@@ -140,7 +157,7 @@ export function triviaPool(club) {
     if (!x.year || titles.filter((y) => y.name === x.name).length > 1) continue;
     // «la Copa…», «la Superfinal», pero «el Nacional», «el Apertura», «el Inicial».
     const art = /^(Copa|Supercopa|Recopa|Liga|Superfinal)\b/.test(x.name) ? 'la' : 'el';
-    out.push(q('palmares', `¿En qué año ganó Vélez ${art} ${x.name}?`, x.year, dateDistractors(x.year, years, last), `${x.t}.`));
+    out.push(q('palmares', `¿En qué año ganó Vélez ${art} ${x.name}?`, x.year, dateDistractors(x.year, years, last), null));
   }
 
   // Momentos con marcador: las opciones tienen la misma forma (con o sin penales).
@@ -151,9 +168,18 @@ export function triviaPool(club) {
 
   const idolos = (club.idolos ?? []).filter((i) => !EXCLUDE.has(i.nombre));
   for (const i of idolos) {
-    out.push(q('idolos', `¿De qué ídolo hablamos? «${mask(i.texto, i.nombre)}»`, i.nombre, idolos.map((x) => x.nombre), i.texto));
+    out.push(q('idolos', `¿De qué ídolo hablamos? «${mask(i.texto, i.nombre)}»`, i.nombre, idolos.map((x) => x.nombre), i.texto, i.nombre));
   }
   return out.filter(Boolean);
+}
+
+/**
+ * La persona de una pregunta en data/jugadores.json (`players` = su lista), por nombre exacto: de ahí sale la foto
+ * de Commons (con su crédito) que se muestra después de responder. null si no está.
+ */
+export function findPerson(players, name) {
+  if (!name || !Array.isArray(players)) return null;
+  return players.find((p) => p.n === name) ?? null;
 }
 
 /** Número de día (en la Argentina) de una fecha: la semilla de la trivia de ese día. */
@@ -162,8 +188,9 @@ export function dayNumber(date) {
   return Math.round(Date.UTC(y, m - 1, d) / 864e5);
 }
 
-// Cinco preguntas de `avail` (las saca de ahí), de tipos distintos mientras se pueda. Van primero los tipos con más
-// preguntas pendientes (con algo de azar): así los tipos chicos no se agotan antes de tiempo ni quedan todos para el final.
+// Cinco preguntas de `avail` (las saca de ahí), de tipos distintos y de personas distintas mientras se pueda (dos
+// preguntas con la misma respuesta el mismo día, como Conde goleador del torneo y goleador histórico, se delatan). Van
+// primero los tipos con más preguntas pendientes (con algo de azar): así los tipos chicos no se agotan antes de tiempo.
 function takeDay(avail, rand, blocked) {
   const picked = [];
   const types = new Set();
@@ -172,12 +199,15 @@ function takeDay(avail, rand, blocked) {
   const weight = new Map([...left].map(([t, n]) => [t, n + rand() * 3]));
   const order = [...avail].sort((x, y) => weight.get(y.type) - weight.get(x.type));
   const ok = (x) => !blocked?.has(x.text);
-  for (const pass of [(x) => ok(x) && !types.has(x.type), ok, () => true]) {
+  const people = new Set();
+  const fresh = (x) => !x.person || !people.has(x.person);
+  for (const pass of [(x) => ok(x) && fresh(x) && !types.has(x.type), (x) => ok(x) && fresh(x), ok, () => true]) {
     for (const x of order) {
       if (picked.length >= TRIVIA_SIZE) break;
       if (picked.includes(x) || !pass(x)) continue;
       picked.push(x);
       types.add(x.type);
+      if (x.person) people.add(x.person);
     }
   }
   for (const x of picked) avail.splice(avail.indexOf(x), 1);
@@ -210,7 +240,7 @@ export function triviaCycle(pool, cycle) {
 
 /**
  * Las preguntas de un día: de tipos distintos mientras se pueda, con 4 opciones mezcladas, y sin repetir preguntas
- * de los días anteriores (ver `triviaCycle`). Devuelve [{ id, type, text, options, answer, note }].
+ * de los días anteriores (ver `triviaCycle`). Devuelve [{ id, type, text, options, answer, note, person? }].
  */
 export function dailyTrivia(club, day) {
   const pool = triviaPool(club);
@@ -224,6 +254,7 @@ export function dailyTrivia(club, day) {
     text: x.text,
     answer: x.answer,
     note: x.note,
+    ...(x.person ? { person: x.person } : {}),
     options: shuffle([x.answer, ...shuffle(x.wrong, rand).slice(0, OPTIONS - 1)], rand),
   }));
 }

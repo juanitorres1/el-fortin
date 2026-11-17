@@ -56,23 +56,30 @@ const posCell = (a, b) => {
 const setCell = (a, b) => posCell(a, b);
 const numCell = (near) => (a, b) => (a == null || b == null ? 'no' : a === b ? 'ok' : Math.abs(a - b) <= near ? 'near' : 'no');
 
-/** Columnas de cada modo: { key, label, get, show, cell, num } (`num` = lleva flecha ↑↓ hacia la respuesta). */
+const POS_ALL = ['G', 'D', 'M', 'F'];
+
+/**
+ * Columnas de cada modo: { key, label, get, show, cell, num, near, min, one, domain, bool }. `num` = lleva flecha ↑↓
+ * hacia la respuesta y `near` = cuánto es «cerca»; `min` = el valor más chico posible; `one` = muestra un elemento
+ * (para las exclusiones); `domain` = todos los valores posibles; `bool` = sí o no.
+ */
+const numCol = (key, label, get, near, min) => ({ key, label, get, show: (v) => v ?? '–', cell: numCell(near), num: true, near, min });
 export const TAPADO_COLS = {
   hoy: [
-    { key: 'pos', label: 'Puesto', get: (p) => p.pos, show: (v) => POS_SHORT[v] ?? '–', cell: (a, b) => (a === b ? 'ok' : 'no') },
-    { key: 'nat', label: 'País', get: (p) => p.nat, show: (v) => v ?? '–', cell: (a, b) => (a === b ? 'ok' : 'no') },
-    { key: 'age', label: 'Edad', get: (p) => p.age, show: (v) => v ?? '–', cell: numCell(2), num: true },
-    { key: 'jersey', label: 'Dorsal', get: (p) => (p.jersey == null ? null : Number(p.jersey)), show: (v) => v ?? '–', cell: numCell(5), num: true },
-    { key: 'pj', label: 'Partidos', get: (p) => p.pj, show: (v) => v ?? '–', cell: numCell(3), num: true },
-    { key: 'g', label: 'Goles', get: (p) => p.g, show: (v) => v ?? '–', cell: numCell(1), num: true },
+    { key: 'pos', label: 'Puesto', get: (p) => p.pos, show: (v) => POS_SHORT[v] ?? '–', one: (x) => POS_SHORT[x], domain: POS_ALL, cell: (a, b) => (a === b ? 'ok' : 'no') },
+    { key: 'nat', label: 'País', get: (p) => p.nat, show: (v) => v ?? '–', one: (x) => x, cell: (a, b) => (a === b ? 'ok' : 'no') },
+    numCol('age', 'Edad', (p) => p.age, 2),
+    numCol('jersey', 'Dorsal', (p) => (p.jersey == null ? null : Number(p.jersey)), 5, 1),
+    numCol('pj', 'Partidos', (p) => p.pj, 3, 0),
+    numCol('g', 'Goles', (p) => p.g, 1, 0),
   ],
   historia: [
-    { key: 'pos', label: 'Puesto', get: (p) => p.pos, show: (v) => v.map((x) => POS_SHORT[x]).join('/') || '–', cell: posCell },
-    { key: 'nat', label: 'País', get: (p) => p.nat, show: (v) => v.join(' / ') || '–', cell: setCell },
-    { key: 'b', label: 'Nació', get: (p) => p.b, show: (v) => v ?? '–', cell: numCell(3), num: true },
-    { key: 'from', label: 'Llegó', get: (p) => p.v.from, show: (v) => v ?? '–', cell: numCell(3), num: true },
-    { key: 'clubs', label: 'Clubes', get: clubsOf, show: (v) => v, cell: numCell(2), num: true },
-    { key: 'sel', label: 'Selección', get: (p) => Boolean(p.sel), show: (v) => (v ? 'Sí' : 'No'), cell: (a, b) => (a === b ? 'ok' : 'no') },
+    { key: 'pos', label: 'Puesto', get: (p) => p.pos, show: (v) => v.map((x) => POS_SHORT[x]).join('/') || '–', one: (x) => POS_SHORT[x], domain: POS_ALL, cell: posCell },
+    { key: 'nat', label: 'País', get: (p) => p.nat, show: (v) => v.join(' / ') || '–', one: (x) => x, cell: setCell },
+    numCol('b', 'Nació', (p) => p.b, 3),
+    numCol('from', 'Llegó', (p) => p.v.from, 3),
+    numCol('clubs', 'Clubes', clubsOf, 2, 1),
+    { key: 'sel', label: 'Selección', get: (p) => Boolean(p.sel), show: (v) => (v ? 'Sí' : 'No'), bool: true, cell: (a, b) => (a === b ? 'ok' : 'no') },
   ],
 };
 
@@ -123,6 +130,64 @@ export function tapadoRow(guess, target, mode) {
   });
 }
 
+/**
+ * Lo que ya se sabe de la respuesta juntando todos los intentos (solo lo que dicen las filas: nada de más), columna
+ * por columna: { key, label, state, text, not }. `state`: 'ok' (el dato exacto en `text`), 'range' (entre dos
+ * valores, en `text`), 'some' (comparte algo con `text`, en los datos con varios valores), 'unknown'. `not` = lo
+ * que ya se descartó (puestos, países).
+ */
+export function tapadoClues(guesses, target, mode) {
+  const rows = guesses.map((g) => tapadoRow(g, target, mode));
+  return TAPADO_COLS[mode].map((c, ci) => {
+    const clue = { key: c.key, label: c.label, state: 'unknown', text: null, not: [] };
+    const near = [];
+    const out = new Set();
+    let [lo, hi] = [c.min ?? -Infinity, Infinity];
+    for (const [gi, g] of guesses.entries()) {
+      const a = c.get(g);
+      const { state, dir } = rows[gi][ci];
+      if (state === 'ok') return { ...clue, state: 'ok', text: String(c.show(a)) };
+      if (c.bool) return { ...clue, state: 'ok', text: String(c.show(!a)) };
+      if (c.num) {
+        if (a == null || dir == null) continue;
+        const reach = state === 'near' ? c.near : Infinity;
+        if (dir === 'up') [lo, hi] = [Math.max(lo, state === 'near' ? a + 1 : a + c.near + 1), Math.min(hi, a + reach)];
+        else [lo, hi] = [Math.max(lo, a - reach), Math.min(hi, state === 'near' ? a - 1 : a - c.near - 1)];
+      } else if (a != null) {
+        const vals = [a].flat();
+        if (state === 'no') vals.forEach((v) => out.add(v));
+        else if (vals.length) near.push(String(c.show(a)));
+      }
+    }
+    if (c.num) {
+      if (lo > hi) return clue; // datos que no cierran (no debería pasar)
+      if (lo === hi) return { ...clue, state: 'ok', text: String(lo) };
+      const from = Number.isFinite(lo) && lo !== c.min;
+      if (Number.isFinite(hi)) return { ...clue, state: 'range', text: Number.isFinite(lo) ? `${lo}–${hi}` : `${hi} o menos` };
+      return from ? { ...clue, state: 'range', text: `${lo} o más` } : clue;
+    }
+    const left = c.domain?.filter((x) => !out.has(x));
+    if (left?.length === 1) return { ...clue, state: 'ok', text: c.one(left[0]) };
+    return { ...clue, state: near.length ? 'some' : 'unknown', text: near.length ? near.join(' · ') : null, not: [...out].map(c.one) };
+  });
+}
+
+/** ¿La partida guardada (useDaily: { day, guesses, answer }) de ese día ya terminó? */
+export function tapadoDone(saved, day, mode) {
+  if (saved?.day !== day || !saved.answer || !Array.isArray(saved.guesses)) return false;
+  return saved.guesses.includes(saved.answer) || saved.guesses.length >= TAPADO_TRIES[mode];
+}
+
+/** La ficha corta del jugador revelado: puesto, país y lo que lo identifica en ese modo. */
+export function tapadoFicha(p, mode) {
+  const pos = [p.pos].flat().map((x) => POS_NAME[x]).filter(Boolean).join(' / ');
+  const nat = [p.nat].flat().filter(Boolean).join(' / ');
+  const extra = mode === 'hoy'
+    ? [p.jersey != null && `dorsal ${p.jersey}`, p.age != null && `${p.age} años`]
+    : [p.v?.from && `en Vélez desde ${p.v.from}${p.v.to && p.v.to !== p.v.from ? ` hasta ${p.v.to}` : ''}`];
+  return [pos, nat, ...extra].filter(Boolean).join(' · ');
+}
+
 // ---------- Trayectoria V ----------
 
 export const PATH_TRIES = 5;
@@ -149,28 +214,85 @@ export function pathView(player, fails, all = false) {
   return { steps, hint };
 }
 
+/** Pistas de Trayectoria V, una más por fallo desde el segundo: `at` = fallos que hacen falta para verla. */
+export const PATH_CLUES = [
+  { key: 'pais', label: 'País', at: 2, value: (p) => p.nat.join(' / ') },
+  { key: 'puesto', label: 'Puesto', at: 3, value: (p) => p.pos.map((x) => POS_NAME[x]).join(' / ') },
+  { key: 'nacio', label: 'Nació en', at: 4, value: (p) => (p.b ? String(p.b) : '') },
+];
+
+/**
+ * Las pistas después de `fails` fallos (todas con `all`): [{ key, label, at, value, open }]; las cerradas van con
+ * `value` null. Las que no tienen dato (sin país, sin año) no se muestran.
+ */
+export const pathClues = (player, fails, all = false) =>
+  PATH_CLUES.map((c) => ({ key: c.key, label: c.label, at: c.at, value: c.value(player) || null }))
+    .filter((c) => c.value)
+    .map((c) => ({ ...c, open: all || fails >= c.at, value: all || fails >= c.at ? c.value : null }));
+
+/**
+ * El estado de la partida de Trayectoria V a partir de lo jugado: `guesses` = ids elegidos, con `null` cuando el
+ * jugador pasó (destapó un club sin arriesgar). { tries, won, fails, done, left }.
+ */
+export function pathState(guesses, targetId) {
+  const tries = guesses.length;
+  const won = guesses.includes(targetId);
+  const fails = tries - (won ? 1 : 0);
+  return { tries, won, fails, done: won || tries >= PATH_TRIES, left: Math.max(0, PATH_TRIES - tries) };
+}
+
 // ---------- Grilla del Fortín ----------
 
 const played = (name, pais) => (p) => p.c.some((c) => c[0] === name && (!pais || c[3] === pais));
 const playedIn = (pais) => (p) => p.c.some((c) => c[3] === pais && !c[5]);
 const arrived = (decade) => (p) => p.v.from != null && Math.floor(p.v.from / 10) * 10 === decade;
 
-/** Criterios de la grilla. `group` evita cruzar dos del mismo tipo en la misma fila o columna. */
+/**
+ * Criterios de la grilla. `group` evita cruzar dos del mismo tipo en la misma fila o columna. `head` = [antetítulo,
+ * texto corto] para los encabezados (el `label` entero no entra en una columna de 84 px); `club` = nombre en
+ * jugadores.json, para buscar el escudo (`criterionLogo`).
+ */
 export const CRITERIA = [
-  ...Object.entries(POS_NAME).map(([k, name]) => ({ id: `pos-${k}`, group: 'pos', label: name, test: (p) => p.pos.includes(k) })),
-  { id: 'ext', group: 'nat', label: 'Extranjero', test: (p) => p.nat.length > 0 && !p.nat.includes('Argentina') },
-  { id: 'nat-uy', group: 'nat', label: 'Uruguayo', test: (p) => p.nat.includes('Uruguay') },
-  { id: 'sel', group: 'sel', label: 'Jugó en una selección mayor', test: (p) => Boolean(p.sel) },
-  { id: 'eu', group: 'lugar', label: 'Jugó en Europa', test: (p) => p.c.some((c) => c[4]) },
-  { id: 'mx', group: 'lugar', label: 'Jugó en México', test: playedIn('México') },
-  { id: 'es', group: 'lugar', label: 'Jugó en España', test: playedIn('España') },
-  { id: 'it', group: 'lugar', label: 'Jugó en Italia', test: playedIn('Italia') },
-  { id: 'br', group: 'lugar', label: 'Jugó en Brasil', test: playedIn('Brasil') },
+  ...Object.entries(POS_NAME).map(([k, name]) => ({ id: `pos-${k}`, group: 'pos', label: name, head: ['Puesto', name], test: (p) => p.pos.includes(k) })),
+  { id: 'ext', group: 'nat', label: 'Extranjero', head: ['Nacionalidad', 'Extranjero'], test: (p) => p.nat.length > 0 && !p.nat.includes('Argentina') },
+  { id: 'nat-uy', group: 'nat', label: 'Uruguayo', head: ['Nacionalidad', 'Uruguayo'], test: (p) => p.nat.includes('Uruguay') },
+  { id: 'sel', group: 'sel', label: 'Jugó en una selección mayor', head: ['Jugó en una', 'Selección mayor'], test: (p) => Boolean(p.sel) },
+  { id: 'eu', group: 'lugar', label: 'Jugó en Europa', head: ['Jugó en', 'Europa'], test: (p) => p.c.some((c) => c[4]) },
+  ...[['mx', 'México'], ['es', 'España'], ['it', 'Italia'], ['br', 'Brasil']]
+    .map(([id, pais]) => ({ id, group: 'lugar', label: `Jugó en ${pais}`, head: ['Jugó en', pais], test: playedIn(pais) })),
   ...[['Boca Juniors', 'Boca'], ['River Plate', 'River'], ['Racing Club', 'Racing'], ['Independiente', 'Independiente'], ['San Lorenzo', 'San Lorenzo'], ['Estudiantes de La Plata', 'Estudiantes'], ['Argentinos Juniors', 'Argentinos'], ['Huracán', 'Huracán'], ['Banfield', 'Banfield'], ['Colón', 'Colón']]
-    .map(([name, short]) => ({ id: `club-${short}`, group: 'club', label: `Pasó por ${short}`, test: played(name, 'Argentina') })),
+    .map(([name, short]) => ({ id: `club-${short}`, group: 'club', label: `Pasó por ${short}`, head: ['Pasó por', short], club: name, test: played(name, 'Argentina') })),
   ...[[1970, 'los 70'], [1980, 'los 80'], [1990, 'los 90'], [2000, 'los 2000'], [2010, 'los 2010']]
-    .map(([d, text]) => ({ id: `dec-${d}`, group: 'dec', label: `Llegó a Vélez en ${text}`, test: arrived(d) })),
+    .map(([d, text]) => ({ id: `dec-${d}`, group: 'dec', label: `Llegó a Vélez en ${text}`, head: ['Llegó a Vélez en', text], test: arrived(d) })),
 ];
+
+/**
+ * El escudo de un criterio de club: la URL que `historicPlayers` dejó en las etapas (`c[6]`) de ese club en
+ * Argentina. null si el criterio no es de club o ningún jugador la tiene.
+ */
+export function criterionLogo(players, crit) {
+  if (!crit?.club) return null;
+  for (const p of players ?? []) for (const c of p.c) if (c[0] === crit.club && c[3] === 'Argentina' && c[6]) return c[6];
+  return null;
+}
+
+/** Por qué no vale un jugador en la casilla `i`: los criterios (fila y/o columna) que no cumple. [] si vale. */
+export const gridMisses = (grid, i, player) => [grid.rows[Math.floor(i / 3)], grid.cols[i % 3]].filter((c) => !c.test(player));
+
+/**
+ * Las respuestas de la casilla `i` para mostrar al final: { total, known, rare }. `known` = hasta `n` de los más
+ * conocidos y `rare` = el menos conocido (el más «tapado»), sin repetir `mine` (el que puso el hincha) ni entre sí.
+ */
+export function gridAnswers(players, grid, i, mine = null, n = 3) {
+  const all = cellPlayers(players, grid.rows[Math.floor(i / 3)], grid.cols[i % 3]).sort((a, b) => b.links - a.links || a.n.localeCompare(b.n));
+  const others = all.filter((p) => p.id !== mine);
+  const known = others.slice(0, n);
+  const rare = others.length > n ? others.at(-1) : null;
+  return { total: all.length, known, rare };
+}
+
+/** La primera casilla libre (0–8) que no esté en `closed`, o null. */
+export const gridFirstOpen = (closed) => [0, 1, 2, 3, 4, 5, 6, 7, 8].find((i) => !closed.has(i)) ?? null;
 
 export const GRID_MIN = 3; // respuestas posibles como mínimo en cada casilla
 
@@ -250,4 +372,42 @@ export function onceNames(onces) {
   for (const o of onces ?? []) for (const p of o.players) count.set(p.n, (count.get(p.n) ?? 0) + 1);
   const img = new Map((onces ?? []).flatMap((o) => o.players.filter((p) => p.img).map((p) => [p.n, p.img])));
   return [...count].map(([n, rank]) => ({ id: n, n, rank, photo: photoOf(img.get(n)) }));
+}
+
+const ONCE_LINES = ['F', 'M', 'D', 'G'];
+
+/** Las líneas para dibujar la cancha, de arriba (delanteros) a abajo (arquero); cada jugador con su índice `i`. */
+export function onceRows(players) {
+  const all = (players ?? []).map((p, i) => ({ ...p, i }));
+  return ONCE_LINES.map((line) => all.filter((p) => p.pos === line)).filter((row) => row.length);
+}
+
+/** El dibujo táctico contado desde atrás, sin el arquero: «4-4-2». */
+export const onceFormation = (players) => [...onceRows(players)].reverse().filter((r) => r[0].pos !== 'G').map((r) => r.length).join('-');
+
+/** Cómo se lo nombra en la cancha: el apellido, con «De los» y compañía si los tiene («De los Santos»). */
+export function onceShort(name) {
+  const w = String(name ?? '').trim().split(/\s+/);
+  let i = w.length - 1;
+  while (i > 1 && /^(de|del|la|las|los|da|di|van|von)$/i.test(w[i - 1])) i--;
+  return w.slice(i).join(' ');
+}
+
+/** La pista: las iniciales de cada palabra del nombre («J. L. C.»). */
+export const onceInitials = (name) => String(name ?? '').trim().split(/\s+/).filter(Boolean).map((w) => `${w[0].toUpperCase()}.`).join(' ');
+
+/**
+ * Cómo va la partida: `game` = { found, wrong, hints } (nombres; `hints` = a quién se le pidió la pista, que cuesta
+ * una vida y no se puede pedir con la última). Guardados viejos sin `hints` valen igual.
+ */
+export function onceProgress(once, game) {
+  const total = once?.players?.length ?? 0;
+  const found = new Set(game?.found ?? []);
+  const hints = new Set(game?.hints ?? []);
+  const lives = Math.max(0, ONCE_LIVES - (game?.wrong?.length ?? 0) - hints.size);
+  const results = (once?.players ?? []).map((p) => found.has(p.n));
+  const score = results.filter(Boolean).length;
+  const lost = lives === 0;
+  const win = total > 0 && score === total;
+  return { found, hints, lives, results, score, total, lost, win, done: lost || win, canHint: !lost && !win && lives > 1 };
 }
