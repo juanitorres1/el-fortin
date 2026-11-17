@@ -29,6 +29,7 @@ export const LOGROS = [
   { id: 'goleador', icon: '👟', title: 'Goleador', desc: 'Hacé 10 goles en Primera en un torneo.', torneo: (t) => t.stats.g >= 10 },
   { id: 'titular', icon: '🧱', title: 'Indiscutido', desc: 'Sé titular en 10 partidos de un torneo.', torneo: (t) => t.stats.tit >= 10 },
   { id: 'metas', icon: '🎯', title: 'Cumplidor', desc: 'Cumplí todas las metas de un torneo.', torneo: (t, x) => x.goalsDone > 0 && x.goalsDone === x.goalsTotal },
+  { id: 'ideal', icon: '🌟', title: 'Equipo ideal', desc: 'Entrá en el equipo ideal de un torneo (promedio 7 o más en 8 partidos de Primera).', torneo: (t, x) => !!x.ideal },
   { id: 'campeon', icon: '🏆', title: 'Campeón', desc: 'Salí campeón con Vélez.', torneo: (t, x) => x.result === 'Campeón' },
   // Se gana al elegir quedarse ante la oferta del exterior (career.js › chooseEvent).
   { id: 'leal', icon: '💙', title: 'Corazón de Vélez', desc: 'Rechazá una oferta de Europa para quedarte.', special: true },
@@ -39,7 +40,7 @@ export function matchLogros(have, ctx) {
   return LOGROS.filter((l) => l.match && !have[l.id] && l.match(ctx)).map((l) => l.id);
 }
 
-/** Los logros nuevos al cerrar un torneo (ids). `extra` = { result, goalsDone, goalsTotal }. */
+/** Los logros nuevos al cerrar un torneo (ids). `extra` = { result, goalsDone, goalsTotal, ideal }. */
 export function torneoLogros(have, torneo, extra) {
   return LOGROS.filter((l) => l.torneo && !have[l.id] && l.torneo(torneo, extra)).map((l) => l.id);
 }

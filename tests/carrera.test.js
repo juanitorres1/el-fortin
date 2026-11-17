@@ -618,3 +618,44 @@ test('balance de los puestos de defensa: jugar bien se nota y se llega a titular
   assert.ok(good.gc < bad.gc, `leer al que patea ataja más: ${good.gc.toFixed(2)} vs ${bad.gc.toFixed(2)}`);
   assert.ok(run('dci', { aim: (m) => m.center }).titular, 'el central que juega bien llega a titular');
 });
+
+test('formación del partido: el plantel real en su puesto, el jugador en su lugar y nadie repetido', async () => {
+  const { lineupOf, shortName, squadFrom } = await import('../src/lib/carrera/lineup.js');
+  const s = newCareer({ name: 'Pibe', spot: 'li', standings, roster, velezId: '21', seed: 9 });
+  assert.ok(Array.isArray(s.squad));
+  const once = lineupOf(s, '1:Fecha 1');
+  assert.equal(once.length, 11);
+  assert.equal(once.find((x) => x.you).spot.key, 'li');
+  const names = once.filter((x) => x.name).map((x) => x.name);
+  assert.equal(new Set(names).size, names.length, 'sin repetidos');
+  assert.deepEqual(lineupOf(s, '1:Fecha 1'), once, 'la misma fecha da el mismo equipo');
+  const squad = squadFrom(roster);
+  const keeper = once.find((x) => x.spot.key === 'arq');
+  if (squad.some((p) => p.pos === 'G')) assert.equal(squad.find((p) => p.name === keeper.name)?.pos, 'G', 'al arco va un arquero');
+  // En el banco, su lugar lo ocupa otro.
+  assert.ok(!lineupOf(s, '1:Fecha 1', { bench: true }).some((x) => x.you));
+  // Carreras viejas sin plantel: no se rompe y el arco queda sin nombre.
+  const old = { ...s, squad: undefined };
+  assert.equal(lineupOf(old, 'x').find((x) => x.spot.key === 'arq').name, null);
+  assert.equal(shortName('Tomás Marchiori'), 'Marchiori');
+  assert.equal(shortName('Pelé'), 'Pelé');
+});
+
+test('equipo ideal: con buen promedio y partidos suficientes, al cerrar el torneo', async () => {
+  const { IDEAL } = await import('../src/lib/carrera/career.js');
+  let found = false;
+  for (let seed = 1; seed <= 6 && !found; seed++) {
+    let s = newCareer({ name: 'Arquerito', spot: 'arq', extra: { remate: 4, velocidad: 2 }, standings, roster, velezId: '21', seed });
+    s.player.dt = 75;
+    const r = rng(seed);
+    for (let w = 0; w < 40 && s.torneo.phase !== 'fin'; w++) s = dismissLast(playDefense(s, { r, aim: (m) => m.center }));
+    const sm = s.torneo.summary;
+    assert.equal(sm.ideal, sm.pj >= IDEAL.pj && sm.avg >= IDEAL.avg);
+    if (sm.ideal) {
+      found = true;
+      assert.ok(s.logros.ideal);
+      assert.ok(s.news.some((n) => n.text.includes('equipo ideal')));
+    }
+  }
+  assert.ok(found, 'un arquero que juega perfecto entra alguna vez');
+});

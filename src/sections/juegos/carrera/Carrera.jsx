@@ -7,8 +7,9 @@ import { VELEZ_ID } from '../../../lib/espn.js';
 import { ATTRS, MAX_EXTRA, NAME_MAX, POSITIONS, ROLE_LABEL, SPOTS, START_AGE, START_POINTS, TRAINING, attrLabel, cleanName, objective, overall, roleOf, spotOf, trainLabel, trainOdds } from '../../../lib/carrera/player.js';
 import { PLAYOFF_SPOTS, roundName } from '../../../lib/carrera/season.js';
 import { isPenalty, outcomeKind } from '../../../lib/carrera/match.js';
+import { lineupOf, shortName } from '../../../lib/carrera/lineup.js';
 import {
-  answerMoment, answerPress, buyPerk, chooseEvent, currentGame, retire, retireState, dismissLast, eventsAt, finishMatch, matchDone, newCareer, nextTorneo, skipWeek, startMatch, torneoLabel, trainWeek,
+  IDEAL, answerMoment, answerPress, buyPerk, chooseEvent, currentGame, retire, retireState, dismissLast, eventsAt, finishMatch, matchDone, newCareer, nextTorneo, skipWeek, startMatch, torneoLabel, trainWeek,
   velezCalendar, weekEvent, weekTitle, zoneTables,
 } from '../../../lib/carrera/career.js';
 import { GOAL_REWARD, fxText, goalProgress } from '../../../lib/carrera/extras.js';
@@ -746,6 +747,41 @@ function Outcome({ state, match, i, onNext }) {
   );
 }
 
+/**
+ * Los once de Vélez en la cancha (solo para ver): el plantel real de ESPN en el 4-2-3-1 y el jugador marcado en su
+ * lugar. En la Reserva no hay nombres (ESPN no da ese plantel): solo se marca dónde juega.
+ */
+function Once({ state, match }) {
+  const reserva = match.side === 'reserva';
+  const bench = match.role === 'suplente';
+  const once = lineupOf(state, `${state.torneo.n}:${match.label}`, { bench });
+  const mine = spotOf(state.player);
+  return (
+    <figure className="cr-once">
+      <div className="cr-pitch cr-formation is-small" aria-hidden="true">
+        <svg viewBox="0 0 100 120" focusable="false">
+          {Array.from({ length: 8 }, (_, i) => <rect key={i} className={i % 2 ? 'cr-g2' : 'cr-g1'} x="0" y={i * 15} width="100" height="15" />)}
+          <g className="cr-chalk">
+            <rect x="3" y="3" width="94" height="114" /><path d="M3 60H97" /><circle cx="50" cy="60" r="11" />
+            <rect x="24" y="3" width="52" height="18" /><rect x="24" y="99" width="52" height="18" />
+          </g>
+        </svg>
+        {once.map(({ spot, name, n, you }) => (
+          <span key={spot.key} className={`cr-once-p is-${spot.pos}${you ? ' is-you' : ''}`} style={{ left: `${spot.x}%`, top: `${4 + spot.y * 0.86}%` }}>
+            <span className="cr-spot-dot">{you ? '★' : reserva ? spot.short : n ?? spot.short}</span>
+            <small>{you ? 'Vos' : reserva ? '' : shortName(name)}</small>
+          </span>
+        ))}
+      </div>
+      <figcaption className="small">
+        {bench
+          ? `Arrancás en el banco. En tu lugar (${mine.label.toLowerCase()}) juega ${shortName(once.find((x) => x.spot.key === mine.key)?.name) || 'otro'}.`
+          : `Jugás de ${mine.label.toLowerCase()}${reserva ? ' en la Reserva' : ''}. Formación 4-2-3-1.`}
+      </figcaption>
+    </figure>
+  );
+}
+
 /** Salen los equipos: la previa del partido antes de la primera jugada. */
 function Kickoff({ state, match, onStart }) {
   const velez = state.torneo.teams.find((x) => x.id === state.velez);
@@ -763,6 +799,7 @@ function Kickoff({ state, match, onStart }) {
         <b className="cr-kick-vs" aria-hidden="true">VS</b>
         <span className="cr-kick-team is-b"><Crest url={b.logo} size={64} /><b>{b.name}</b></span>
       </div>
+      <Once state={state} match={match} />
       <p className="small">
         {match.role === 'suplente'
           ? `Arrancás en el banco: entrás en el segundo tiempo y jugás ${n} jugadas.`
@@ -976,6 +1013,7 @@ function Fin({ state, act }) {
       <p className="kicker">Terminó el {s.label}</p>
       <h3 className="cr-title">{champ ? '¡Vélez campeón!' : `Vélez: ${s.result.toLowerCase()}`}</h3>
       {!champ && s.champion && <p className="small muted">Campeón: {s.champion}. Vélez terminó {s.pos}.º en su zona.</p>}
+      {s.ideal && <p className="cr-ideal"><span aria-hidden="true">🌟</span> <b>Equipo ideal del torneo</b> <small>Promedio {s.avg} en {s.pj} partidos · +{IDEAL.fans} hinchas</small></p>}
       <dl className="cr-stats">
         <div><dt>Partidos en Primera</dt><dd className="num">{s.pj}</dd></div>
         {statCols(pos).map(([k, label]) => <div key={k}><dt>{label}</dt><dd className="num">{s[k] ?? 0}</dd></div>)}

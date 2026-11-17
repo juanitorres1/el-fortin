@@ -10,10 +10,13 @@ import { isPenalty, makeMoments, matchRating, momentShape, outcomeKind, quality,
 import { isBigMatch, matchLogros, torneoLogros } from './logros.js';
 import { CLEAN_PRIZE, GOAL_PRIZE, WIN_PRIZE, hasPerk, perkOf, salaryOf } from './economia.js';
 import { EVENTS, GOAL_REWARD, applyFx, goalProgress, goalsFor, pickEvent } from './extras.js';
+import { squadFrom } from './lineup.js';
 import { PRESS, RETIRE_AT, RETIRE_FROM, ageAttrs, pickPress } from './historia.js';
 
 export const SAVE_VERSION = 1;
 const NEWS_MAX = 6;
+/** Equipo ideal del torneo: partidos en Primera y promedio mínimos, y los hinchas que suma. */
+export const IDEAL = { pj: 8, avg: 7, fans: 5 };
 
 const randOf = (state, ...keys) => rng(hash(`${state.seed}:${keys.join(':')}`));
 const copy = (x) => structuredClone(x);
@@ -43,7 +46,7 @@ export function newCareer({ name, pos, spot, extra, standings, roster, velezId, 
   if (!teams) return null;
   const state = {
     v: SAVE_VERSION, seed: seed >>> 0, velez: String(velezId), startYear: (standings.year ?? 2026) + 1,
-    player: newPlayer({ name, pos, spot, extra }), mates: matesFrom(roster), history: [], news: [], torneo: null,
+    player: newPlayer({ name, pos, spot, extra }), mates: matesFrom(roster), squad: squadFrom(roster), history: [], news: [], torneo: null,
   };
   state.torneo = newTorneo(state, 1, teams);
   state.news = [{ n: 1, text: `Firmaste tu primer contrato con Vélez. Arrancás en la Reserva.` }];
@@ -285,14 +288,17 @@ function closeTorneo(s) {
   // Metas: cada una cumplida suma hinchas al cierre.
   const goals = goalProgress(t);
   const done = goals.filter((g) => g.done).length;
-  s.player.fans = clamp(s.player.fans + done * GOAL_REWARD, 0, 100);
+  // Equipo ideal del torneo: buen promedio con partidos suficientes (cualquier puesto).
+  const ideal = st.pj >= IDEAL.pj && avg != null && avg >= IDEAL.avg;
+  s.player.fans = clamp(s.player.fans + done * GOAL_REWARD + (ideal ? IDEAL.fans : 0), 0, 100);
   t.summary = {
     n: t.n, label: t.label, pos, result, champion: champion?.name ?? null, pj: st.pj, tit: st.tit, g: st.g, a: st.a, at: st.at ?? 0, qt: st.qt ?? 0, vi: st.vi ?? 0, avg, res: st.res,
-    age: s.player.age, ov: overall(s.player), goals: { done, total: goals.length },
+    age: s.player.age, ov: overall(s.player), goals: { done, total: goals.length }, ideal,
   };
-  const logros = torneoLogros(s.logros ?? {}, t, { result, goalsDone: done, goalsTotal: goals.length });
+  const logros = torneoLogros(s.logros ?? {}, t, { result, goalsDone: done, goalsTotal: goals.length, ideal });
   s.logros = { ...(s.logros ?? {}), ...Object.fromEntries(logros.map((id) => [id, t.n])) };
   t.summary.logros = logros;
+  if (ideal) pushNews(s, `Te eligieron en el equipo ideal del ${t.label}.`);
   if (result === 'Campeón') pushNews(s, `¡Vélez campeón del ${t.label}!`);
   else if (champion) pushNews(s, `${champion.name} se quedó con el ${t.label}.`);
 }

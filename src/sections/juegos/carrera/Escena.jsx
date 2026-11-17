@@ -51,6 +51,22 @@ function Keeper({ dive, mine }) {
   );
 }
 
+/**
+ * El que patea, de espaldas y cerca de la cámara (cuando el arquero es el jugador). Genérico: camiseta oscura sin
+ * escudo ni número. (0, 0) = debajo del borde de la escena; se ve de la cintura para arriba.
+ */
+function Shooter({ kicked }) {
+  return (
+    <g className={`cr-shooter${kicked ? ' is-kicked' : ''}`}>
+      <path className="cr-sh-arm" d="M-17 -44L-30 -22M17 -44L28 -24" />
+      <path className="cr-sh-shirt" d="M-19 -48Q0 -55 19 -48L17 -8H-17Z" />
+      <path className="cr-sh-shorts" d="M-17 -10H17L18 4H-18Z" />
+      <circle className="cr-sh-skin" cx="0" cy="-60" r="10" />
+      <path className="cr-sh-hair" d="M-10 -60A10 10 0 0 1 10 -60Q10 -51 0 -52Q-10 -51 -10 -60Z" />
+    </g>
+  );
+}
+
 /** La pelota (con gajos) centrada en (0, 0). */
 const Ball = ({ r = 7 }) => (
   <>
@@ -112,7 +128,7 @@ export function Arco({ onAim, choice, result, mine = false }) {
           </g>
         ))}
         <ellipse className="cr-k-shadow" cx="160" cy="137" rx="19" ry="3.5" />
-        <g transform="translate(160 136.5)"><Keeper dive={result?.keeper} mine={mine} /></g>
+        <g transform="translate(160 136.5)" className={mine && choice && !result ? `cr-lean is-${choice}` : undefined}><Keeper dive={result?.keeper} mine={mine} /></g>
         <g className="cr-goal-posts">
           <rect x="47" y="52" width="9" height="86" rx="2" fill={`url(#${id}p)`} />
           <rect x="264" y="52" width="9" height="86" rx="2" fill={`url(#${id}p)`} />
@@ -128,6 +144,7 @@ export function Arco({ onAim, choice, result, mine = false }) {
         <g transform={`translate(${BALL0[0]} ${BALL0[1]})`}>
           <g className={`cr-ball${result ? ' is-shot' : ''}`} style={ballStyle}><Ball r={7.5} /></g>
         </g>
+        {mine && <g transform="translate(128 192)"><Shooter kicked={!!result} /></g>}
       </svg>
       {onAim && (
         <div className="cr-aims">

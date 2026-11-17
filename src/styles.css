@@ -1835,3 +1835,40 @@ p.cr-tag.is-big { justify-self: center; margin: 0; }
 .cr-money b, .cr-money small { white-space: nowrap; }
 .cr > .segmented { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.4rem; }
 .cr > .segmented .seg { padding-inline: 0.3rem; justify-content: center; text-align: center; }
+
+/* Carrera · los once en la salida de equipos (solo para ver) */
+.cr-once { margin: 0; width: 100%; display: grid; gap: 0.4rem; justify-items: center; }
+.cr-formation.is-small { max-width: 20rem; }
+.cr-once-p { position: absolute; transform: translate(-50%, -30%); display: grid; justify-items: center; gap: 0.1rem; width: max-content; max-width: 5.6rem; }
+.cr-once-p .cr-spot-dot { width: 1.75rem; height: 1.75rem; font-size: 0.75rem; }
+.cr-once-p small {
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 0.3rem; border-radius: 999px;
+  background: rgba(10, 20, 35, 0.72); color: #fff; font: 700 0.75rem/1.35 var(--body);
+}
+.cr-once-p small:empty { display: none; }
+.cr-once-p.is-arq .cr-spot-dot { background: #f2c230; color: #1b1f27; box-shadow: 0 2px 0 rgba(0, 0, 0, 0.25), 0 0 0 2px #1b1f27; }
+.cr-once-p.is-you .cr-spot-dot { background: #0061a8; color: #fff; box-shadow: 0 2px 0 rgba(0, 0, 0, 0.3), 0 0 0 3px #ffe36e; transform: scale(1.15); }
+.cr-once-p.is-you small { background: #ffe36e; color: #1b1f27; }
+.cr-once figcaption { text-align: center; }
+
+/* Atajada: el que patea (de espaldas) y tu arquero que se inclina hacia donde elegiste mientras corre la barra */
+.cr-sh-shirt { fill: #3a3f4b; }
+.cr-sh-shorts { fill: #1b1f27; }
+.cr-sh-arm { fill: none; stroke: #3a3f4b; stroke-width: 8; stroke-linecap: round; }
+.cr-sh-skin { fill: #b98256; }
+.cr-sh-hair { fill: #1b1410; }
+.cr-shooter { transform-box: view-box; }
+.cr-shooter.is-kicked { transform: translate(10px, -4px) rotate(8deg); transform-origin: 0 0; animation: cr-from 0.3s ease-out backwards; }
+.cr-lean > .cr-keeper { animation: none; transition: transform 0.25s ease-out; }
+.cr-lean.is-izq > .cr-keeper { transform: translateX(-9px) rotate(-10deg); }
+.cr-lean.is-der > .cr-keeper { transform: translateX(9px) rotate(10deg); }
+.cr-lean.is-medio > .cr-keeper { transform: translateY(-3px); }
+@media (prefers-reduced-motion: reduce) {
+  .cr-shooter.is-kicked, .cr-lean > .cr-keeper { animation: none; transition: none; }
+}
+.cr-ideal {
+  margin: 0; justify-self: center; display: grid; justify-items: center; gap: 0.1rem; padding: 0.55rem 1rem; border-radius: var(--radius-sm);
+  background: var(--accent); color: var(--bg); text-align: center; animation: pop-in 0.5s 0.3s ease-out backwards;
+}
+.cr-ideal small { font-size: 0.8125rem; opacity: 0.95; }
+@media (prefers-reduced-motion: reduce) { .cr-ideal { animation: none; } }
